@@ -19,7 +19,7 @@ func TestDetectCurrentEnvironmentPaseoCodex(t *testing.T) {
 	if got, want := result.Chain(), "paseo>codex"; got != want {
 		t.Fatalf("Chain() = %q, want %q: %#v", got, want, result.Layers)
 	}
-	if !result.IsAgent() {
+	if !result.Found() {
 		t.Fatalf("IsAgent() = false: %#v", result.Layers)
 	}
 }
@@ -32,7 +32,7 @@ func TestDetectUnknownStillInspectsTerminal(t *testing.T) {
 	if result.Found() {
 		t.Fatalf("Found() = true, want false: %#v", result.Layers)
 	}
-	if !result.Terminal.Inspected {
+	if !result.TTY.Inspected {
 		t.Fatalf("Terminal = %#v, want inspected", result.Terminal)
 	}
 	if result.Agent() != runby.AgentUnknown {
@@ -46,8 +46,8 @@ func TestDetectUnknownStillInspectsTerminal(t *testing.T) {
 	}
 }
 
-func TestInspectTerminal(t *testing.T) {
-	terminal := runby.InspectTerminal()
+func TestInspectTTY(t *testing.T) {
+	terminal := runby.InspectTTY()
 	if !terminal.Inspected {
 		t.Fatal("Inspected = false, want true")
 	}
@@ -57,23 +57,23 @@ func TestInspectTerminal(t *testing.T) {
 	if terminal.Interactive != (terminal.StdinTTY && (terminal.StdoutTTY || terminal.StderrTTY)) {
 		t.Fatalf("Interactive is inconsistent: %#v", terminal)
 	}
-	if got := runby.Detect().Terminal; got != terminal {
+	if got := runby.Detect().TTY; got != terminal {
 		t.Fatalf("Detect().Terminal = %#v, want %#v", got, terminal)
 	}
 }
 
-func TestTerminalOptions(t *testing.T) {
-	if got := runby.Detect(runby.WithEnviron(nil)).Terminal; got.Inspected {
-		t.Fatalf("WithEnviron terminal = %#v, want uninspected", got)
+func TestTTYOptions(t *testing.T) {
+	if got := runby.Detect(runby.WithEnviron(nil)).TTY; got.Inspected {
+		t.Fatalf("WithEnviron tty = %#v, want uninspected", got)
 	}
-	if got := runby.Detect(runby.WithoutTerminal()).Terminal; got.Inspected {
-		t.Fatalf("WithoutTerminal terminal = %#v, want uninspected", got)
+	if got := runby.Detect(runby.WithoutTTY()).TTY; got.Inspected {
+		t.Fatalf("WithoutTTY tty = %#v, want uninspected", got)
 	}
 
-	want := runby.Terminal{Inspected: true, StdinTTY: true, StdoutTTY: true, Attached: true, Interactive: true}
-	got := runby.Detect(runby.WithEnviron(nil), runby.WithTerminal(want)).Terminal
+	want := runby.TTY{Inspected: true, StdinTTY: true, StdoutTTY: true, Attached: true, Interactive: true}
+	got := runby.Detect(runby.WithEnviron(nil), runby.WithTTY(want)).TTY
 	if got != want {
-		t.Fatalf("WithTerminal terminal = %#v, want %#v", got, want)
+		t.Fatalf("WithTTY tty = %#v, want %#v", got, want)
 	}
 }
 
@@ -85,7 +85,7 @@ func TestDetectUnknownEnviron(t *testing.T) {
 		"COPILOT_MODEL=gpt-5",
 	}))
 
-	if result.Found() || result.IsAgent() {
+	if result.Found() || result.Found() {
 		t.Fatalf("Found()/IsAgent() = true, want false: %#v", result.Layers)
 	}
 }
@@ -188,38 +188,34 @@ func TestClaudeCodeAIAgentIsEvidenceOnlyWhenItNamesClaudeCode(t *testing.T) {
 	}
 }
 
-func TestZedIsHostNotAgent(t *testing.T) {
+func TestZedIsATerminalNotAnAgent(t *testing.T) {
+	// A Zed-owned terminal does not prove that Zed Agent, rather than a
+	// person, ran the command, so Zed is reported on the Terminal axis only.
 	result := runby.Detect(runby.WithEnviron([]string{
 		"ZED_TERM=true",
 		"TERM_PROGRAM=zed",
 		"TERM_PROGRAM_VERSION=0.100.0",
 	}))
 
-	if !result.Found() {
-		t.Fatal("Found() = false, want true")
+	if result.Found() {
+		t.Fatalf("Found() = true, want false: %#v", result.Layers)
 	}
-	// A Zed-owned terminal does not prove that Zed Agent, rather than a
-	// person, ran the command.
-	if result.IsAgent() {
-		t.Fatalf("IsAgent() = true, want false: %#v", result.Layers)
+	if !result.IsTerminal() || result.Terminal.Program != runby.TerminalZed {
+		t.Fatalf("Terminal = %#v", result.Terminal)
 	}
-	zed, _ := result.Get(runby.AgentZed)
-	if zed.Kind != runby.KindHost || zed.Confidence != runby.ConfidenceProbable {
-		t.Fatalf("Zed classification = %#v", zed)
-	}
-	if zed.Extra["zed.version"] != "0.100.0" {
-		t.Fatalf("Extra = %#v", zed.Extra)
+	if result.Terminal.Version != "0.100.0" {
+		t.Fatalf("Version = %q", result.Terminal.Version)
 	}
 }
 
 func TestZedRequiresBothVariables(t *testing.T) {
 	for _, environ := range [][]string{
 		{"ZED_TERM=true"},
-		{"TERM_PROGRAM=zed"},
 		{"ZED_TERM=false", "TERM_PROGRAM=zed"},
 	} {
-		if got := runby.Detect(runby.WithEnviron(environ)); got.Found() {
-			t.Fatalf("Detect(%v) = %#v, want no detection", environ, got.Layers)
+		got := runby.Detect(runby.WithEnviron(environ))
+		if got.Terminal.Program == runby.TerminalZed {
+			t.Fatalf("Detect(%v) = %#v, want no Zed", environ, got.Terminal)
 		}
 	}
 }
@@ -240,7 +236,7 @@ func TestAmpEntrypoints(t *testing.T) {
 
 func TestRemainingDetectors(t *testing.T) {
 	cursor := runby.Detect(runby.WithEnviron([]string{"CURSOR_AGENT=1"}))
-	if cursor.Agent() != runby.AgentCursor || !cursor.IsAgent() {
+	if cursor.Agent() != runby.AgentCursor || !cursor.Found() {
 		t.Fatalf("Cursor detection = %#v", cursor.Layers)
 	}
 
@@ -310,7 +306,7 @@ func TestWithDetectorsTakesPrecedence(t *testing.T) {
 	if primary.Agent != inHouse || primary.AgentID != "run-7" || primary.Confidence != runby.ConfidenceDefinite {
 		t.Fatalf("primary = %#v", primary)
 	}
-	if !result.IsAgent() {
+	if !result.Found() {
 		t.Fatal("IsAgent() = false, want true")
 	}
 }
@@ -337,7 +333,7 @@ func TestCurrentIsCached(t *testing.T) {
 	if !reflect.DeepEqual(runby.Current(), runby.Current()) {
 		t.Fatal("Current() is not stable")
 	}
-	if runby.IsAgent() != runby.Current().IsAgent() {
+	if runby.IsAgent() != runby.Current().Found() {
 		t.Fatal("IsAgent() disagrees with Current()")
 	}
 }
@@ -345,7 +341,7 @@ func TestCurrentIsCached(t *testing.T) {
 func TestResultJSONShape(t *testing.T) {
 	result := runby.Detect(
 		runby.WithEnviron([]string{"CURSOR_AGENT=1"}),
-		runby.WithTerminal(runby.Terminal{Inspected: true}),
+		runby.WithTTY(runby.TTY{Inspected: true}),
 	)
 	data, err := json.Marshal(result)
 	if err != nil {

@@ -47,37 +47,31 @@ type Paths struct {
 	DataDirectory    string `json:"data_directory,omitempty"`
 }
 
-// IsAgent reports whether this layer is evidence that an AI agent, rather than
-// a person, launched the process. It is false for KindHost layers such as a
-// terminal owned by an editor.
-func (d Detection) IsAgent() bool {
-	return d.Kind == KindOrchestrator || d.Kind == KindHarness
-}
-
 // Result is everything detected about one process environment.
 type Result struct {
 	// Layers holds every detected agent, ordered from the most specific
 	// orchestrator to the underlying runtime. It is empty when nothing was
 	// detected.
 	Layers []Detection `json:"layers"`
-	// Terminal is the process-level terminal status. It is present even when
-	// Layers is empty; see Terminal.Inspected.
+	// TTY is the process-level standard stream status. It is present even
+	// when Layers is empty; see TTY.Inspected. It is the only field derived
+	// from system calls rather than from the environment.
+	TTY TTY `json:"tty"`
+	// CI describes the continuous integration run that owns this process. It
+	// is a separate axis from Layers: an agent can run inside CI, so both can
+	// be populated at once.
+	CI CI `json:"ci"`
+	// Terminal identifies the terminal emulator that produced this
+	// environment. It is a separate axis too, and a deliberately weak one;
+	// see Terminal for why it cannot describe the currently attached
+	// terminal.
 	Terminal Terminal `json:"terminal"`
 }
 
-// Found reports whether any supported agent was detected, including KindHost
-// layers. Use IsAgent to exclude those.
+// Found reports whether any supported agent was detected. Terminal ownership
+// is not agent evidence and is reported on the Terminal axis instead, so this
+// answers "was this launched by an AI agent".
 func (r Result) Found() bool { return len(r.Layers) > 0 }
-
-// IsAgent reports whether any layer is evidence of AI agent execution.
-func (r Result) IsAgent() bool {
-	for _, layer := range r.Layers {
-		if layer.IsAgent() {
-			return true
-		}
-	}
-	return false
-}
 
 // Primary returns the most specific detected layer.
 func (r Result) Primary() (Detection, bool) {
@@ -108,6 +102,12 @@ func (r Result) Has(agent Agent) bool {
 	_, ok := r.Get(agent)
 	return ok
 }
+
+// IsCI reports whether this process is running in a CI job.
+func (r Result) IsCI() bool { return r.CI.Detected }
+
+// IsTerminal reports whether a terminal emulator was identified.
+func (r Result) IsTerminal() bool { return r.Terminal.Detected }
 
 // Chain renders the detected layers as "paseo>codex", most specific first, for
 // use as a single log or telemetry field. It returns "unknown" when nothing was

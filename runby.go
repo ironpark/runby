@@ -46,37 +46,16 @@ type funcDetector struct {
 func (d funcDetector) Agent() Agent                     { return d.agent }
 func (d funcDetector) Detect(env Env) (Detection, bool) { return d.detect(env) }
 
-// builtinDetectors is ordered from the most specific orchestrator to the
-// underlying runtime. Result.Primary reports the first match, so this order is
-// the precedence contract.
-var builtinDetectors = []Detector{
-	NewDetector(AgentPaseo, detectPaseo),
-	NewDetector(AgentCodex, detectCodex),
-	NewDetector(AgentClaudeCode, detectClaudeCode),
-	NewDetector(AgentCursor, detectCursor),
-	NewDetector(AgentOpenCode, detectOpenCode),
-	NewDetector(AgentZed, detectZed),
-	NewDetector(AgentAmp, detectAmp),
-	NewDetector(AgentAntigravity2, detectAntigravity2),
-}
-
-// Detectors returns the built-in detectors in precedence order. The returned
-// slice is a copy and may be reordered or filtered before being passed back
-// through WithDetectors.
-func Detectors() []Detector {
-	detectors := make([]Detector, len(builtinDetectors))
-	copy(detectors, builtinDetectors)
-	return detectors
-}
-
 type options struct {
-	env       Env
-	detectors []Detector
-	terminal  Terminal
-	// inspectTerminal is only true when the environment being inspected is
-	// this process's own, so that the standard streams describe the same
-	// process as the detected layers.
-	inspectTerminal bool
+	env               Env
+	detectors         []Detector
+	ciDetectors       []CIDetector
+	terminalDetectors []TerminalDetector
+	tty               TTY
+	// inspectTTY is only true when the environment being inspected is this
+	// process's own, so that the standard streams describe the same process
+	// as the detected layers.
+	inspectTTY bool
 }
 
 // Option configures Detect.
@@ -84,43 +63,60 @@ type Option func(*options)
 
 // WithEnviron inspects an explicit environment given as "NAME=value" entries,
 // instead of the process environment. Because that environment does not
-// necessarily belong to this process, the terminal is not inspected unless
-// WithTerminal is also given.
+// necessarily belong to this process, the standard streams are not inspected
+// unless WithTTY is also given.
 func WithEnviron(environ []string) Option {
 	return WithEnv(EnvironEnv(environ))
 }
 
 // WithEnv inspects an explicit Env instead of the process environment. As with
-// WithEnviron, the terminal is not inspected.
+// WithEnviron, the standard streams are not inspected.
 func WithEnv(env Env) Option {
 	return func(o *options) {
 		o.env = env
-		o.inspectTerminal = false
+		o.inspectTTY = false
 	}
 }
 
 // WithLookup inspects an environment through a lookup function such as
-// os.LookupEnv. As with WithEnviron, the terminal is not inspected.
+// os.LookupEnv. As with WithEnviron, the standard streams are not inspected.
 func WithLookup(lookup func(name string) (string, bool)) Option {
 	return WithEnv(lookupEnv(lookup))
 }
 
-// WithoutTerminal skips terminal inspection, avoiding its system calls when
-// only the agent layers are needed.
-func WithoutTerminal() Option {
+// WithoutTTY skips standard stream inspection, avoiding its system calls when
+// only the environment-derived axes are needed. It does not affect Terminal,
+// which is derived from the environment rather than from file descriptors.
+func WithoutTTY() Option {
 	return func(o *options) {
-		o.inspectTerminal = false
-		o.terminal = Terminal{}
+		o.inspectTTY = false
+		o.tty = TTY{}
 	}
 }
 
-// WithTerminal sets the terminal status explicitly instead of inspecting the
-// standard streams. It is intended for wrappers that already know the terminal
-// status of the environment they are describing, and for tests.
-func WithTerminal(terminal Terminal) Option {
+// WithTTY sets the standard stream status explicitly instead of inspecting
+// them. It is intended for wrappers that already know the status of the
+// environment they are describing, and for tests.
+func WithTTY(tty TTY) Option {
 	return func(o *options) {
-		o.inspectTerminal = false
-		o.terminal = terminal
+		o.inspectTTY = false
+		o.tty = tty
+	}
+}
+
+// WithTerminalDetectors adds terminal detectors ahead of the built-in ones.
+// Detectors are tried in the order given, and the first match wins.
+func WithTerminalDetectors(detectors ...TerminalDetector) Option {
+	return func(o *options) {
+		o.terminalDetectors = append(append([]TerminalDetector{}, detectors...), o.terminalDetectors...)
+	}
+}
+
+// WithOnlyTerminalDetectors replaces the built-in terminal detectors entirely.
+// Passing no detectors disables terminal detection.
+func WithOnlyTerminalDetectors(detectors ...TerminalDetector) Option {
+	return func(o *options) {
+		o.terminalDetectors = append([]TerminalDetector{}, detectors...)
 	}
 }
 
@@ -140,21 +136,41 @@ func WithOnlyDetectors(detectors ...Detector) Option {
 	}
 }
 
+// WithCIDetectors adds CI detectors ahead of the built-in ones, so a platform
+// this package does not support is reported over the generic CI convention.
+// Detectors are tried in the order given, and the first match wins.
+func WithCIDetectors(detectors ...CIDetector) Option {
+	return func(o *options) {
+		o.ciDetectors = append(append([]CIDetector{}, detectors...), o.ciDetectors...)
+	}
+}
+
+// WithOnlyCIDetectors replaces the built-in CI detectors entirely. Passing no
+// detectors disables CI detection.
+func WithOnlyCIDetectors(detectors ...CIDetector) Option {
+	return func(o *options) {
+		o.ciDetectors = append([]CIDetector{}, detectors...)
+	}
+}
+
 // Detect inspects an environment and returns every supported agent found in
-// it. With no options it inspects the current process, including its terminal.
+// it, plus the CI platform and terminal status. With no options it inspects
+// the current process, including its terminal.
 func Detect(opts ...Option) Result {
 	config := options{
-		env:             processEnv{},
-		detectors:       builtinDetectors,
-		inspectTerminal: true,
+		env:               processEnv{},
+		detectors:         builtinDetectors,
+		ciDetectors:       builtinCIDetectors,
+		terminalDetectors: builtinTerminalDetectors,
+		inspectTTY:        true,
 	}
 	for _, opt := range opts {
 		opt(&config)
 	}
 
-	result := Result{Terminal: config.terminal}
-	if config.inspectTerminal {
-		result.Terminal = InspectTerminal()
+	result := Result{TTY: config.tty}
+	if config.inspectTTY {
+		result.TTY = InspectTTY()
 	}
 	for _, detector := range config.detectors {
 		detection, ok := detector.Detect(config.env)
@@ -177,6 +193,60 @@ func Detect(opts ...Option) Result {
 		}
 		result.Layers = append(result.Layers, detection)
 	}
+	for _, detector := range config.ciDetectors {
+		ci, ok := detector.Detect(config.env)
+		if !ok {
+			continue
+		}
+		// Only the first, most specific platform is reported; every platform
+		// also sets the generic CI variable, so later matches are redundant.
+		if ci.Provider == "" {
+			ci.Provider = detector.Provider()
+		}
+		if ci.Confidence == "" {
+			ci.Confidence = ConfidenceDefinite
+		}
+		ci.Detected = true
+		result.CI = ci
+		break
+	}
+	if !result.CI.Detected {
+		result.CI.Provider = CIProviderUnknown
+		result.CI.Confidence = ConfidenceUnknown
+	}
+
+	multiplexer, multiplexerNames := detectMultiplexer(config.env)
+	for _, detector := range config.terminalDetectors {
+		terminal, ok := detector.Detect(config.env)
+		if !ok {
+			continue
+		}
+		if terminal.Program == "" {
+			terminal.Program = detector.Program()
+		}
+		if terminal.Confidence == "" {
+			terminal.Confidence = ConfidenceDefinite
+		}
+		terminal.Detected = true
+		result.Terminal = terminal
+		break
+	}
+	if !result.Terminal.Detected {
+		result.Terminal.Program = TerminalUnknown
+		result.Terminal.Confidence = ConfidenceUnknown
+		result.Terminal.Term, _ = Value(config.env, "TERM")
+	}
+	result.Terminal.Multiplexer = multiplexer
+	if multiplexer != MultiplexerNone {
+		// The multiplexer server keeps the environment of whichever client
+		// started it, so any terminal identity here may name a terminal that
+		// is not the one displaying this pane.
+		if result.Terminal.Confidence == ConfidenceDefinite {
+			result.Terminal.Confidence = ConfidenceProbable
+		}
+		result.Terminal.Evidence = PresentNames(config.env,
+			append(append([]string{}, result.Terminal.Evidence...), multiplexerNames...)...)
+	}
 	return result
 }
 
@@ -195,9 +265,14 @@ func Current() Result {
 }
 
 // IsAgent reports whether this process was launched by an AI agent, using the
-// cached Current result. It is false when only a KindHost layer, such as an
-// editor-owned terminal, was detected.
-func IsAgent() bool { return Current().IsAgent() }
+// cached Current result. Terminal ownership is not agent evidence and is
+// reported on the Terminal axis, so it never affects this.
+func IsAgent() bool { return Current().Found() }
+
+// IsTerminal reports whether a terminal emulator was identified, using the
+// cached Current result. See Terminal for why this is weaker evidence than the
+// other axes.
+func IsTerminal() bool { return Current().Terminal.Detected }
 
 // Environ returns the current process environment as an Env. It is a
 // convenience for callers that build their own detector pipelines.

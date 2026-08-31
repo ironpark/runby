@@ -8,16 +8,19 @@ const (
 	AgentPaseo        Agent = "paseo"
 	AgentCodex        Agent = "codex"
 	AgentClaudeCode   Agent = "claude-code"
-	AgentAntigravity2 Agent = "antigravity-2.0"
+	AgentAntigravity2 Agent = "antigravity-2"
 	AgentAmp          Agent = "amp"
 	AgentCursor       Agent = "cursor-agent"
 	AgentOpenCode     Agent = "opencode"
-	AgentZed          Agent = "zed"
 )
 
-// Kind separates products that prove an AI agent launched the process from
-// products that only prove which application owns the terminal. It mirrors the
-// product_type field recorded in docs/agents.
+// Kind separates an orchestrator that manages other agents from the agent
+// runtime it drives. It mirrors the product_type field recorded in docs/agents.
+//
+// There is no host kind. A product that only proves which application owns the
+// terminal, such as Zed, is reported on the Terminal axis instead, because
+// owning the terminal is not evidence that an agent rather than a person ran
+// the command.
 type Kind string
 
 const (
@@ -27,9 +30,6 @@ const (
 	KindOrchestrator Kind = "orchestrator"
 	// KindHarness is an agent runtime that executes model-requested commands.
 	KindHarness Kind = "harness"
-	// KindHost owns the terminal but does not prove that an agent, rather than
-	// a person, requested the command.
-	KindHost Kind = "host"
 )
 
 // agentKinds is the single source of truth for Agent classification. Agents
@@ -42,7 +42,6 @@ var agentKinds = map[Agent]Kind{
 	AgentAmp:          KindHarness,
 	AgentCursor:       KindHarness,
 	AgentOpenCode:     KindHarness,
-	AgentZed:          KindHost,
 }
 
 // Kind reports how much a detection of a proves. It returns KindUnknown for
