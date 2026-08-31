@@ -21,14 +21,14 @@ func TestRegisteringANeverMatchingDriverSilencesABuiltin(t *testing.T) {
 		Agent:  runby.AgentClaudeCode,
 		Kind:   runby.KindHarness,
 		Models: runby.ModelsFirstParty,
-		Detect: func(runby.Env) (runby.Detection, bool) { return runby.Detection{}, false },
+		Detect: func(runby.Env) (runby.Layer, bool) { return runby.Layer{}, false },
 	})
 
 	result := runby.Detect(runby.WithEnviron([]string{"CLAUDECODE=1", "CODEX_THREAD_ID=t-1"}))
-	if result.HasLayer(runby.AgentClaudeCode) {
+	if _, ok := result.Layer(runby.AgentClaudeCode); ok {
 		t.Error("claude-code was reported after a never-matching driver replaced it")
 	}
-	if !result.HasLayer(runby.AgentCodex) {
+	if _, ok := result.Layer(runby.AgentCodex); !ok {
 		t.Error("silencing claude-code also silenced codex")
 	}
 	// The identity survives the replacement, so callers asking what the agent

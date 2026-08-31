@@ -80,9 +80,9 @@ func TestCustomTerminalAndRemoteDriversAreCorroborated(t *testing.T) {
 	if result.Terminal.AncestorPID != 20 {
 		t.Errorf("Terminal.AncestorPID = %d, want 20", result.Terminal.AncestorPID)
 	}
-	layer, ok := result.RemoteLayer("acme-vpn")
+	layer, ok := result.Remote("acme-vpn")
 	if !ok || layer.AncestorPID != 10 {
-		t.Errorf("Remote = %#v, want AncestorPID 10", result.Remote)
+		t.Errorf("Remote = %#v, want AncestorPID 10", result.Remotes)
 	}
 	// The injected tree carried no labels; Detect applied them from the drivers.
 	if got := result.Process.Ancestors[1].Terminal; got != "acme-term" {
@@ -97,8 +97,8 @@ func TestDriversWithoutKindReportUnknown(t *testing.T) {
 		runby.WithEnviron([]string{"ACME=1"}),
 		runby.WithOnlyDrivers(runby.AgentDriver{
 			Agent: "acme",
-			Detect: func(env runby.Env) (runby.Detection, bool) {
-				return runby.Detection{Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME")}}, true
+			Detect: func(env runby.Env) (runby.Layer, bool) {
+				return runby.Layer{Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME")}}, true
 			},
 		}),
 	)
@@ -167,10 +167,10 @@ func TestBuiltinDriversCanDropOneProduct(t *testing.T) {
 
 	env := runby.WithEnviron([]string{"CODEX_THREAD_ID=t-1", "CLAUDECODE=1", "GITHUB_ACTIONS=true"})
 	result := runby.Detect(env, runby.WithOnlyDrivers(drivers...))
-	if result.HasLayer(runby.AgentCodex) {
+	if _, ok := result.Layer(runby.AgentCodex); ok {
 		t.Error("codex was detected after its driver was filtered out")
 	}
-	if !result.HasLayer(runby.AgentClaudeCode) {
+	if _, ok := result.Layer(runby.AgentClaudeCode); !ok {
 		t.Error("dropping codex also silenced claude-code")
 	}
 	// Filtering the agent axis leaves the other four intact, which passing a
@@ -200,5 +200,66 @@ func TestBuiltinDriversAreCopied(t *testing.T) {
 		len(runby.RemotePlatforms()) + len(runby.RunnerTools())
 	if got := len(runby.BuiltinDrivers()); got != want {
 		t.Fatalf("BuiltinDrivers has %d drivers, the identity lists name %d products", got, want)
+	}
+}
+
+// WithDrivers adds to the set a call would otherwise run, so a custom driver
+// and the built-in ones are both in play. Before it existed the only way to say
+// this was WithOnlyDrivers(append(BuiltinDrivers(), acme)...), which also
+// silently dropped anything added through Register.
+func TestWithDriversExtendsTheDefaultSet(t *testing.T) {
+	acme := runby.AgentDriver{
+		Agent:  "acme",
+		Kind:   runby.KindHarness,
+		Models: runby.ModelsMultiVendor,
+		Detect: func(env runby.Env) (runby.Layer, bool) {
+			r := runby.NewEnvReader(env)
+			id, ok := r.Value("ACME_RUN_ID")
+			if !ok {
+				return runby.Layer{}, false
+			}
+			return runby.Layer{SessionID: id, Axis: runby.Axis{Evidence: r.Evidence()}}, true
+		},
+	}
+
+	result := runby.Detect(
+		runby.WithEnviron([]string{"ACME_RUN_ID=r-1", "CODEX_SANDBOX=seatbelt"}),
+		runby.WithDrivers(acme),
+	)
+
+	custom, ok := result.Layer("acme")
+	if !ok || custom.SessionID != "r-1" {
+		t.Fatalf("Layer(acme) = %#v, %v", custom, ok)
+	}
+	if !reflect.DeepEqual(custom.Evidence, []string{"ACME_RUN_ID"}) {
+		t.Errorf("Evidence = %v, want the name the reader recorded", custom.Evidence)
+	}
+	// The built-in axis still runs, which is the whole difference from
+	// WithOnlyDrivers. Codex is Level1 and acme is Level2, so the ladder puts
+	// the custom harness first whatever order the drivers arrived in.
+	if _, ok := result.Layer(runby.AgentCodex); !ok {
+		t.Fatalf("the built-in drivers were dropped: %#v", result.Layers)
+	}
+	if got := result.Chain(); got != "acme>codex" {
+		t.Errorf("Chain() = %q, want acme>codex", got)
+	}
+}
+
+// A driver whose identity matches one already in the set replaces it rather
+// than running beside it, so overriding a stale built-in yields one layer.
+func TestWithDriversReplacesAMatchingBuiltin(t *testing.T) {
+	silenced := runby.AgentDriver{
+		Agent:  runby.AgentCodex,
+		Kind:   runby.KindHarness,
+		Models: runby.ModelsFirstParty,
+		Detect: func(runby.Env) (runby.Layer, bool) { return runby.Layer{}, false },
+	}
+
+	result := runby.Detect(
+		runby.WithEnviron([]string{"CODEX_SANDBOX=seatbelt"}),
+		runby.WithDrivers(silenced),
+	)
+	if result.IsAgent() {
+		t.Fatalf("the replaced built-in still ran: %#v", result.Layers)
 	}
 }

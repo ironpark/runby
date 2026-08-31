@@ -23,7 +23,7 @@ import "strings"
 // agents would still reach for an escape hatch. So agents are written as
 // functions, and the one thing spec-driving would have guaranteed them — that
 // a variable cannot be read without being reported as evidence — is provided
-// instead by reader, in reader.go.
+// instead by EnvReader, in envreader.go.
 
 // specCore is the part of a spec that every axis shares: how to recognize the
 // product, and the context and evidence that recognition carries.

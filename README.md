@@ -114,8 +114,8 @@ runby -json    # Result 전체 JSON
 |---|---|---|
 | 에이전트 | 누가 명령을 요청했나? | `Layers` |
 | CI | 어느 CI 잡에서 실행 중인가? | `CI` |
-| 실행 도구 | npm·make·systemd 같은 무엇이 실행했나? | `Runner` |
-| 원격 환경 | 사용자와 프로세스 사이에 무엇이 있나? | `Remote` |
+| 실행 도구 | npm·make·systemd 같은 무엇이 실행했나? | `Runners` |
+| 원격 환경 | 사용자와 프로세스 사이에 무엇이 있나? | `Remotes` |
 | 터미널 | 어떤 에뮬레이터가 환경을 만들었나? | `Terminal` |
 | 프로세스 | 현재 살아 있는 조상은 무엇인가? | `Process` |
 

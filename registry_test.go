@@ -22,12 +22,12 @@ func init() {
 			Agent:  "acme-orchestrator",
 			Kind:   runby.KindOrchestrator,
 			Models: runby.ModelsDelegated,
-			Detect: func(env runby.Env) (runby.Detection, bool) {
+			Detect: func(env runby.Env) (runby.Layer, bool) {
 				id, ok := runby.Value(env, "ACME_REGISTERED_RUN_ID")
 				if !ok {
-					return runby.Detection{}, false
+					return runby.Layer{}, false
 				}
-				return runby.Detection{
+				return runby.Layer{
 					AgentID: id,
 					Axis:    runby.Axis{Evidence: runby.PresentNames(env, "ACME_REGISTERED_RUN_ID")},
 				}, true
@@ -39,11 +39,11 @@ func init() {
 			Agent:  "acme-harness",
 			Kind:   runby.KindHarness,
 			Models: runby.ModelsFirstParty,
-			Detect: func(env runby.Env) (runby.Detection, bool) {
+			Detect: func(env runby.Env) (runby.Layer, bool) {
 				if _, ok := runby.Value(env, "ACME_REGISTERED_HARNESS"); !ok {
-					return runby.Detection{}, false
+					return runby.Layer{}, false
 				}
-				return runby.Detection{
+				return runby.Layer{
 					Axis: runby.Axis{Evidence: []string{"ACME_REGISTERED_HARNESS"}},
 				}, true
 			},
@@ -87,9 +87,9 @@ func TestRegisteredDriversReachDetect(t *testing.T) {
 		t.Errorf("kind = %s, level = %s", layer.Kind, layer.Level)
 	}
 
-	runner, ok := result.RunnerBy("acme-task")
+	runner, ok := result.Runner("acme-task")
 	if !ok {
-		t.Fatalf("the registered runner driver did not run: %v", result.Runner)
+		t.Fatalf("the registered runner driver did not run: %v", result.Runners)
 	}
 	if runner.Task != "build" || runner.Kind != runby.RunnerKindScript {
 		t.Errorf("task = %q, kind = %s", runner.Task, runner.Kind)
@@ -138,7 +138,7 @@ func TestWithOnlyIgnoresRegistry(t *testing.T) {
 	}
 	runners := runby.Detect(runby.WithEnviron(environ), runby.WithOnlyDrivers())
 	if runners.HasRunner() {
-		t.Errorf("WithOnlyDrivers() still ran a registered driver: %v", runners.Runner)
+		t.Errorf("WithOnlyDrivers() still ran a registered driver: %v", runners.Runners)
 	}
 }
 
@@ -160,7 +160,7 @@ func TestIdentityListsStayBuiltIn(t *testing.T) {
 
 // TestRegisteredIdentityAnswersLikeBuiltin closes the gap that made this worth
 // doing: a registered agent must answer Kind, Models, and Level the same way a
-// built-in one does, so that Agent.Level and Detection.Level cannot disagree
+// built-in one does, so that Agent.Level and Layer.Level cannot disagree
 // about the same agent.
 func TestRegisteredIdentityAnswersLikeBuiltin(t *testing.T) {
 	const acme = runby.Agent("acme-orchestrator")
@@ -181,7 +181,7 @@ func TestRegisteredIdentityAnswersLikeBuiltin(t *testing.T) {
 		t.Fatal("the registered driver did not match")
 	}
 	if layer.Level != acme.Level() || layer.Kind != acme.Kind() {
-		t.Errorf("Detection says (%s, %s) but Agent says (%s, %s)",
+		t.Errorf("Layer says (%s, %s) but Agent says (%s, %s)",
 			layer.Kind, layer.Level, acme.Kind(), acme.Level())
 	}
 

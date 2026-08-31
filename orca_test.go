@@ -97,7 +97,7 @@ func TestOrcaRequiresAnOwnerAndALocationMarker(t *testing.T) {
 		{"ORCA_WORKTREE_PATH=/work/trees/wt-42", "ORCA_WORKSPACE_NAME=demo"},
 		{"ORCA_USER_DATA_PATH=/home/dev/.orca", "ORCA_CODEX_HOME=/home/dev/.orca/codex"},
 	} {
-		if runby.Detect(runby.WithEnviron(environ)).HasLayer(runby.AgentOrca) {
+		if _, ok := runby.Detect(runby.WithEnviron(environ)).Layer(runby.AgentOrca); ok {
 			t.Errorf("environ %v detected Orca, want no detection", environ)
 		}
 	}

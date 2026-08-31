@@ -1,11 +1,18 @@
 // Package runby detects the coding agent or orchestrator that started the
 // current process from environment variables inherited by that process.
 //
-// The common case is two calls:
+// The common case is one call, whose result answers every axis:
 //
-//	if runby.IsAgent() {
-//		log.Printf("run by %s", runby.Current().Chain())
+//	result := runby.Current()
+//	if result.IsAgent() {
+//		log.Printf("run by %s", result.Chain())
 //	}
+//
+// Current caches, so the result is worth passing down rather than re-fetching.
+// A program that branches on it is also easier to test that way: Detect with
+// WithEnviron builds a Result for any environment, while a test that sets
+// variables and calls Current sees whatever the first caller in the test binary
+// already cached.
 //
 // Environment variables are only a snapshot taken when the process started. A
 // detection means that the agent was active when it launched the process; it
@@ -18,8 +25,8 @@
 //
 // Options divide into three tiers, and most programs stay in the first.
 //
-//   - No options at all. Current and IsAgent answer for this process, and
-//     Detect() with no options does the same without the cache.
+//   - No options at all. Current answers for this process, and Detect() with
+//     no options does the same without the cache.
 //   - Describing something that is not this process: a wrapper classifying
 //     another process from its /proc entry or its exec.Cmd.Env, or an
 //     environment recorded earlier and analyzed later. WithEnviron supplies
@@ -27,14 +34,17 @@
 //     that cannot be read from it. WithoutTTY and WithoutProcessTree skip
 //     those axes when only the environment matters.
 //   - Writing a driver, and testing one: WithEnv and WithLookup are the
-//     general form of WithEnviron, and WithOnlyDrivers runs an exact set.
+//     general form of WithEnviron, WithDrivers adds a driver to the set this
+//     call would otherwise run, and WithOnlyDrivers runs an exact set.
 //
 // Every axis is extensible by the same means. A product this package does not
-// support is added by passing a driver — AgentDriver, CIDriver,
-// TerminalDriver, or RemoteDriver — to Detect. A driver carries the rule for
-// detecting the product together with the facts no environment can supply,
-// such as what a detection proves and which binaries the product runs as, so
-// the built-in products and yours are declared exactly the same way.
+// support is added by passing a driver — AgentDriver, CIDriver, TerminalDriver,
+// RemoteDriver, or RunnerDriver — to Detect through WithDrivers, or to the
+// whole process through Register. A driver carries the rule for detecting the
+// product together with the facts no environment can supply, such as what a
+// detection proves and which binaries the product runs as, so the built-in
+// products and yours are declared exactly the same way. Read the environment
+// through an EnvReader and the driver reports its own evidence.
 package runby
 
 import (
@@ -124,12 +134,53 @@ func WithProcessTree(tree ProcessTree) Option {
 	}
 }
 
+// WithDrivers adds drivers to the set this call would otherwise run: the
+// built-in drivers with anything added through Register merged in. A driver
+// whose identity matches one already there replaces it rather than running
+// beside it, which is the same rule Register follows.
+//
+// It is the per-call counterpart to Register, for a driver that belongs to one
+// call rather than to the whole process:
+//
+//	Detect(WithDrivers(acme))
+//
+// Use Register instead when the driver should reach Current and the CLI, which
+// take no options. Use WithOnlyDrivers instead when the point is to exclude the
+// built-in set rather than extend it.
+//
+// Drivers are sorted onto their own axis, so one call covers as many axes as
+// the drivers span. The agent axis is ordered by the ladder rather than by the
+// order given here.
+func WithDrivers(drivers ...Driver) Option {
+	var added registry
+	for _, driver := range drivers {
+		if driver == nil {
+			panic("runby: WithDrivers called with a nil driver")
+		}
+		driver.addTo(&added)
+	}
+	added.check()
+	return func(o *options) {
+		o.agentDrivers = merge(added.agents, o.agentDrivers,
+			func(d AgentDriver) Agent { return d.Agent })
+		o.ciDrivers = merge(added.ci, o.ciDrivers,
+			func(d CIDriver) CIProvider { return d.Provider })
+		o.terminalDrivers = merge(added.terminals, o.terminalDrivers,
+			func(d TerminalDriver) TerminalProgram { return d.Program })
+		o.remoteDrivers = merge(added.remotes, o.remoteDrivers,
+			func(d RemoteDriver) RemotePlatform { return d.Platform })
+		o.runnerDrivers = merge(added.runners, o.runnerDrivers,
+			func(d RunnerDriver) RunnerTool { return d.Tool })
+	}
+}
+
 // WithOnlyDrivers runs exactly the drivers given and nothing else: no built-in
 // driver and nothing added through Register participates in this call. With no
 // drivers at all, no axis derived from the environment is detected.
 //
-// It is the only per-call driver option, and the two things it is for do not
-// divide by axis:
+// Reach for it only to run a fixed set. Adding a driver to the default set is
+// what WithDrivers is for. The two things this option is for do not divide by
+// axis:
 //
 //   - Testing a driver in isolation, so a fixture cannot be answered by a
 //     built-in that happens to match it too.
@@ -137,10 +188,9 @@ func WithProcessTree(tree ProcessTree) Option {
 //     registry is process-wide, so without this a blank import anywhere in the
 //     build could change what a test observes.
 //
-// Pair it with BuiltinDrivers to run the built-in set plus a custom driver, or
-// minus one of its own:
-//
-//	Detect(WithOnlyDrivers(append(BuiltinDrivers(), acme)...))
+// Pair it with BuiltinDrivers to run the built-in set minus one of its own,
+// which is chiefly useful in a test standing in for a built-in product; see
+// BuiltinDrivers for how to filter it.
 //
 // Drivers are sorted onto their own axis, so one call covers as many axes as
 // the drivers span. The agent axis is still ordered by the ladder rather than
@@ -193,8 +243,8 @@ func Detect(opts ...Option) Result {
 
 	result.Layers = detectAgents(config, result.Process)
 	result.CI = detectCI(config)
-	result.Remote = detectRemote(config, result.Process)
-	result.Runner = detectRunners(config, result.Process)
+	result.Remotes = detectRemote(config, result.Process)
+	result.Runners = detectRunners(config, result.Process)
 	result.Terminal = detectTerminal(config, result)
 	return result
 }
@@ -219,8 +269,8 @@ func (config options) executableLabels() executableLabels {
 }
 
 // detectAgents reports every agent layer, most specific orchestrator first.
-func detectAgents(config options, tree ProcessTree) []Detection {
-	var layers []Detection
+func detectAgents(config options, tree ProcessTree) []Layer {
+	var layers []Layer
 	for _, driver := range config.agentDrivers {
 		detection, ok := driver.Detect(config.env)
 		if !ok {
@@ -359,8 +409,16 @@ var (
 
 // Current returns Detect for this process, computed once and cached. The
 // process environment and standard streams are fixed at startup in practice,
-// so repeated calls are free. Use Detect directly to observe changes made by
-// os.Setenv after the first call.
+// so repeated calls are free.
+//
+// The cache is process-wide and is filled by whichever call comes first, so
+// Current cannot see an environment a test sets up afterwards with t.Setenv.
+// Build the Result explicitly for those:
+//
+//	runby.Detect(runby.WithEnviron([]string{"GITHUB_ACTIONS=true"}))
+//
+// Use Detect directly, too, to observe changes made by os.Setenv after the
+// first call.
 func Current() Result {
 	currentOnce.Do(func() {
 		// Recorded before detecting so that a Register racing this call is
@@ -370,31 +428,6 @@ func Current() Result {
 	})
 	return currentResult
 }
-
-// The four axis predicates below are the shorthand for the common case, each
-// answering one axis of the cached Current result. They live together, and are
-// named like their Result counterparts, so that the set is visible at a glance.
-
-// IsAgent reports whether this process was launched by an AI agent. Terminal
-// ownership is not agent evidence and is reported on the Terminal axis, so it
-// never affects this.
-func IsAgent() bool { return Current().IsAgent() }
-
-// IsCI reports whether this process is running in a CI job.
-func IsCI() bool { return Current().IsCI() }
-
-// HasTerminal reports whether a terminal emulator was identified. See Terminal
-// for why this is weaker evidence than the other axes, and Result.HasTerminal
-// for why it is not called IsTerminal.
-func HasTerminal() bool { return Current().HasTerminal() }
-
-// IsRemote reports whether any layer was detected between the user and this
-// process.
-func IsRemote() bool { return Current().IsRemote() }
-
-// HasRunner reports whether a tool ran this process rather than a person
-// invoking it directly.
-func HasRunner() bool { return Current().HasRunner() }
 
 // Environ returns the current process environment as an Env. It is a
 // convenience for callers that build their own driver pipelines.

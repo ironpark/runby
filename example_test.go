@@ -56,12 +56,12 @@ func ExampleWithOnlyDrivers() {
 		Agent:       "acme-orchestrator",
 		Kind:        runby.KindOrchestrator,
 		Executables: []string{"acme-run"},
-		Detect: func(env runby.Env) (runby.Detection, bool) {
+		Detect: func(env runby.Env) (runby.Layer, bool) {
 			id, ok := runby.Value(env, "ACME_RUN_ID")
 			if !ok {
-				return runby.Detection{}, false
+				return runby.Layer{}, false
 			}
-			return runby.Detection{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
+			return runby.Layer{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
 		},
 	}
 
@@ -121,7 +121,7 @@ func ExampleResult_Remote() {
 		"KITTY_WINDOW_ID=4",
 	}))
 
-	for _, layer := range result.Remote {
+	for _, layer := range result.Remotes {
 		fmt.Println(layer.Platform, layer.Kind)
 	}
 	fmt.Println(result.Terminal.Program, result.Terminal.Confidence)

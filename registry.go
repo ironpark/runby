@@ -164,7 +164,7 @@ func defaultOptions() options {
 // The Kind, Models, and Level methods on a product identity answer from the
 // built-in tables first and fall through to here, so that a registered driver
 // answers them the same way a built-in one does. Without this a caller would
-// see Detection.Level report l3 while Agent.Level on the same agent reported
+// see Layer.Level report l3 while Agent.Level on the same agent reported
 // unknown, which is the kind of split a registry exists to avoid.
 //
 // The registered slices hold a handful of entries, so a scan is cheaper than
@@ -246,14 +246,14 @@ func sortByLadder(drivers []AgentDriver) []AgentDriver {
 	return sorted
 }
 
-// BuiltinDrivers returns every driver this package ships, as a fresh slice
-// the caller may filter or extend. It is the raw material for WithOnlyDrivers,
-// which otherwise runs nothing but the drivers given:
+// BuiltinDrivers returns every driver this package ships, as a fresh slice the
+// caller may filter. It is the raw material for WithOnlyDrivers, which
+// otherwise runs nothing but the drivers given.
 //
-//	Detect(WithOnlyDrivers(append(BuiltinDrivers(), acme)...))
-//
-// Filtering it drops a built-in from one call, which is chiefly useful in a
-// test that wants the built-in set minus the product it is standing in for:
+// Adding a driver to the built-in set needs neither: that is what WithDrivers
+// does for one call, and Register for the whole process. What this is for is
+// dropping a built-in from one call, which is chiefly useful in a test that
+// wants the built-in set minus the product it is standing in for:
 //
 //	var drivers []Driver
 //	for _, driver := range BuiltinDrivers() {

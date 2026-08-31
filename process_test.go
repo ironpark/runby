@@ -180,12 +180,12 @@ var acmeDriver = runby.AgentDriver{
 	Agent:       "acme-orchestrator",
 	Kind:        runby.KindOrchestrator,
 	Executables: []string{"acme-run"},
-	Detect: func(env runby.Env) (runby.Detection, bool) {
+	Detect: func(env runby.Env) (runby.Layer, bool) {
 		id, ok := runby.Value(env, "ACME_RUN_ID")
 		if !ok {
-			return runby.Detection{}, false
+			return runby.Layer{}, false
 		}
-		return runby.Detection{AgentID: id}, true
+		return runby.Layer{AgentID: id}, true
 	},
 }
 
@@ -205,7 +205,7 @@ func TestTerminalAndRemoteAreCorroboratedToo(t *testing.T) {
 	if result.Terminal.AncestorPID != 10 {
 		t.Fatalf("Terminal.AncestorPID = %d, want 10", result.Terminal.AncestorPID)
 	}
-	tmux, ok := result.RemoteLayer(runby.RemoteTmux)
+	tmux, ok := result.Remote(runby.RemoteTmux)
 	if !ok || tmux.AncestorPID != 20 {
 		t.Fatalf("tmux layer = %#v, want AncestorPID 20", tmux)
 	}

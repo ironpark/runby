@@ -42,14 +42,16 @@ func init() {
 			// 무관한 프로세스를 잘못 라벨링할 만큼 일반적인 이름
 			// (node, python, java)이면 비워 두십시오.
 			Executables: []string{"acme-run"},
-			Detect: func(env runby.Env) (runby.Detection, bool) {
-				id, ok := runby.Value(env, "ACME_RUN_ID")
+			Detect: func(env runby.Env) (runby.Layer, bool) {
+				// EnvReader로 읽으면 참조한 변수가 자동으로 근거가 됩니다.
+				r := runby.NewEnvReader(env)
+				id, ok := r.Value("ACME_RUN_ID")
 				if !ok {
-					return runby.Detection{}, false
+					return runby.Layer{}, false
 				}
-				return runby.Detection{
+				return runby.Layer{
 					AgentID: id,
-					Axis:    runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")},
+					Axis:    runby.Axis{Evidence: r.Evidence()},
 				}, true
 			},
 		},
@@ -68,8 +70,9 @@ import (
 )
 
 func main() {
-	if runby.IsAgent() {
-		log.Printf("run by %s", runby.Current().Chain())
+	result := runby.Current()
+	if result.IsAgent() {
+		log.Printf("run by %s", result.Chain())
 	}
 }
 ```
@@ -92,7 +95,7 @@ func main() {
 
 다른 축의 순서:
 
-- **CI·터미널** — 첫 매치가 이깁니다. 등록된 드라이버가 앞이므로 내장보다 우선합니다. 등록된 드라이버끼리의 순서는 임포트 순서이며 **보장되지 않습니다.** 정확한 순서가 필요하면 `WithOnlyDrivers`에 원하는 순서로 직접 넘기십시오.
+- **CI·터미널** — 첫 매치가 이깁니다. 등록된 드라이버가 앞이므로 내장보다 우선합니다. 등록된 드라이버끼리의 순서는 임포트 순서이며 **보장되지 않습니다.** 정확한 순서가 필요하면 `WithOnlyDrivers`에 원하는 순서로 직접 넘기십시오. `WithDrivers`로 넘긴 드라이버는 기존 세트보다 앞섭니다.
 - **remote·runner** — 매치되는 전부가 보고되므로 순서는 결과 슬라이스의 순서일 뿐입니다.
 
 ### 내장 드라이버 끄기
@@ -102,11 +105,11 @@ func main() {
 ```go
 runby.Register(runby.AgentDriver{
 	Agent: runby.AgentCodex, Kind: runby.KindHarness, Models: runby.ModelsFirstParty,
-	Detect: func(runby.Env) (runby.Detection, bool) { return runby.Detection{}, false },
+	Detect: func(runby.Env) (runby.Layer, bool) { return runby.Layer{}, false },
 })
 ```
 
-이쪽이 `Current()`·`IsAgent()`·CLI까지 닿습니다. **한 호출에서만** 끄려면 `BuiltinDrivers()`를 걸러서 넘기십시오 — 주로 테스트용입니다.
+이쪽이 `Current()`와 CLI까지 닿습니다. **한 호출에서만** 끄려면 같은 드라이버를 `WithDrivers`로 넘기거나, `BuiltinDrivers()`를 걸러 `WithOnlyDrivers`에 넘기십시오 — 주로 테스트용입니다.
 
 ```go
 var drivers []runby.Driver

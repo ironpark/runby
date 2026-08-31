@@ -106,7 +106,7 @@ AI 에이전트가 CI 잡 안에서 실행되면 `IsAgent()`와 `IsCI()`가 둘 
 ```go
 result := runby.Current()
 
-if npm, ok := result.RunnerBy(runby.RunnerNPM); ok {
+if npm, ok := result.Runner(runby.RunnerNPM); ok {
 	log.Printf("npm script=%s", npm.Task)
 }
 
@@ -115,7 +115,7 @@ if _, ok := result.RunnerOfKind(runby.RunnerKindService); ok {
 }
 ```
 
-`Runner`에는 여러 항목이 동시에 들어갈 수 있습니다. 예를 들어 pre-commit이 npm 스크립트를 부르고 그 스크립트가 make를 실행하면 세 도구가 모두 감지될 수 있습니다. 배열 순서는 중첩 순서를 증명하지 않습니다.
+`Runners`에는 여러 항목이 동시에 들어갈 수 있습니다. 예를 들어 pre-commit이 npm 스크립트를 부르고 그 스크립트가 make를 실행하면 세 도구가 모두 감지될 수 있습니다. 배열 순서는 중첩 순서를 증명하지 않습니다.
 
 ## tmux 안에서 낡은 환경 감지하기
 

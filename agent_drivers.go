@@ -46,18 +46,18 @@ var builtinAgentDrivers = []AgentDriver{
 
 // detectPaseo identifies a process launched by a Paseo agent. PASEO_AGENT_ID is
 // set per agent, so it names the logical agent rather than a single session.
-func detectPaseo(env Env) (Detection, bool) {
-	r := newReader(env)
-	agentID, ok := r.value("PASEO_AGENT_ID")
+func detectPaseo(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	agentID, ok := r.Value("PASEO_AGENT_ID")
 	if !ok {
-		return Detection{}, false
+		return Layer{}, false
 	}
 
-	workingDirectory, _ := r.value("PASEO_AGENT_CWD")
-	return Detection{
+	workingDirectory, _ := r.Value("PASEO_AGENT_CWD")
+	return Layer{
 		AgentID: agentID,
 		Paths:   Paths{WorkingDirectory: workingDirectory},
-		Axis:    Axis{Evidence: r.evidence()},
+		Axis:    Axis{Evidence: r.Evidence()},
 	}, true
 }
 
@@ -96,21 +96,21 @@ var orcaExtra = map[string]string{
 // terminal but not that an agent rather than a person typed the command, so
 // the confidence is never definite. When Orca did launch an agent, that agent
 // sets its own marker and is reported as its own layer.
-func detectOrca(env Env) (Detection, bool) {
-	r := newReader(env)
-	if !r.any(orcaMarkers.owner...) || !r.any(orcaMarkers.location...) {
-		return Detection{}, false
+func detectOrca(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	if !r.Any(orcaMarkers.owner...) || !r.Any(orcaMarkers.location...) {
+		return Layer{}, false
 	}
 
 	// The pane key identifies the pane a session runs in, which is the closest
 	// thing Orca advertises to a session identifier. The terminal handle is
 	// the stable name Orca's own CLI and daemon use for a terminal.
-	sessionID := r.first("ORCA_PANE_KEY", "ORCA_TERMINAL_HANDLE")
+	sessionID := r.First("ORCA_PANE_KEY", "ORCA_TERMINAL_HANDLE")
 	// Orca prefers the worktree it created over the repository it came from.
-	workingDirectory := r.first("ORCA_WORKTREE_PATH", "ORCA_ROOT_PATH")
-	dataDirectory, _ := r.value("ORCA_USER_DATA_PATH")
+	workingDirectory := r.First("ORCA_WORKTREE_PATH", "ORCA_ROOT_PATH")
+	dataDirectory, _ := r.Value("ORCA_USER_DATA_PATH")
 
-	return Detection{
+	return Layer{
 		SessionID: sessionID,
 		Paths: Paths{
 			WorkingDirectory: workingDirectory,
@@ -118,23 +118,23 @@ func detectOrca(env Env) (Detection, bool) {
 		},
 		Axis: Axis{
 			Confidence: ConfidenceProbable,
-			Extra:      r.extra(orcaExtra),
-			Evidence:   r.evidence(),
+			Extra:      r.Extra(orcaExtra),
+			Evidence:   r.Evidence(),
 		},
 	}, true
 }
 
-func detectCodex(env Env) (Detection, bool) {
-	r := newReader(env)
-	_, hasThreadID := r.peek("CODEX_THREAD_ID")
-	_, hasSessionID := r.peek("CODEX_SESSION_ID")
+func detectCodex(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	_, hasThreadID := r.Peek("CODEX_THREAD_ID")
+	_, hasSessionID := r.Peek("CODEX_SESSION_ID")
 	// Codex prefers a thread over a session; both are recorded either way.
-	threadID := r.first("CODEX_THREAD_ID", "CODEX_SESSION_ID")
-	sandbox, hasSandbox := r.value("CODEX_SANDBOX")
-	ci, hasCI := r.boolean("CODEX_CI")
-	networkDisabled, hasNetwork := r.boolean("CODEX_SANDBOX_NETWORK_DISABLED")
+	threadID := r.First("CODEX_THREAD_ID", "CODEX_SESSION_ID")
+	sandbox, hasSandbox := r.Value("CODEX_SANDBOX")
+	ci, hasCI := r.Bool("CODEX_CI")
+	networkDisabled, hasNetwork := r.Bool("CODEX_SANDBOX_NETWORK_DISABLED")
 	if !hasThreadID && !hasSessionID && !hasSandbox && !(hasCI && ci) {
-		return Detection{}, false
+		return Layer{}, false
 	}
 
 	// A thread or session identifier is set per Codex conversation, so it is an
@@ -160,49 +160,49 @@ func detectCodex(env Env) (Detection, bool) {
 		extra = map[string]string{"codex.ci": strconv.FormatBool(ci)}
 	}
 
-	return Detection{
+	return Layer{
 		SessionID: threadID,
 		Sandbox:   Sandbox{Mode: sandbox, Network: network},
 		Axis: Axis{
 			Confidence: confidence,
 			Extra:      extra,
-			Evidence:   r.evidence(),
+			Evidence:   r.Evidence(),
 		},
 	}, true
 }
 
-func detectClaudeCode(env Env) (Detection, bool) {
-	r := newReader(env)
-	claudeCode := r.isTrue("CLAUDECODE")
-	sessionID, hasSessionID := r.value("CLAUDE_CODE_SESSION_ID")
+func detectClaudeCode(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	claudeCode := r.IsTrue("CLAUDECODE")
+	sessionID, hasSessionID := r.Value("CLAUDE_CODE_SESSION_ID")
 	// AI_AGENT is shared with other tooling, so it is evidence only when its
 	// value names Claude Code: it is peeked, and recorded once the value has
 	// decided. Every other variable here is recorded by the act of reading it.
-	aiAgent, _ := r.peek("AI_AGENT")
+	aiAgent, _ := r.Peek("AI_AGENT")
 	isAIAgent := strings.HasPrefix(strings.ToLower(aiAgent), "claude-code")
 	if isAIAgent {
-		r.record("AI_AGENT")
+		r.Record("AI_AGENT")
 	}
 	if !claudeCode && !hasSessionID && !isAIAgent {
-		return Detection{}, false
+		return Layer{}, false
 	}
 
-	entrypoint, _ := r.value("CLAUDE_CODE_ENTRYPOINT")
-	nested, _ := r.boolean("CLAUDE_CODE_CHILD_SESSION")
-	return Detection{
+	entrypoint, _ := r.Value("CLAUDE_CODE_ENTRYPOINT")
+	nested, _ := r.Bool("CLAUDE_CODE_CHILD_SESSION")
+	return Layer{
 		SessionID:  sessionID,
 		Entrypoint: entrypoint,
 		Nested:     nested,
-		Axis:       Axis{Evidence: r.evidence()},
+		Axis:       Axis{Evidence: r.Evidence()},
 	}, true
 }
 
-func detectCursor(env Env) (Detection, bool) {
-	r := newReader(env)
-	if _, ok := r.value("CURSOR_AGENT"); !ok {
-		return Detection{}, false
+func detectCursor(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	if _, ok := r.Value("CURSOR_AGENT"); !ok {
+		return Layer{}, false
 	}
-	return Detection{Axis: Axis{Evidence: r.evidence()}}, true
+	return Layer{Axis: Axis{Evidence: r.Evidence()}}, true
 }
 
 // detectOpenCode identifies a process OpenCode launched. OPENCODE is set on
@@ -216,15 +216,15 @@ func detectCursor(env Env) (Detection, bool) {
 //
 // AGENT is set alongside OPENCODE and is deliberately ignored: the name
 // belongs to no vendor, and Goose sets it too.
-func detectOpenCode(env Env) (Detection, bool) {
-	r := newReader(env)
-	launched := r.isTrue("OPENCODE")
-	acp := r.equalsFold("OPENCODE_CLIENT", "acp")
+func detectOpenCode(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	launched := r.IsTrue("OPENCODE")
+	acp := r.EqualsFold("OPENCODE_CLIENT", "acp")
 	if !launched && !acp {
-		return Detection{}, false
+		return Layer{}, false
 	}
 
-	detection := Detection{}
+	detection := Layer{}
 	if acp {
 		detection.Entrypoint = "acp"
 	}
@@ -233,41 +233,41 @@ func detectOpenCode(env Env) (Detection, bool) {
 	if !launched {
 		detection.Confidence = ConfidenceProbable
 	}
-	detection.Evidence = r.evidence()
+	detection.Evidence = r.Evidence()
 	return detection, true
 }
 
-func detectAmp(env Env) (Detection, bool) {
-	r := newReader(env)
-	orb := r.isTrue("AMP_ORB")
-	threadID, hasThreadID := r.value("AMP_THREAD_ID")
+func detectAmp(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	orb := r.IsTrue("AMP_ORB")
+	threadID, hasThreadID := r.Value("AMP_THREAD_ID")
 	if !orb && !hasThreadID {
-		return Detection{}, false
+		return Layer{}, false
 	}
 
 	entrypoint := "orb"
 	if hasThreadID {
 		entrypoint = "orb-service"
 	}
-	return Detection{
+	return Layer{
 		SessionID:  threadID,
 		Entrypoint: entrypoint,
-		Axis:       Axis{Evidence: r.evidence()},
+		Axis:       Axis{Evidence: r.Evidence()},
 	}, true
 }
 
 // detectAntigravity2 identifies a sidecar whose lifecycle Antigravity 2.0
 // manages. Antigravity CLI sets no general execution marker and is not detected.
-func detectAntigravity2(env Env) (Detection, bool) {
-	r := newReader(env)
-	dataDirectory, ok := r.value("ANTIGRAVITY_EXECUTABLE_DATA_DIR")
+func detectAntigravity2(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	dataDirectory, ok := r.Value("ANTIGRAVITY_EXECUTABLE_DATA_DIR")
 	if !ok {
-		return Detection{}, false
+		return Layer{}, false
 	}
-	return Detection{
+	return Layer{
 		Entrypoint: "sidecar",
 		Paths:      Paths{DataDirectory: dataDirectory},
-		Axis:       Axis{Evidence: r.evidence()},
+		Axis:       Axis{Evidence: r.Evidence()},
 	}, true
 }
 
@@ -275,50 +275,50 @@ func detectAntigravity2(env Env) (Detection, bool) {
 // variable its identification marker in source and sets it on every shell
 // command and stdio MCP server it starts, so its presence is proof rather than
 // a supporting signal.
-func detectGeminiCLI(env Env) (Detection, bool) {
-	r := newReader(env)
-	if !r.isTrue("GEMINI_CLI") {
-		return Detection{}, false
+func detectGeminiCLI(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	if !r.IsTrue("GEMINI_CLI") {
+		return Layer{}, false
 	}
-	return Detection{Axis: Axis{Evidence: r.evidence()}}, true
+	return Layer{Axis: Axis{Evidence: r.Evidence()}}, true
 }
 
 // detectGrokBuild identifies a Grok Build plugin hook. The documented scope is
 // narrow — only hooks receive these variables, not the shell commands the agent
 // runs — so a Grok Build session that never fires a hook is not reported.
-func detectGrokBuild(env Env) (Detection, bool) {
-	r := newReader(env)
-	if !r.any("GROK_PLUGIN_ROOT", "GROK_PLUGIN_DATA") {
-		return Detection{}, false
+func detectGrokBuild(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	if !r.Any("GROK_PLUGIN_ROOT", "GROK_PLUGIN_DATA") {
+		return Layer{}, false
 	}
-	return Detection{
+	return Layer{
 		Entrypoint: "plugin-hook",
-		Axis:       Axis{Evidence: r.evidence()},
+		Axis:       Axis{Evidence: r.Evidence()},
 	}, true
 }
 
 // detectAuggie identifies a command Auggie ran through its launch-process tool.
 // The official reference documents the variable for exactly this purpose.
-func detectAuggie(env Env) (Detection, bool) {
-	r := newReader(env)
-	if !r.isTrue("AUGMENT_AGENT") {
-		return Detection{}, false
+func detectAuggie(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	if !r.IsTrue("AUGMENT_AGENT") {
+		return Layer{}, false
 	}
-	return Detection{Axis: Axis{Evidence: r.evidence()}}, true
+	return Layer{Axis: Axis{Evidence: r.Evidence()}}, true
 }
 
 // detectOpenClaw identifies a process OpenClaw spawned. The variable carries
 // which runtime started it, so the value becomes the entrypoint rather than
 // being discarded.
-func detectOpenClaw(env Env) (Detection, bool) {
-	r := newReader(env)
-	entrypoint, ok := r.value("OPENCLAW_SHELL")
+func detectOpenClaw(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	entrypoint, ok := r.Value("OPENCLAW_SHELL")
 	if !ok {
-		return Detection{}, false
+		return Layer{}, false
 	}
-	return Detection{
+	return Layer{
 		Entrypoint: strings.ToLower(entrypoint),
-		Axis:       Axis{Evidence: r.evidence()},
+		Axis:       Axis{Evidence: r.Evidence()},
 	}, true
 }
 
@@ -326,15 +326,15 @@ func detectOpenClaw(env Env) (Detection, bool) {
 // terminals it opens to run its commands, but a human can type into the same
 // terminal, so this is a supporting signal rather than proof that the agent
 // issued the command.
-func detectCline(env Env) (Detection, bool) {
-	r := newReader(env)
-	if !r.isTrue("CLINE_ACTIVE") {
-		return Detection{}, false
+func detectCline(env Env) (Layer, bool) {
+	r := NewEnvReader(env)
+	if !r.IsTrue("CLINE_ACTIVE") {
+		return Layer{}, false
 	}
-	return Detection{
+	return Layer{
 		Axis: Axis{
 			Confidence: ConfidenceProbable,
-			Evidence:   r.evidence(),
+			Evidence:   r.Evidence(),
 		},
 	}, true
 }

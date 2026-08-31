@@ -9,8 +9,7 @@
 ```go
 result := runby.Detect()
 result.IsRemote()                      // 낀 계층이 있는가
-result.HasRemoteLayer(runby.RemoteSSH)  // 특정 계층
-result.RemoteLayer(runby.RemoteTmux)    // (Remote, bool)
+result.Remote(runby.RemoteTmux)         // (Remote, bool) — 특정 계층
 result.Multiplexer()                    // (Remote, bool) — 잔존 위험의 주 원인
 ```
 
@@ -25,7 +24,7 @@ result.Multiplexer()                    // (Remote, bool) — 잔존 위험의 �
 | Gitpod | `RemoteGitpod` | `environment` | `GITPOD_WORKSPACE_ID` |
 | Dev Containers | `RemoteDevContainer` | `environment` | `REMOTE_CONTAINERS` 또는 `DEVCONTAINER` |
 
-`Remote`의 순서는 **감지 순서일 뿐 중첩 순서가 아닙니다.** 환경변수로는 어느 계층이 바깥인지 증명할 수 없습니다.
+`Remotes`의 순서는 **감지 순서일 뿐 중첩 순서가 아닙니다.** 환경변수로는 어느 계층이 바깥인지 증명할 수 없습니다.
 
 ## 멀티플렉서만 신뢰도를 낮춥니다
 

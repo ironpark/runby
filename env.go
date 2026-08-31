@@ -92,7 +92,7 @@ func EqualsFold(env Env, name, want string) bool {
 // Extra key each maps to, skipping the ones that are not set. It returns nil
 // when none are present, so a detection carrying no context carries no map.
 //
-// It builds the Extra map of a Detection, CI, Terminal, or Remote the same way
+// It builds the Extra map of a Layer, CI, Terminal, or Remote the same way
 // the built-in drivers do.
 func CollectExtra(env Env, keys map[string]string) map[string]string {
 	var extra map[string]string

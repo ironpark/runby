@@ -9,8 +9,8 @@ import (
 
 func TestRemoteNotDetected(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron([]string{"PATH=/usr/bin"}))
-	if result.IsRemote() || len(result.Remote) != 0 {
-		t.Fatalf("Remote = %#v, want empty", result.Remote)
+	if result.IsRemote() || len(result.Remotes) != 0 {
+		t.Fatalf("Remote = %#v, want empty", result.Remotes)
 	}
 	if _, ok := result.Multiplexer(); ok {
 		t.Fatal("Multiplexer() ok = true, want false")
@@ -28,9 +28,9 @@ func TestRemoteMultiplexers(t *testing.T) {
 		{[]string{"ZELLIJ=0", "ZELLIJ_SESSION_NAME=main"}, runby.RemoteZellij, "main"},
 	} {
 		result := runby.Detect(runby.WithEnviron(test.environ))
-		layer, ok := result.RemoteLayer(test.want)
+		layer, ok := result.Remote(test.want)
 		if !ok {
-			t.Fatalf("%v gave Remote = %#v", test.environ, result.Remote)
+			t.Fatalf("%v gave Remote = %#v", test.environ, result.Remotes)
 		}
 		if layer.SessionID != test.sessionID {
 			t.Fatalf("%q SessionID = %q, want %q", test.want, layer.SessionID, test.sessionID)
@@ -46,8 +46,8 @@ func TestRemoteZellijMarkerIsNotABoolean(t *testing.T) {
 	// yields false, which would silently lose the detection inside a real
 	// session, so detection must key on presence.
 	result := runby.Detect(runby.WithEnviron([]string{"ZELLIJ=0"}))
-	if !result.HasRemoteLayer(runby.RemoteZellij) {
-		t.Fatalf("ZELLIJ=0 not detected: %#v", result.Remote)
+	if _, ok := result.Remote(runby.RemoteZellij); !ok {
+		t.Fatalf("ZELLIJ=0 not detected: %#v", result.Remotes)
 	}
 	if runby.IsTrue(runby.EnvironEnv([]string{"ZELLIJ=0"}), "ZELLIJ") {
 		t.Fatal("IsTrue(ZELLIJ=0) = true; the test's premise is wrong")
@@ -58,10 +58,10 @@ func TestRemoteScreenWindowIsContextNotMarker(t *testing.T) {
 	// WINDOW is set unconditionally by Screen but is a very generic name that
 	// other software also uses, so it must never match on its own.
 	if got := runby.Detect(runby.WithEnviron([]string{"WINDOW=0"})); got.IsRemote() {
-		t.Fatalf("WINDOW alone detected: %#v", got.Remote)
+		t.Fatalf("WINDOW alone detected: %#v", got.Remotes)
 	}
 	result := runby.Detect(runby.WithEnviron([]string{"STY=1.pts-0.h", "WINDOW=2"}))
-	layer, _ := result.RemoteLayer(runby.RemoteScreen)
+	layer, _ := result.Remote(runby.RemoteScreen)
 	if layer.Extra["gnu-screen.window"] != "2" {
 		t.Fatalf("Extra = %#v", layer.Extra)
 	}
@@ -73,9 +73,9 @@ func TestRemoteSSH(t *testing.T) {
 		"SSH_CONNECTION=203.0.113.5 54321 198.51.100.9 22",
 		"SSH_TTY=/dev/pts/0",
 	}))
-	layer, ok := login.RemoteLayer(runby.RemoteSSH)
+	layer, ok := login.Remote(runby.RemoteSSH)
 	if !ok || layer.Kind != runby.RemoteKindEnvironment {
-		t.Fatalf("Remote = %#v", login.Remote)
+		t.Fatalf("Remote = %#v", login.Remotes)
 	}
 	if layer.Extra["openssh.tty"] != "/dev/pts/0" {
 		t.Fatalf("Extra = %#v", layer.Extra)
@@ -83,7 +83,7 @@ func TestRemoteSSH(t *testing.T) {
 
 	// `ssh host command` allocates no pty, so SSH_TTY is absent.
 	command := runby.Detect(runby.WithEnviron([]string{"SSH_CONNECTION=203.0.113.5 54321 198.51.100.9 22"}))
-	layer, _ = command.RemoteLayer(runby.RemoteSSH)
+	layer, _ = command.Remote(runby.RemoteSSH)
 	if _, ok := layer.Extra["openssh.tty"]; ok {
 		t.Fatalf("Extra = %#v, want no tty", layer.Extra)
 	}
@@ -96,8 +96,9 @@ func TestRemoteSSHAuthSockIsNotAMarker(t *testing.T) {
 		{"SSH_AUTH_SOCK=/tmp/ssh-XXXX/agent.1"},
 		{"SSH_AUTH_SOCK=/tmp/ssh-XXXX/agent.1", "SSH_AGENT_PID=123"},
 	} {
-		if got := runby.Detect(runby.WithEnviron(environ)); got.HasRemoteLayer(runby.RemoteSSH) {
-			t.Fatalf("Detect(%v) reported SSH: %#v", environ, got.Remote)
+		got := runby.Detect(runby.WithEnviron(environ))
+		if _, ok := got.Remote(runby.RemoteSSH); ok {
+			t.Fatalf("Detect(%v) reported SSH: %#v", environ, got.Remotes)
 		}
 	}
 }
@@ -108,9 +109,9 @@ func TestRemoteWSLIsProbable(t *testing.T) {
 		"WSL_INTEROP=/run/WSL/8_interop",
 		"WSLENV=WT_SESSION::WT_PROFILE_ID",
 	}))
-	layer, ok := result.RemoteLayer(runby.RemoteWSL)
+	layer, ok := result.Remote(runby.RemoteWSL)
 	if !ok || layer.SessionID != "Ubuntu" {
-		t.Fatalf("Remote = %#v", result.Remote)
+		t.Fatalf("Remote = %#v", result.Remotes)
 	}
 	// WSL_DISTRO_NAME is not a documented stable contract and is absent for
 	// root and systemd services, so presence never rises above probable.
@@ -118,7 +119,8 @@ func TestRemoteWSLIsProbable(t *testing.T) {
 		t.Fatalf("Confidence = %q, want %q", layer.Confidence, runby.ConfidenceProbable)
 	}
 	// Either marker alone is enough, since either can be absent.
-	if !runby.Detect(runby.WithEnviron([]string{"WSL_INTEROP=/run/WSL/1_interop"})).HasRemoteLayer(runby.RemoteWSL) {
+	interop := runby.Detect(runby.WithEnviron([]string{"WSL_INTEROP=/run/WSL/1_interop"}))
+	if _, ok := interop.Remote(runby.RemoteWSL); !ok {
 		t.Fatal("WSL_INTEROP alone not detected")
 	}
 }
@@ -133,9 +135,9 @@ func TestRemoteCodespacesIsNotCI(t *testing.T) {
 		"GITHUB_SERVER_URL=https://github.com",
 	}))
 
-	layer, ok := result.RemoteLayer(runby.RemoteCodespaces)
+	layer, ok := result.Remote(runby.RemoteCodespaces)
 	if !ok || layer.SessionID != "fluffy-space-parakeet" {
-		t.Fatalf("Remote = %#v", result.Remote)
+		t.Fatalf("Remote = %#v", result.Remotes)
 	}
 	if result.IsCI() {
 		t.Fatalf("IsCI() = true, want false: %#v", result.CI)
@@ -148,9 +150,9 @@ func TestRemoteGitpodIsNotCI(t *testing.T) {
 		"GITPOD_WORKSPACE_URL=https://example.gitpod.io",
 		"GITPOD_REPO_ROOT=/workspace/runby",
 	}))
-	layer, ok := result.RemoteLayer(runby.RemoteGitpod)
+	layer, ok := result.Remote(runby.RemoteGitpod)
 	if !ok || layer.SessionID != "ironpark-runby-abc123" {
-		t.Fatalf("Remote = %#v", result.Remote)
+		t.Fatalf("Remote = %#v", result.Remotes)
 	}
 	if result.IsCI() {
 		t.Fatalf("IsCI() = true, want false: %#v", result.CI)
@@ -163,9 +165,9 @@ func TestRemoteDevContainerIsProbable(t *testing.T) {
 	// convention, so neither can be definite.
 	for _, entry := range []string{"REMOTE_CONTAINERS=true", "DEVCONTAINER=true"} {
 		result := runby.Detect(runby.WithEnviron([]string{entry}))
-		layer, ok := result.RemoteLayer(runby.RemoteDevContainer)
+		layer, ok := result.Remote(runby.RemoteDevContainer)
 		if !ok {
-			t.Fatalf("%s not detected: %#v", entry, result.Remote)
+			t.Fatalf("%s not detected: %#v", entry, result.Remotes)
 		}
 		if layer.Confidence != runby.ConfidenceProbable {
 			t.Fatalf("%s gave Confidence = %q", entry, layer.Confidence)
@@ -184,12 +186,12 @@ func TestRemoteLayersCoexist(t *testing.T) {
 		"TERM_PROGRAM=ghostty",
 	}))
 
-	if len(result.Remote) != 3 {
-		t.Fatalf("len(Remote) = %d, want 3: %#v", len(result.Remote), result.Remote)
+	if len(result.Remotes) != 3 {
+		t.Fatalf("len(Remote) = %d, want 3: %#v", len(result.Remotes), result.Remotes)
 	}
 	for _, want := range []runby.RemotePlatform{runby.RemoteTmux, runby.RemoteSSH, runby.RemoteCodespaces} {
-		if !result.HasRemoteLayer(want) {
-			t.Fatalf("missing %q: %#v", want, result.Remote)
+		if _, ok := result.Remote(want); !ok {
+			t.Fatalf("missing %q: %#v", want, result.Remotes)
 		}
 	}
 	// The multiplexer is what downgrades the terminal, not the other layers.
@@ -213,8 +215,8 @@ func TestRemoteSSHAloneDoesNotDowngradeTerminal(t *testing.T) {
 	if result.Terminal.Confidence != runby.ConfidenceDefinite {
 		t.Fatalf("Confidence = %q, want %q", result.Terminal.Confidence, runby.ConfidenceDefinite)
 	}
-	if !result.HasRemoteLayer(runby.RemoteSSH) {
-		t.Fatalf("Remote = %#v", result.Remote)
+	if _, ok := result.Remote(runby.RemoteSSH); !ok {
+		t.Fatalf("Remote = %#v", result.Remotes)
 	}
 }
 
@@ -224,7 +226,7 @@ func TestRemoteEvidenceIsNamesOnly(t *testing.T) {
 		"SSH_TTY=/dev/pts/0",
 		"SSH_AUTH_SOCK=/tmp/agent.1",
 	}))
-	layer, _ := result.RemoteLayer(runby.RemoteSSH)
+	layer, _ := result.Remote(runby.RemoteSSH)
 	want := []string{"SSH_CONNECTION", "SSH_TTY"}
 	if !reflect.DeepEqual(layer.Evidence, want) {
 		t.Fatalf("Evidence = %#v, want %#v", layer.Evidence, want)
@@ -247,9 +249,9 @@ func TestCustomRemoteDriverIsReported(t *testing.T) {
 		runby.WithEnviron([]string{"ACME_VPN_SESSION=v-1", "TMUX=/tmp/t,1,0"}),
 		runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), driver)...),
 	)
-	layer, ok := result.RemoteLayer("acme-vpn")
+	layer, ok := result.Remote("acme-vpn")
 	if !ok || layer.SessionID != "v-1" || layer.Confidence != runby.ConfidenceDefinite {
-		t.Fatalf("Remote = %#v", result.Remote)
+		t.Fatalf("Remote = %#v", result.Remotes)
 	}
 	// A driver that names no Kind must not be mistaken for a multiplexer.
 	if layer.Kind != runby.RemoteKindUnknown || layer.IsMultiplexer() {
@@ -261,7 +263,7 @@ func TestCustomRemoteDriverIsReported(t *testing.T) {
 
 	disabled := runby.Detect(runby.WithEnviron([]string{"TMUX=/tmp/t,1,0"}), runby.WithOnlyDrivers())
 	if disabled.IsRemote() {
-		t.Fatalf("Remote = %#v, want detection disabled", disabled.Remote)
+		t.Fatalf("Remote = %#v, want detection disabled", disabled.Remotes)
 	}
 }
 
@@ -289,15 +291,15 @@ func TestRemoteMoshAndContainersAreNotDetectable(t *testing.T) {
 	// session is therefore indistinguishable from a plain login.
 	mosh := runby.Detect(runby.WithEnviron([]string{"TERM=xterm-256color"}))
 	if mosh.IsRemote() {
-		t.Fatalf("Remote = %#v, want empty", mosh.Remote)
+		t.Fatalf("Remote = %#v, want empty", mosh.Remotes)
 	}
 
 	// SSH_CONNECTION does survive into a Mosh session, but it describes the
 	// short-lived bootstrap connection rather than the live UDP one. It is
 	// still reported as SSH, which is the honest reading of the evidence.
 	bootstrap := runby.Detect(runby.WithEnviron([]string{"SSH_CONNECTION=203.0.113.5 1 198.51.100.9 22"}))
-	if !bootstrap.HasRemoteLayer(runby.RemoteSSH) {
-		t.Fatalf("Remote = %#v", bootstrap.Remote)
+	if _, ok := bootstrap.Remote(runby.RemoteSSH); !ok {
+		t.Fatalf("Remote = %#v", bootstrap.Remotes)
 	}
 
 	// Docker and Podman set no identifying variable, so a bare container is
@@ -305,6 +307,6 @@ func TestRemoteMoshAndContainersAreNotDetectable(t *testing.T) {
 	// heuristic, not evidence, and is deliberately not used.
 	container := runby.Detect(runby.WithEnviron([]string{"HOSTNAME=3f2a1b9c4d5e"}))
 	if container.IsRemote() {
-		t.Fatalf("Remote = %#v, want empty", container.Remote)
+		t.Fatalf("Remote = %#v, want empty", container.Remotes)
 	}
 }

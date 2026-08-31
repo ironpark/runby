@@ -1,7 +1,7 @@
 package runby
 
-// Detection is one agent layer detected in an environment.
-type Detection struct {
+// Layer is one agent layer detected in an environment.
+type Layer struct {
 	Agent Agent `json:"agent"`
 	// Kind, Models, and Level classify the product rather than this run. Kind
 	// is what it drives, Models is whose intelligence is behind it, and Level
@@ -59,7 +59,7 @@ type Result struct {
 	// Layers holds every detected agent, ordered from the most specific
 	// orchestrator to the underlying runtime. It is empty when nothing was
 	// detected.
-	Layers []Detection `json:"layers"`
+	Layers []Layer `json:"layers"`
 	// TTY is the process-level standard stream status. It is present even
 	// when Layers is empty; see TTY.Inspected. It is the only field derived
 	// from system calls rather than from the environment.
@@ -77,32 +77,36 @@ type Result struct {
 	// derived from the environment, and the only one that can distinguish a
 	// live ancestor from a marker left behind by one that has exited.
 	Process ProcessTree `json:"process"`
-	// Runner holds every tool that ran this process: a package manager
+	// Runners holds every tool that ran this process: a package manager
 	// script, a build recipe, a service manager. It is the half of "what
-	// launched this" that the other axes leave out, and like Remote more than
+	// launched this" that the other axes leave out, and like Remotes more than
 	// one can be present at once. See Runner for what it cannot detect.
-	Runner []Runner `json:"runner"`
-	// Remote holds every layer detected between the user and this process:
+	Runners []Runner `json:"runners"`
+	// Remotes holds every layer detected between the user and this process:
 	// multiplexers, SSH, and remote or isolated environments. More than one
 	// can be present at once, and the order is a detection order rather than
 	// a nesting order. See Remote for what a layer here implies about the
 	// other axes.
-	Remote []Remote `json:"remote"`
+	Remotes []Remote `json:"remotes"`
 }
 
 // IsAgent reports whether any supported agent was detected, answering "was
 // this launched by an AI agent". Terminal ownership is not agent evidence and
 // is reported on the Terminal axis instead.
 //
-// It, IsCI, HasTerminal, and IsRemote are the four axis predicates and are
-// named alike on purpose. The Layer and RemoteLayer accessors below answer the
-// different question of whether one named product is among the layers.
+// It, IsCI, HasTerminal, IsRemote, and HasRunner are the five axis predicates
+// and are named alike on purpose. Each answers "did this axis detect anything".
+// The Layer, Runner, and Remote accessors below answer the different question
+// of whether one named product is among what it detected; each returns the
+// value with an ok, so a bare existence check is the usual Go idiom:
+//
+//	if _, ok := result.Runner(runby.RunnerNPM); ok {
 func (r Result) IsAgent() bool { return len(r.Layers) > 0 }
 
 // Primary returns the most specific detected layer.
-func (r Result) Primary() (Detection, bool) {
+func (r Result) Primary() (Layer, bool) {
 	if len(r.Layers) == 0 {
-		return Detection{Agent: AgentUnknown, Kind: KindUnknown, Axis: Axis{Confidence: ConfidenceUnknown}}, false
+		return Layer{Agent: AgentUnknown, Kind: KindUnknown, Axis: Axis{Confidence: ConfidenceUnknown}}, false
 	}
 	return r.Layers[0], true
 }
@@ -154,20 +158,14 @@ func (r Result) AgentID() (string, Agent, bool) {
 	return "", AgentUnknown, false
 }
 
-// Layer returns the detected layer for agent.
-func (r Result) Layer(agent Agent) (Detection, bool) {
+// Layer returns the detected layer for agent, and whether it was detected.
+func (r Result) Layer(agent Agent) (Layer, bool) {
 	for _, layer := range r.Layers {
 		if layer.Agent == agent {
 			return layer, true
 		}
 	}
-	return Detection{}, false
-}
-
-// HasLayer reports whether agent is one of the detected layers.
-func (r Result) HasLayer(agent Agent) bool {
-	_, ok := r.Layer(agent)
-	return ok
+	return Layer{}, false
 }
 
 // IsCI reports whether this process is running in a CI job.
@@ -182,15 +180,15 @@ func (r Result) IsCI() bool { return r.CI.Detected }
 func (r Result) HasTerminal() bool { return r.Terminal.Detected }
 
 // IsRemote reports whether any layer sits between the user and this process.
-func (r Result) IsRemote() bool { return len(r.Remote) > 0 }
+func (r Result) IsRemote() bool { return len(r.Remotes) > 0 }
 
 // HasRunner reports whether a tool ran this process rather than a person
 // invoking it directly. It is named for the axis, like the other predicates.
-func (r Result) HasRunner() bool { return len(r.Runner) > 0 }
+func (r Result) HasRunner() bool { return len(r.Runners) > 0 }
 
-// RunnerBy returns the detected runner for tool.
-func (r Result) RunnerBy(tool RunnerTool) (Runner, bool) {
-	for _, runner := range r.Runner {
+// Runner returns the detected runner for tool, and whether it was detected.
+func (r Result) Runner(tool RunnerTool) (Runner, bool) {
+	for _, runner := range r.Runners {
 		if runner.Tool == tool {
 			return runner, true
 		}
@@ -198,17 +196,11 @@ func (r Result) RunnerBy(tool RunnerTool) (Runner, bool) {
 	return Runner{}, false
 }
 
-// HasRunnerBy reports whether tool is one of the detected runners.
-func (r Result) HasRunnerBy(tool RunnerTool) bool {
-	_, ok := r.RunnerBy(tool)
-	return ok
-}
-
 // RunnerOfKind returns the first detected runner of kind. Use it to ask the
 // question a kind exists for, such as whether a service manager started this
 // and so nobody is watching the output.
 func (r Result) RunnerOfKind(kind RunnerKind) (Runner, bool) {
-	for _, runner := range r.Runner {
+	for _, runner := range r.Runners {
 		if runner.Kind == kind {
 			return runner, true
 		}
@@ -216,9 +208,9 @@ func (r Result) RunnerOfKind(kind RunnerKind) (Runner, bool) {
 	return Runner{}, false
 }
 
-// RemoteLayer returns the detected layer for platform.
-func (r Result) RemoteLayer(platform RemotePlatform) (Remote, bool) {
-	for _, layer := range r.Remote {
+// Remote returns the detected layer for platform, and whether it was detected.
+func (r Result) Remote(platform RemotePlatform) (Remote, bool) {
+	for _, layer := range r.Remotes {
 		if layer.Platform == platform {
 			return layer, true
 		}
@@ -226,18 +218,12 @@ func (r Result) RemoteLayer(platform RemotePlatform) (Remote, bool) {
 	return Remote{}, false
 }
 
-// HasRemoteLayer reports whether platform is one of the detected layers.
-func (r Result) HasRemoteLayer(platform RemotePlatform) bool {
-	_, ok := r.RemoteLayer(platform)
-	return ok
-}
-
 // Multiplexer returns the detected terminal multiplexer. A multiplexer server
 // keeps the environment of whichever client started it and cannot refresh an
 // already running pane, so its presence means every other axis may be
 // reporting evidence left by a session that has since ended.
 func (r Result) Multiplexer() (Remote, bool) {
-	for _, layer := range r.Remote {
+	for _, layer := range r.Remotes {
 		if layer.IsMultiplexer() {
 			return layer, true
 		}

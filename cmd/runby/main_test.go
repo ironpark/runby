@@ -123,7 +123,7 @@ func TestVerboseAddsEvidenceNamesAndNeverValues(t *testing.T) {
 	}
 	names = append(names, result.CI.Evidence...)
 	names = append(names, result.Terminal.Evidence...)
-	for _, layer := range result.Remote {
+	for _, layer := range result.Remotes {
 		names = append(names, layer.Evidence...)
 	}
 

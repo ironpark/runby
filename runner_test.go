@@ -17,8 +17,8 @@ const (
 
 func TestNoRunner(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron(nil))
-	if result.HasRunner() || len(result.Runner) != 0 {
-		t.Errorf("empty environment reported %v", result.Runner)
+	if result.HasRunner() || len(result.Runners) != 0 {
+		t.Errorf("empty environment reported %v", result.Runners)
 	}
 }
 
@@ -51,10 +51,10 @@ func TestNPMFamilyToldApartByUserAgent(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			result := runby.Detect(runby.WithEnviron(test.environ))
-			if len(result.Runner) != 1 {
-				t.Fatalf("got %d runners, want 1: %v", len(result.Runner), result.Runner)
+			if len(result.Runners) != 1 {
+				t.Fatalf("got %d runners, want 1: %v", len(result.Runners), result.Runners)
 			}
-			runner := result.Runner[0]
+			runner := result.Runners[0]
 			if runner.Tool != test.want {
 				t.Errorf("tool = %s, want %s", runner.Tool, test.want)
 			}
@@ -64,8 +64,8 @@ func TestNPMFamilyToldApartByUserAgent(t *testing.T) {
 			if runner.Task != "test" {
 				t.Errorf("task = %q, want test", runner.Task)
 			}
-			if !result.HasRunnerBy(test.want) {
-				t.Errorf("HasRunnerBy(%s) = false", test.want)
+			if _, ok := result.Runner(test.want); !ok {
+				t.Errorf("Runner(%s) not found", test.want)
 			}
 		})
 	}
@@ -76,7 +76,7 @@ func TestNPMFamilyToldApartByUserAgent(t *testing.T) {
 func TestLifecycleEventIsNeverAMarker(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron([]string{"npm_lifecycle_event=test", "INIT_CWD=/w"}))
 	if result.HasRunner() {
-		t.Errorf("npm_lifecycle_event alone detected %v", result.Runner)
+		t.Errorf("npm_lifecycle_event alone detected %v", result.Runners)
 	}
 }
 
@@ -90,10 +90,10 @@ func TestLifecycleScriptIsNeverEvidence(t *testing.T) {
 		"npm_lifecycle_event=deploy",
 		"npm_lifecycle_script=deploy --token=SECRET",
 	}))
-	if len(result.Runner) != 1 {
-		t.Fatalf("got %d runners, want 1", len(result.Runner))
+	if len(result.Runners) != 1 {
+		t.Fatalf("got %d runners, want 1", len(result.Runners))
 	}
-	runner := result.Runner[0]
+	runner := result.Runners[0]
 	for _, name := range runner.Evidence {
 		if name == "npm_lifecycle_script" {
 			t.Error("npm_lifecycle_script was named as evidence")
@@ -112,7 +112,7 @@ func TestLifecycleScriptIsNeverEvidence(t *testing.T) {
 func TestMakeUsesLevelNotFlags(t *testing.T) {
 	// Observed: a top-level recipe sees MAKELEVEL=1 and MAKEFLAGS empty.
 	recipe := runby.Detect(runby.WithEnviron([]string{"MAKELEVEL=1", "MAKEFLAGS="}))
-	runner, ok := recipe.RunnerBy(runby.RunnerMake)
+	runner, ok := recipe.Runner(runby.RunnerMake)
 	if !ok {
 		t.Fatal("a make recipe was not detected")
 	}
@@ -130,13 +130,13 @@ func TestMakeUsesLevelNotFlags(t *testing.T) {
 
 	// A sub-make recipe carries a deeper level and real flags.
 	sub := runby.Detect(runby.WithEnviron([]string{"MAKELEVEL=2", "MAKEFLAGS= --no-print-directory"}))
-	if got, _ := sub.RunnerBy(runby.RunnerMake); got.Extra["gnu-make.level"] != "2" {
+	if got, _ := sub.Runner(runby.RunnerMake); got.Extra["gnu-make.level"] != "2" {
 		t.Errorf("sub-make level = %q, want 2", got.Extra["gnu-make.level"])
 	}
 
 	// MAKEFLAGS alone must not detect make, since it is empty in the common case.
 	if flags := runby.Detect(runby.WithEnviron([]string{"MAKEFLAGS= -j2"})); flags.HasRunner() {
-		t.Errorf("MAKEFLAGS alone detected %v", flags.Runner)
+		t.Errorf("MAKEFLAGS alone detected %v", flags.Runners)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestSystemdService(t *testing.T) {
 		"INVOCATION_ID=cc8fdc149b2b4ca698d4f259f4054236",
 		"JOURNAL_STREAM=8:1234",
 	}))
-	runner, ok := result.RunnerBy(runby.RunnerSystemd)
+	runner, ok := result.Runner(runby.RunnerSystemd)
 	if !ok {
 		t.Fatal("a systemd unit was not detected")
 	}
@@ -159,7 +159,7 @@ func TestSystemdService(t *testing.T) {
 	// systemd itself warns that JOURNAL_STREAM being set is not sufficient to
 	// conclude anything, so it must never decide on its own.
 	if only := runby.Detect(runby.WithEnviron([]string{"JOURNAL_STREAM=8:1234"})); only.HasRunner() {
-		t.Errorf("JOURNAL_STREAM alone detected %v", only.Runner)
+		t.Errorf("JOURNAL_STREAM alone detected %v", only.Runners)
 	}
 
 	// A service is the one kind that answers "is anybody watching".
@@ -170,7 +170,7 @@ func TestSystemdService(t *testing.T) {
 
 func TestPreCommitHook(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron([]string{"PRE_COMMIT=1"}))
-	runner, ok := result.RunnerBy(runby.RunnerPreCommit)
+	runner, ok := result.Runner(runby.RunnerPreCommit)
 	if !ok {
 		t.Fatal("pre-commit was not detected")
 	}
@@ -181,7 +181,7 @@ func TestPreCommitHook(t *testing.T) {
 	// SKIP is an input pre-commit reads rather than sets, and the name is far
 	// too generic to be evidence of anything.
 	if skip := runby.Detect(runby.WithEnviron([]string{"SKIP=flake8"})); skip.HasRunner() {
-		t.Errorf("SKIP alone detected %v", skip.Runner)
+		t.Errorf("SKIP alone detected %v", skip.Runners)
 	}
 }
 
@@ -225,7 +225,7 @@ func TestGitHooksAreNotDetected(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if result := runby.Detect(runby.WithEnviron(test.environ)); result.HasRunner() {
-				t.Errorf("GIT_* variables detected %v", result.Runner)
+				t.Errorf("GIT_* variables detected %v", result.Runners)
 			}
 		})
 	}
@@ -241,11 +241,11 @@ func TestRunnersNest(t *testing.T) {
 		"npm_lifecycle_event=lint",
 		"MAKELEVEL=1",
 	}))
-	if len(result.Runner) != 3 {
-		t.Fatalf("got %d runners, want 3: %v", len(result.Runner), result.Runner)
+	if len(result.Runners) != 3 {
+		t.Fatalf("got %d runners, want 3: %v", len(result.Runners), result.Runners)
 	}
 	for _, tool := range []runby.RunnerTool{runby.RunnerNPM, runby.RunnerMake, runby.RunnerPreCommit} {
-		if !result.HasRunnerBy(tool) {
+		if _, ok := result.Runner(tool); !ok {
 			t.Errorf("%s was not among the layers", tool)
 		}
 	}
@@ -281,7 +281,7 @@ func TestRunnerIsIndependentOfCIAndTTY(t *testing.T) {
 	if !inCI.IsCI() {
 		t.Error("CI was not detected alongside the runner")
 	}
-	if !inCI.HasRunnerBy(runby.RunnerNPM) {
+	if _, ok := inCI.Runner(runby.RunnerNPM); !ok {
 		t.Error("the runner was not detected alongside CI")
 	}
 }
@@ -304,7 +304,7 @@ func TestCustomRunnerDriver(t *testing.T) {
 		},
 	}
 	result := runby.Detect(runby.WithEnviron([]string{"ACME_TASK=build"}), runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), acme)...))
-	runner, ok := result.RunnerBy("acme-task")
+	runner, ok := result.Runner("acme-task")
 	if !ok {
 		t.Fatal("the custom driver did not match")
 	}
@@ -319,13 +319,13 @@ func TestCustomRunnerDriver(t *testing.T) {
 		},
 	}
 	only := runby.Detect(runby.WithEnviron(nil), runby.WithOnlyDrivers(bare))
-	if len(only.Runner) != 1 || only.Runner[0].Kind != runby.RunnerKindUnknown {
-		t.Errorf("an undeclared kind did not default to unknown: %v", only.Runner)
+	if len(only.Runners) != 1 || only.Runners[0].Kind != runby.RunnerKindUnknown {
+		t.Errorf("an undeclared kind did not default to unknown: %v", only.Runners)
 	}
 
 	// Passing no drivers disables the axis.
 	off := runby.Detect(runby.WithEnviron([]string{"MAKELEVEL=1"}), runby.WithOnlyDrivers())
 	if off.HasRunner() {
-		t.Errorf("WithOnlyDrivers() left the axis on: %v", off.Runner)
+		t.Errorf("WithOnlyDrivers() left the axis on: %v", off.Runners)
 	}
 }

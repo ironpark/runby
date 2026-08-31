@@ -90,13 +90,13 @@ runby -json | jq '{chain: [.layers[].agent] | join(">"), ci: .ci.provider, tty: 
 
 `is`의 각 축은 라이브러리의 같은 판정 결과를 사용합니다.
 
-| CLI | 라이브러리 |
+| CLI | 라이브러리 (`result := runby.Current()`) |
 |---|---|
-| `runby is agent` | `runby.IsAgent()` |
-| `runby is runner` | `runby.HasRunner()` |
-| `runby is ci` | `runby.IsCI()` |
-| `runby is terminal` | `runby.HasTerminal()` |
-| `runby is remote` | `runby.IsRemote()` |
-| `runby is tty` | `runby.Current().TTY.Interactive` |
+| `runby is agent` | `result.IsAgent()` |
+| `runby is runner` | `result.HasRunner()` |
+| `runby is ci` | `result.IsCI()` |
+| `runby is terminal` | `result.HasTerminal()` |
+| `runby is remote` | `result.IsRemote()` |
+| `runby is tty` | `result.TTY.Interactive` |
 
 CLI가 별도의 판단을 갖지 않는다는 사실은 테스트로 고정되어 있습니다.

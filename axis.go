@@ -6,7 +6,7 @@ package runby
 //
 // It is embedded rather than repeated so that the shared defaults are applied
 // in one place, and so that a driver on any axis fills the same three fields
-// the same way. Embedding keeps the serialized shape flat, so a Detection, CI,
+// the same way. Embedding keeps the serialized shape flat, so a Layer, CI,
 // Terminal, or Remote marshals to the same JSON it would without it.
 //
 // AncestorPID is deliberately not here. A CI run is a job on a runner rather

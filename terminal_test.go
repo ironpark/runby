@@ -232,8 +232,8 @@ func TestTerminalMultiplexerWithoutEmulatorIdentity(t *testing.T) {
 	if result.HasTerminal() {
 		t.Fatalf("Terminal = %#v, want undetected", result.Terminal)
 	}
-	if !result.HasRemoteLayer(runby.RemoteTmux) {
-		t.Fatalf("Remote = %#v", result.Remote)
+	if _, ok := result.Remote(runby.RemoteTmux); !ok {
+		t.Fatalf("Remote = %#v", result.Remotes)
 	}
 }
 

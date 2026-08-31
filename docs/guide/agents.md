@@ -9,7 +9,7 @@ result := runby.Detect()
 result.IsAgent()               // AI 에이전트가 실행했는가
 result.Chain()                 // "paseo>codex", 감지 실패 시 "unknown"
 result.Agent()                 // 최상위 레이어의 Agent
-result.Layer(runby.AgentCodex) // (Detection, bool)
+result.Layer(runby.AgentCodex) // (Layer, bool)
 ```
 
 API 키와 일반 설정 변수는 에이전트가 프로세스를 실행했다는 증거가 아니므로 감지에 사용하지 않습니다.
@@ -108,12 +108,12 @@ acme := runby.AgentDriver{
 	Agent:       "acme-orchestrator",
 	Kind:        runby.KindOrchestrator,
 	Executables: []string{"acme-run"},
-	Detect: func(env runby.Env) (runby.Detection, bool) {
+	Detect: func(env runby.Env) (runby.Layer, bool) {
 		id, ok := runby.Value(env, "ACME_RUN_ID")
 		if !ok {
-			return runby.Detection{}, false
+			return runby.Layer{}, false
 		}
-		return runby.Detection{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
+		return runby.Layer{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
 	},
 }
 

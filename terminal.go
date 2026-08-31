@@ -102,7 +102,7 @@ type Terminal struct {
 
 	// AncestorPID is the PID of a running ancestor process whose executable
 	// belongs to this terminal, or 0 when none was found. As with
-	// Detection.AncestorPID, a non-zero value confirms the environment
+	// Layer.AncestorPID, a non-zero value confirms the environment
 	// evidence against a live process, and zero is not a denial.
 	AncestorPID int `json:"ancestor_pid,omitempty"`
 }

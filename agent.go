@@ -128,13 +128,13 @@ func level(kind Kind, models ModelSource) Level {
 // there is nothing to keep in sync elsewhere.
 type AgentDriver struct {
 	// Agent identifies the agent this driver reports. Detect fills it into
-	// every Detection the driver returns, so Detect need not repeat it.
+	// every Layer the driver returns, so Detect need not repeat it.
 	Agent Agent
 	// Kind is how much a detection of this agent proves. Detect fills it in
 	// the same way, and Agent.Kind answers it for the built-in agents.
 	Kind Kind
 	// Models is where this agent's intelligence comes from. Detect fills it
-	// in too, and derives Detection.Level from it and Kind together, so a
+	// in too, and derives Layer.Level from it and Kind together, so a
 	// custom agent is placed on the ladder by the same rule as a built-in one.
 	Models ModelSource
 	// Executables names the binaries this agent runs as, so that a live
@@ -146,7 +146,7 @@ type AgentDriver struct {
 	// evidence of this agent. It must not retain env. Agent, Kind, Models,
 	// Level, and a missing Confidence are filled in by Detect, so an
 	// implementation sets only what its agent actually advertises.
-	Detect func(env Env) (Detection, bool)
+	Detect func(env Env) (Layer, bool)
 }
 
 // agentKinds is derived from the built-in driver table, so a driver is the one
@@ -163,7 +163,7 @@ var agentModels = indexBy(builtinAgentDrivers, func(d AgentDriver) (Agent, Model
 // Kind reports how much a detection of a proves. It answers for the built-in
 // agents and for those added through Register, and returns KindUnknown for
 // anything else — including a driver passed to a single Detect call through
-// WithOnlyDrivers, which is not visible outside that call. Detection.Kind
+// WithOnlyDrivers, which is not visible outside that call. Layer.Kind
 // always carries the driver's own answer.
 func (a Agent) Kind() Kind {
 	if kind, ok := agentKinds[a]; ok {

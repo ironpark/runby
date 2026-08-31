@@ -1,4 +1,4 @@
-# 실행 주체 축 (`Result.Runner`)
+# 실행 주체 축 (`Result.Runners`)
 
 **무엇이 이 프로세스를 직접 실행했는가** — 패키지 매니저 스크립트인가, 빌드 레시피인가, 서비스 관리자인가.
 
@@ -7,8 +7,7 @@
 ```go
 result := runby.Detect()
 result.HasRunner()                          // 도구가 실행했는가
-result.RunnerBy(runby.RunnerNPM)            // (Runner, bool)
-result.HasRunnerBy(runby.RunnerMake)        // bool
+result.Runner(runby.RunnerNPM)              // (Runner, bool)
 result.RunnerOfKind(runby.RunnerKindService) // (Runner, bool) — 데몬인가
 ```
 
@@ -48,7 +47,7 @@ result.RunnerOfKind(runby.RunnerKindService) // (Runner, bool) — 데몬인가
 remote 축처럼 슬라이스입니다. pre-commit 훅이 npm 스크립트를 부르고 그 스크립트가 make를 부르는 것은 흔한 구성이고, 세 계층이 모두 참입니다.
 
 ```go
-for _, r := range result.Runner {
+for _, r := range result.Runners {
 	log.Printf("%s (%s) %s", r.Tool, r.Kind, r.Task)
 }
 // npm (script) lint
@@ -60,7 +59,7 @@ for _, r := range result.Runner {
 
 ## CI 축과 독립입니다
 
-CI 잡 안에서 `npm test`를 돌리면 두 축이 함께 잡힙니다. `CI`는 "어디서 도는가", `Runner`는 "무엇이 직접 실행했는가"로 서로 다른 질문입니다.
+CI 잡 안에서 `npm test`를 돌리면 두 축이 함께 잡힙니다. `CI`는 "어디서 도는가", `Runners`는 "무엇이 직접 실행했는가"로 서로 다른 질문입니다.
 
 ## 감지할 수 없는 것
 

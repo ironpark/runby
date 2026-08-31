@@ -82,8 +82,8 @@ result := runby.Current()
 result.Chain()                              // "paseo>codex"
 result.CI.Provider                         // "github-actions"
 result.Terminal.Program                    // "ghostty"
-result.HasRemoteLayer(runby.RemoteTmux)
-result.HasRunnerBy(runby.RunnerNPM)
+result.Remote(runby.RemoteTmux)            // (Remote, bool)
+result.Runner(runby.RunnerNPM)             // (Runner, bool)
 ```
 
 특정 에이전트가 감지됐을 때만 그 제품의 필드를 읽을 수 있습니다.

@@ -188,9 +188,9 @@ func report(w io.Writer, result runby.Result, verbose bool) {
 	if !result.IsRemote() {
 		line("remote", "-", nil)
 	} else {
-		parts := make([]string, 0, len(result.Remote))
+		parts := make([]string, 0, len(result.Remotes))
 		var evidence []string
-		for _, layer := range result.Remote {
+		for _, layer := range result.Remotes {
 			parts = append(parts, fmt.Sprintf("%s (%s)", layer.Platform, layer.Kind))
 			evidence = append(evidence, layer.Evidence...)
 		}
@@ -201,9 +201,9 @@ func report(w io.Writer, result runby.Result, verbose bool) {
 	if !result.HasRunner() {
 		line("runner", "-", nil)
 	} else {
-		parts := make([]string, 0, len(result.Runner))
+		parts := make([]string, 0, len(result.Runners))
 		var evidence []string
-		for _, r := range result.Runner {
+		for _, r := range result.Runners {
 			part := fmt.Sprintf("%s (%s)", r.Tool, r.Kind)
 			if r.Task != "" {
 				part += " " + r.Task

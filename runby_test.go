@@ -132,8 +132,10 @@ func TestDetectLayers(t *testing.T) {
 	if codex.Extra["codex.ci"] != "true" {
 		t.Fatalf("Extra = %#v", codex.Extra)
 	}
-	if !result.HasLayer(runby.AgentCodex) || result.HasLayer(runby.AgentAmp) {
-		t.Fatalf("Has is inconsistent: %#v", result.Layers)
+	_, hasCodex := result.Layer(runby.AgentCodex)
+	_, hasAmp := result.Layer(runby.AgentAmp)
+	if !hasCodex || hasAmp {
+		t.Fatalf("Layer lookup is inconsistent: %#v", result.Layers)
 	}
 }
 
@@ -180,7 +182,8 @@ func TestClaudeCodeDetection(t *testing.T) {
 }
 
 func TestClaudeCodeAIAgentIsEvidenceOnlyWhenItNamesClaudeCode(t *testing.T) {
-	if got := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=claude-code/2.0"})); !got.HasLayer(runby.AgentClaudeCode) {
+	got := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=claude-code/2.0"}))
+	if _, ok := got.Layer(runby.AgentClaudeCode); !ok {
 		t.Fatalf("AI_AGENT=claude-code not detected: %#v", got.Layers)
 	}
 	if got := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=some-other-agent"})); got.IsAgent() {
@@ -284,12 +287,12 @@ func TestCustomAgentDriverReplacesABuiltin(t *testing.T) {
 	driver := runby.AgentDriver{
 		Agent: inHouse,
 		Kind:  runby.KindOrchestrator,
-		Detect: func(env runby.Env) (runby.Detection, bool) {
+		Detect: func(env runby.Env) (runby.Layer, bool) {
 			id, ok := runby.Value(env, "ACME_RUN_ID")
 			if !ok {
-				return runby.Detection{}, false
+				return runby.Layer{}, false
 			}
-			return runby.Detection{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
+			return runby.Layer{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
 		},
 	}
 
@@ -334,9 +337,6 @@ func TestAgentsAndKinds(t *testing.T) {
 func TestCurrentIsCached(t *testing.T) {
 	if !reflect.DeepEqual(runby.Current(), runby.Current()) {
 		t.Fatal("Current() is not stable")
-	}
-	if runby.IsAgent() != runby.Current().IsAgent() {
-		t.Fatal("IsAgent() disagrees with Current()")
 	}
 }
 
@@ -388,11 +388,11 @@ func TestLevelDerivedForCustomDrivers(t *testing.T) {
 				Agent:  "acme",
 				Kind:   test.kind,
 				Models: test.models,
-				Detect: func(env runby.Env) (runby.Detection, bool) {
+				Detect: func(env runby.Env) (runby.Layer, bool) {
 					if _, ok := runby.Value(env, "ACME"); !ok {
-						return runby.Detection{}, false
+						return runby.Layer{}, false
 					}
-					return runby.Detection{Axis: runby.Axis{Evidence: []string{"ACME"}}}, true
+					return runby.Layer{Axis: runby.Axis{Evidence: []string{"ACME"}}}, true
 				},
 			}
 			result := runby.Detect(
@@ -407,7 +407,7 @@ func TestLevelDerivedForCustomDrivers(t *testing.T) {
 				t.Errorf("Level = %s, want %s", layer.Level, test.want)
 			}
 			// An undeclared axis must read as unknown rather than empty, so a
-			// serialized Detection never carries a blank classification.
+			// serialized Layer never carries a blank classification.
 			if test.kind == "" && layer.Kind != runby.KindUnknown {
 				t.Errorf("Kind = %q, want %s", layer.Kind, runby.KindUnknown)
 			}
