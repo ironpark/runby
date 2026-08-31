@@ -521,3 +521,49 @@ func TestOpenCodeGeneralMarker(t *testing.T) {
 		})
 	}
 }
+
+// TestSessionAndAgentIDAcrossLayers pins the reason the two accessors walk the
+// layers and report which agent answered: in a Paseo>Codex stack the
+// orchestrator names the agent and the harness names the session, and in an
+// Orca>Codex stack two layers carry a session at once.
+func TestSessionAndAgentIDAcrossLayers(t *testing.T) {
+	result := runby.Detect(runby.WithEnviron([]string{
+		"PASEO_AGENT_ID=reviewer",
+		"CODEX_THREAD_ID=thread-123",
+	}))
+
+	sessionID, sessionAgent, ok := result.SessionID()
+	if !ok || sessionID != "thread-123" || sessionAgent != runby.AgentCodex {
+		t.Fatalf("SessionID() = %q, %q, %v, want the harness thread", sessionID, sessionAgent, ok)
+	}
+	agentID, agentSource, ok := result.AgentID()
+	if !ok || agentID != "reviewer" || agentSource != runby.AgentPaseo {
+		t.Fatalf("AgentID() = %q, %q, %v, want the orchestrator agent", agentID, agentSource, ok)
+	}
+
+	// Two layers advertise a session here. The outermost wins, and the agent
+	// says which identifier the caller actually got.
+	nested := runby.Detect(runby.WithEnviron([]string{
+		"ORCA_PANE_KEY=pane-1",
+		"ORCA_TAB_ID=tab-1",
+		"CODEX_THREAD_ID=thread-123",
+	}))
+	sessionID, sessionAgent, ok = nested.SessionID()
+	if !ok || sessionID != "pane-1" || sessionAgent != runby.AgentOrca {
+		t.Fatalf("SessionID() = %q, %q, %v, want the outermost layer", sessionID, sessionAgent, ok)
+	}
+	if codex, found := nested.Layer(runby.AgentCodex); !found || codex.SessionID != "thread-123" {
+		t.Fatalf("the inner session is still reachable per layer: %#v", codex)
+	}
+	if agentID, agentSource, ok = nested.AgentID(); ok || agentID != "" || agentSource != runby.AgentUnknown {
+		t.Fatalf("AgentID() = %q, %q, %v, want empty when no layer advertises one", agentID, agentSource, ok)
+	}
+
+	none := runby.Detect(runby.WithEnviron(nil))
+	if _, _, ok := none.SessionID(); ok {
+		t.Fatal("SessionID() reported a session with no agent detected")
+	}
+	if _, _, ok := none.AgentID(); ok {
+		t.Fatal("AgentID() reported an agent id with no agent detected")
+	}
+}

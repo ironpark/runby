@@ -78,6 +78,9 @@ result.RunnerBy(runby.RunnerNPM)       // (Runner, bool)
 result.HasRunnerBy(runby.RunnerMake)   // bool
 result.RunnerOfKind(runby.RunnerKindService) // (Runner, bool) — 데몬인가
 
+result.SessionID()                     // (string, Agent, bool) — 값과 그 값을 광고한 에이전트
+result.AgentID()                       // (string, Agent, bool) — 논리적 에이전트 식별자, 같은 방식
+
 result.Agent()                         // 최상위 레이어의 Agent, 없으면 AgentUnknown
 result.Primary()                       // (Detection, bool)
 result.Chain()                         // "paseo>codex", 감지 실패 시 "unknown"

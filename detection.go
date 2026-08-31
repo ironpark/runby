@@ -113,6 +113,47 @@ func (r Result) Agent() Agent {
 	return primary.Agent
 }
 
+// SessionID returns the conversation or thread identifier of the outermost
+// layer that advertised one, the agent that advertised it, and false when no
+// layer did.
+//
+// The agent comes back with the value because more than one layer can carry a
+// session at once — Orca stamps a pane key and the Codex it hosts stamps a
+// thread — and the identifiers are not interchangeable. Returning the agent
+// keeps a caller from logging two products' identifiers into one field that
+// claims to hold one thing, and keeps the meaning of that field stable as
+// drivers are added.
+//
+// It is not read off Primary alone for the same reason. An orchestrator often
+// names the logical agent rather than the conversation — Paseo sets an AgentID
+// and no session — while the harness it drives carries the session. Walking
+// outermost first gives the most specific identifier that exists without the
+// caller having to know which layer of a stack publishes it. Read
+// Layer(agent).SessionID when the question is about one named product, and
+// range over Layers when every identifier is wanted.
+func (r Result) SessionID() (string, Agent, bool) {
+	for _, layer := range r.Layers {
+		if layer.SessionID != "" {
+			return layer.SessionID, layer.Agent, true
+		}
+	}
+	return "", AgentUnknown, false
+}
+
+// AgentID returns the logical agent identifier of the outermost layer that
+// advertised one, the agent that advertised it, and false when no layer did.
+// It is the counterpart to SessionID and resolves layers the same way; an agent
+// identifier is stable across the sessions that agent runs, so the two answer
+// different questions and neither substitutes for the other.
+func (r Result) AgentID() (string, Agent, bool) {
+	for _, layer := range r.Layers {
+		if layer.AgentID != "" {
+			return layer.AgentID, layer.Agent, true
+		}
+	}
+	return "", AgentUnknown, false
+}
+
 // Layer returns the detected layer for agent.
 func (r Result) Layer(agent Agent) (Detection, bool) {
 	for _, layer := range r.Layers {
