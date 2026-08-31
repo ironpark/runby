@@ -16,6 +16,19 @@
 // API keys and general configuration variables are not evidence that an agent
 // launched the process and are never used for detection.
 //
+// Options divide into three tiers, and most programs stay in the first.
+//
+//   - No options at all. Current and IsAgent answer for this process, and
+//     Detect() with no options does the same without the cache.
+//   - Describing something that is not this process: a wrapper classifying
+//     another process from its /proc entry or its exec.Cmd.Env, or an
+//     environment recorded earlier and analyzed later. WithEnviron supplies
+//     the environment, and WithTTY and WithProcessTree supply the two axes
+//     that cannot be read from it. WithoutTTY and WithoutProcessTree skip
+//     those axes when only the environment matters.
+//   - Writing a driver, and testing one: WithEnv and WithLookup are the
+//     general form of WithEnviron, and WithOnlyDrivers runs an exact set.
+//
 // Every axis is extensible by the same means. A product this package does not
 // support is added by passing a driver — AgentDriver, CIDriver,
 // TerminalDriver, or RemoteDriver — to Detect. A driver carries the rule for

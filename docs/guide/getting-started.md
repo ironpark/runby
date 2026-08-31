@@ -102,15 +102,20 @@ if codex, ok := result.Layer(runby.AgentCodex); ok {
 |---|---|
 | 현재 프로세스 정보를 여러 곳에서 읽음 | `Current()` |
 | 현재 환경을 매번 새로 읽어야 함 | `Detect()` |
+| 다른 프로세스나 기록된 환경을 분류함 | `Detect(WithEnviron(...))` |
 | 환경변수 픽스처로 테스트함 | `Detect(WithEnviron(...))` |
 | TTY나 프로세스 시스템콜을 생략함 | `Detect(WithoutTTY(), WithoutProcessTree())` |
 | 커스텀 드라이버를 한 호출에서 격리함 | `Detect(WithOnlyDrivers(...))` |
 
 `Current()`는 첫 호출 뒤 결과를 캐시합니다. 프로그램 시작 후 `os.Setenv`로 바꾼 값을 반영하려면 `Detect()`를 직접 호출하세요.
 
-## 테스트에서 환경 재현하기
+## 다른 환경을 넘기기
 
-`WithEnviron`을 사용하면 실제 머신 환경과 분리된 결정적인 테스트를 만들 수 있습니다.
+`WithEnviron`은 **이 프로세스가 아닌 환경**을 분류할 때 씁니다. 용도는 둘입니다.
+
+하나는 다른 프로세스를 기술하는 경우입니다 — `/proc/<pid>/environ`을 읽었거나, `exec.Cmd.Env`를 만들어 두었거나, 환경을 파일로 기록해 두고 나중에 분석하는 래퍼가 여기에 해당합니다.
+
+다른 하나는 실제 머신 환경과 분리된 결정적인 테스트입니다.
 
 ```go
 func TestGitHubActions(t *testing.T) {
