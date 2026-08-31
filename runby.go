@@ -35,6 +35,7 @@ type options struct {
 	ciDrivers       []CIDriver
 	terminalDrivers []TerminalDriver
 	remoteDrivers   []RemoteDriver
+	runnerDrivers   []RunnerDriver
 	tty             TTY
 	process         ProcessTree
 	// inspectTTY and inspectProcess are only true when the environment being
@@ -161,6 +162,20 @@ func WithOnlyRemoteDrivers(drivers ...RemoteDriver) Option {
 	return func(o *options) { replaceDrivers(&o.remoteDrivers, drivers) }
 }
 
+// WithRunnerDrivers adds runner drivers ahead of the built-in ones, so an
+// in-house task runner is reported alongside them. As with the remote axis
+// every matching driver is reported, so ordering affects only the order of
+// Result.Runner.
+func WithRunnerDrivers(drivers ...RunnerDriver) Option {
+	return func(o *options) { prependDrivers(&o.runnerDrivers, drivers) }
+}
+
+// WithOnlyRunnerDrivers replaces the built-in runner drivers entirely. Passing
+// no drivers disables runner detection.
+func WithOnlyRunnerDrivers(drivers ...RunnerDriver) Option {
+	return func(o *options) { replaceDrivers(&o.runnerDrivers, drivers) }
+}
+
 // Detect inspects an environment and returns every supported agent found in
 // it, plus the CI platform and terminal status. With no options it inspects
 // the current process, including its terminal.
@@ -171,6 +186,7 @@ func Detect(opts ...Option) Result {
 		ciDrivers:       builtinCIDrivers,
 		terminalDrivers: builtinTerminalDrivers,
 		remoteDrivers:   builtinRemoteDrivers,
+		runnerDrivers:   builtinRunnerDrivers,
 		inspectTTY:      true,
 		inspectProcess:  true,
 	}
@@ -196,6 +212,7 @@ func Detect(opts ...Option) Result {
 	result.Layers = detectAgents(config, result.Process)
 	result.CI = detectCI(config)
 	result.Remote = detectRemote(config, result.Process)
+	result.Runner = detectRunners(config, result.Process)
 	result.Terminal = detectTerminal(config, result)
 	return result
 }
@@ -212,6 +229,9 @@ func (config options) executableLabels() executableLabels {
 	}
 	for _, driver := range config.remoteDrivers {
 		labels.add(driver.Executables, Process{Remote: driver.Platform})
+	}
+	for _, driver := range config.runnerDrivers {
+		labels.add(driver.Executables, Process{Runner: driver.Tool})
 	}
 	return labels
 }
@@ -288,6 +308,28 @@ func detectRemote(config options, tree ProcessTree) []Remote {
 	return layers
 }
 
+// detectRunners reports every tool that ran this process. Like the remote axis
+// it does not stop at the first match: a pre-commit hook running an npm script
+// that shells out to make is three concurrent layers.
+func detectRunners(config options, tree ProcessTree) []Runner {
+	var runners []Runner
+	for _, driver := range config.runnerDrivers {
+		runner, ok := driver.Detect(config.env)
+		if !ok {
+			continue
+		}
+		runner.Tool = driver.Tool
+		runner.Kind = driver.Kind
+		if runner.Kind == "" {
+			runner.Kind = RunnerKindUnknown
+		}
+		runner.applyDefaults()
+		runner.AncestorPID = tree.pidOf(func(p Process) bool { return p.Runner == runner.Tool })
+		runners = append(runners, runner)
+	}
+	return runners
+}
+
 // detectTerminal reports the terminal emulator. It runs last because its
 // confidence depends on the remote layers and the ancestor chain that the
 // earlier steps produced.
@@ -362,6 +404,10 @@ func HasTerminal() bool { return Current().HasTerminal() }
 // IsRemote reports whether any layer was detected between the user and this
 // process.
 func IsRemote() bool { return Current().IsRemote() }
+
+// HasRunner reports whether a tool ran this process rather than a person
+// invoking it directly.
+func HasRunner() bool { return Current().HasRunner() }
 
 // Environ returns the current process environment as an Env. It is a
 // convenience for callers that build their own driver pipelines.

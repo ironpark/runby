@@ -25,7 +25,7 @@ import (
 const usage = `runby — 이 프로세스를 무엇이 실행했는지 보고합니다.
 
   runby [-json] [-v]     사람이 읽는 요약, 또는 Result 전체 JSON
-  runby is <축>          종료 코드로만 답합니다. 축: agent ci terminal remote tty
+  runby is <축>          종료 코드로만 답합니다. 축: agent ci terminal remote runner tty
   runby chain            "paseo>codex" 한 줄. 감지 실패 시 "unknown"
 
 플래그:
@@ -103,6 +103,7 @@ var axes = map[string]func(runby.Result) bool{
 	"ci":       func(r runby.Result) bool { return r.IsCI() },
 	"terminal": func(r runby.Result) bool { return r.HasTerminal() },
 	"remote":   func(r runby.Result) bool { return r.IsRemote() },
+	"runner":   func(r runby.Result) bool { return r.HasRunner() },
 	"tty":      func(r runby.Result) bool { return r.TTY.Interactive },
 }
 
@@ -194,6 +195,23 @@ func report(w io.Writer, result runby.Result, verbose bool) {
 			evidence = append(evidence, layer.Evidence...)
 		}
 		line("remote", strings.Join(parts, ", "), evidence)
+	}
+
+	// Runner. Nesting is normal here, so every layer is listed.
+	if !result.HasRunner() {
+		line("runner", "-", nil)
+	} else {
+		parts := make([]string, 0, len(result.Runner))
+		var evidence []string
+		for _, r := range result.Runner {
+			part := fmt.Sprintf("%s (%s)", r.Tool, r.Kind)
+			if r.Task != "" {
+				part += " " + r.Task
+			}
+			parts = append(parts, part)
+			evidence = append(evidence, r.Evidence...)
+		}
+		line("runner", strings.Join(parts, ", "), evidence)
 	}
 
 	// TTY. This is a syscall, not a variable, so it has no evidence to show.

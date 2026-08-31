@@ -15,7 +15,8 @@
 | `research_date` | 공식 문서와 소스를 마지막으로 확인한 날짜 (`YYYY-MM-DD`) |
 | `open_source` | 실행 제품의 핵심 구현이 오픈소스 라이선스로 공개되는지 여부. 공개 저장소나 issue tracker만 있는 경우는 `false` |
 | `repository` | `open_source: true`일 때의 공식 소스 저장소. 그 외에는 `null` |
-| `product_type` | `agent_harness`, 여러 하위 agent를 관리하는 `agent_orchestrator`, agent를 내장·연결하는 `agent_host`, CI 플랫폼인 `ci_platform`, 터미널 에뮬레이터인 `terminal_emulator`, 터미널 멀티플렉서인 `terminal_multiplexer`, 또는 원격·격리 실행 환경인 `remote_environment` |
+| `product_type` | `agent_harness`, 여러 하위 agent를 관리하는 `agent_orchestrator`, agent를 내장·연결하는 `agent_host`, CI 플랫폼인 `ci_platform`, 터미널 에뮬레이터인 `terminal_emulator`, 터미널 멀티플렉서인 `terminal_multiplexer`, 원격·격리 실행 환경인 `remote_environment`, 또는 다른 프로그램을 실행하는 것이 본업인 `task_runner` |
+| `model_source` | agent 문서 전용. 자사 모델을 쓰는 `first-party`, 타사 모델을 등록·API로 쓰는 `multi-vendor`, 모델 없이 다른 agent를 구동하는 `delegated`. 코드의 `ModelSource`와 대응하며 `TestKindsMatchDocs`가 일치를 강제 |
 | `executes_agents` | 제품이 실행하거나 호스팅하는 별도 agent/harness 식별자. 자체 하네스만 실행하면 빈 배열 |
 | `runtime_test_required` | 공식 문서·소스 조사 외에 제품을 직접 실행하는 추가 검증이 필요한지 여부 |
 | `runtime_test_reason` | 직접 실행 검증이 필요하거나 불필요하다고 판정한 근거와 핵심 시험 범위 |
@@ -50,6 +51,12 @@ CI 감지는 "누가 명령을 요청했는가"가 아니라 "어디서 실행�
 ## 멀티플렉서·원격 실행 계층 조사
 
 사용자와 프로세스 사이에 끼어 있는 계층입니다. 다른 범주와 달리 자기 변수를 추가하는 데 그치지 않고 **다른 축의 변수가 살아남을지, 어떻게 변형될지를 결정**하므로(`update-environment`, `SendEnv`, `WSLENV`), 나머지 문서의 신뢰도 해석에 전제가 됩니다. 문서는 [`remote/`](remote/)에 있습니다.
+
+## 실행 주체 조사
+
+"무엇이 이 프로세스를 직접 실행했는가"의 흔한 답 하나 — **스크립트가 실행했다** — 를 담는 축입니다. `npm test`로 시작된 프로세스는 터미널이 붙어 있고 CI도 에이전트도 아니라서 기존 축들은 모두 "사람이 대화형으로 실행했다"고 답하지만, 실제로는 `package.json`의 스크립트가 실행했습니다. 문서는 [`runners/`](runners/)에 있습니다.
+
+이 축의 조사에서 나온 가장 중요한 결과는 **git 훅을 환경변수로 감지할 수 없다**는 음성 결과입니다. `post-checkout` 훅과 평범한 git 별칭이 동일한 `GIT_*` 집합을 받는 것을 실측으로 확인했습니다. 근거는 [`runners/README.md`](runners/README.md)에 있습니다.
 
 ## 터미널 에뮬레이터별 조사
 

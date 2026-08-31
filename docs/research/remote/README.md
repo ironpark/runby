@@ -32,8 +32,8 @@
 
 ### tmux와 Screen은 정반대로 실패합니다
 
-- **tmux 안** — `TERM_PROGRAM`이 `tmux`로 덮여 iTerm2·Apple Terminal·WezTerm·Ghostty·Warp·Zed 6종의 정체성이 **소실**됩니다(거짓 음성). 통과하는 것은 `TERM_PROGRAM`을 쓰지 않는 kitty·Windows Terminal·Alacritty·Konsole·GNOME Terminal 5종이며, 이쪽이 **낡았지만 그럴듯한 거짓 양성**을 만듭니다.
-- **Screen 안** — `TERM_PROGRAM`도 통과하므로 **12종 전부가 잔존 가능**하고, `update-environment`에 해당하는 기제가 없어 설정으로 완화할 수도 없습니다. `screen -d -r`로 다른 터미널에서 재접속해도 기존 window는 전혀 갱신되지 않습니다.
+- **tmux 안** — `TERM_PROGRAM`이 `tmux`로 덮여 iTerm2·Apple Terminal·WezTerm·Ghostty·Warp·Zed·VS Code 7종의 정체성이 **소실**됩니다(거짓 음성). 통과하는 것은 `TERM_PROGRAM`을 쓰지 않는 kitty·Windows Terminal·Alacritty·Konsole·GNOME Terminal·JetBrains 6종이며, 이쪽이 **낡았지만 그럴듯한 거짓 양성**을 만듭니다.
+- **Screen 안** — `TERM_PROGRAM`도 통과하므로 **14종 전부가 잔존 가능**하고, `update-environment`에 해당하는 기제가 없어 설정으로 완화할 수도 없습니다. `screen -d -r`로 다른 터미널에서 재접속해도 기존 window는 전혀 갱신되지 않습니다.
 
 tmux 3.7 기준 `update-environment` 기본 목록입니다. 터미널 식별 변수는 하나도 없습니다.
 

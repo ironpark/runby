@@ -22,6 +22,17 @@ const (
 	// that owns the terminal, not that Zed Agent rather than a person ran the
 	// command; Zed exposes no agent-specific marker.
 	TerminalZed TerminalProgram = "zed"
+	// TerminalVSCode is a Visual Studio Code integrated terminal. The value
+	// VS Code sets is a literal in source every fork inherits, so this names
+	// the family — VS Code, Cursor, Windsurf, and the rest — rather than one
+	// product. Cursor advertises its agent separately, so a command Cursor
+	// Agent ran appears on the agent axis as well.
+	TerminalVSCode TerminalProgram = "vscode"
+	// TerminalJetBrains is the JediTerm terminal built into IntelliJ platform
+	// IDEs. The marker names the engine, so it covers every JetBrains IDE and
+	// third-party IntelliJ platform IDEs such as Android Studio, and it
+	// cannot say which one.
+	TerminalJetBrains TerminalProgram = "jetbrains"
 	// TerminalVTE is a terminal built on the VTE library whose product could
 	// not be determined. VTE sets VTE_VERSION for every terminal embedding it
 	// (XFCE Terminal, guake, terminator, sakura, and others), so that variable

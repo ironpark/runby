@@ -77,6 +77,11 @@ type Result struct {
 	// derived from the environment, and the only one that can distinguish a
 	// live ancestor from a marker left behind by one that has exited.
 	Process ProcessTree `json:"process"`
+	// Runner holds every tool that ran this process: a package manager
+	// script, a build recipe, a service manager. It is the half of "what
+	// launched this" that the other axes leave out, and like Remote more than
+	// one can be present at once. See Runner for what it cannot detect.
+	Runner []Runner `json:"runner"`
 	// Remote holds every layer detected between the user and this process:
 	// multiplexers, SSH, and remote or isolated environments. More than one
 	// can be present at once, and the order is a detection order rather than
@@ -137,6 +142,38 @@ func (r Result) HasTerminal() bool { return r.Terminal.Detected }
 
 // IsRemote reports whether any layer sits between the user and this process.
 func (r Result) IsRemote() bool { return len(r.Remote) > 0 }
+
+// HasRunner reports whether a tool ran this process rather than a person
+// invoking it directly. It is named for the axis, like the other predicates.
+func (r Result) HasRunner() bool { return len(r.Runner) > 0 }
+
+// RunnerBy returns the detected runner for tool.
+func (r Result) RunnerBy(tool RunnerTool) (Runner, bool) {
+	for _, runner := range r.Runner {
+		if runner.Tool == tool {
+			return runner, true
+		}
+	}
+	return Runner{}, false
+}
+
+// HasRunnerBy reports whether tool is one of the detected runners.
+func (r Result) HasRunnerBy(tool RunnerTool) bool {
+	_, ok := r.RunnerBy(tool)
+	return ok
+}
+
+// RunnerOfKind returns the first detected runner of kind. Use it to ask the
+// question a kind exists for, such as whether a service manager started this
+// and so nobody is watching the output.
+func (r Result) RunnerOfKind(kind RunnerKind) (Runner, bool) {
+	for _, runner := range r.Runner {
+		if runner.Kind == kind {
+			return runner, true
+		}
+	}
+	return Runner{}, false
+}
 
 // RemoteLayer returns the detected layer for platform.
 func (r Result) RemoteLayer(platform RemotePlatform) (Remote, bool) {

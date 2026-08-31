@@ -25,3 +25,4 @@
 - [CI 플랫폼](research/ci/)
 - [터미널 에뮬레이터](research/terminals/)
 - [멀티플렉서와 원격 실행 계층](research/remote/)
+- [실행 주체](research/runners/) — 패키지 매니저 스크립트, 빌드 도구, 서비스 관리자

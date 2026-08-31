@@ -94,6 +94,16 @@ func TestSlugsMatchDocs(t *testing.T) {
 			}(),
 		},
 		{
+			name: "runners",
+			dir:  "docs/research/runners",
+			slugs: func() (s []string) {
+				for _, t := range runby.RunnerTools() {
+					s = append(s, string(t))
+				}
+				return
+			}(),
+		},
+		{
 			name: "terminals",
 			dir:  "docs/research/terminals",
 			slugs: func() (s []string) {

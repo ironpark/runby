@@ -20,7 +20,7 @@ if runby.IsCI() {
 
 **표준 라이브러리만 사용합니다.** `go.mod`에 외부 모듈이 없고 `go.sum`도 없습니다.
 
-## 다섯 개의 독립된 축
+## 여섯 개의 독립된 축
 
 에이전트가 CI 안에서, 또 터미널 안에서 실행될 수 있으므로 여러 축이 동시에 참일 수 있습니다.
 
@@ -30,9 +30,10 @@ if runby.IsCI() {
 | CI | 어떤 CI 잡에서 실행되는가 | `CI` | [ci](docs/guide/ci.md) |
 | 터미널 | 어떤 에뮬레이터가 이 환경을 만들었는가 | `Terminal` | [terminal](docs/guide/terminal.md) |
 | 원격·멀티플렉서 | 사용자와 이 프로세스 사이에 무엇이 끼어 있는가 | `Remote` | [remote](docs/guide/remote.md) |
+| 실행 주체 | 무엇이 이 프로세스를 직접 실행했는가 | `Runner` | [runner](docs/guide/runner.md) |
 | 프로세스 | 지금 살아 있는 조상은 무엇인가 | `Process` | [process](docs/guide/process.md) |
 
-앞의 네 축은 상속된 환경변수를 읽고, `Process`는 커널에서 상위 프로세스 체인을 읽습니다. 여기에 표준 스트림이 터미널인지 시스템콜로 확인하는 `TTY`가 더해집니다.
+앞의 다섯 축은 상속된 환경변수를 읽고, `Process`는 커널에서 상위 프로세스 체인을 읽습니다. 여기에 표준 스트림이 터미널인지 시스템콜로 확인하는 `TTY`가 더해집니다.
 
 ```go
 result := runby.Detect()
@@ -42,6 +43,7 @@ result.Chain()                 // "paseo>codex"
 result.CI.Provider             // "github-actions"
 result.Terminal.Program        // "ghostty"
 result.Multiplexer()           // (Remote, bool) — tmux 등
+result.HasRunner()             // npm 스크립트·make·systemd가 실행했는가
 result.TTY.Interactive         // 프롬프트를 띄울 수 있는가
 ```
 
@@ -100,6 +102,6 @@ for _, layer := range runby.Current().Layers {
 
 ## 플랫폼
 
-`Process` 축은 Linux·macOS·Windows에서 동작하고, 그 외에서는 `Supported == false`로 빈 체인을 반환합니다. `TTY`는 AIX·Solaris·z/OS에서 항상 `false`입니다 — 표준 `syscall`이 이 플랫폼들에 `TCGETS`·`SYS_IOCTL`을 노출하지 않기 때문입니다. 환경변수를 읽는 네 축은 모든 플랫폼에서 동일하게 동작합니다.
+`Process` 축은 Linux·macOS·Windows에서 동작하고, 그 외에서는 `Supported == false`로 빈 체인을 반환합니다. `TTY`는 AIX·Solaris·z/OS에서 항상 `false`입니다 — 표준 `syscall`이 이 플랫폼들에 `TCGETS`·`SYS_IOCTL`을 노출하지 않기 때문입니다. 환경변수를 읽는 다섯 축은 모든 플랫폼에서 동일하게 동작합니다.
 
 TTY 검사는 [`internal/term`](internal/term/)에, 프로세스 체인 읽기는 [`internal/proc`](internal/proc/)에 있습니다. `golang.org/x/term`의 `IsTerminal` 하나만 옮겨와 `golang.org/x/sys` 대신 표준 `syscall`로 다시 작성했으며, 원본의 BSD-3-Clause 라이선스를 함께 보관합니다.

@@ -25,6 +25,20 @@ var unmatchableProducts = map[string]string{
 	"github-codespaces": "a hosting environment, not an ancestor process",
 	"gitpod":            "a hosting environment, not an ancestor process",
 	"devcontainers":     "a container spec, not an ancestor process",
+	// The terminal's parent is a pty host rather than the app, and its name
+	// varies by platform and packaging across Code, Code Helper, code,
+	// electron, and node. The last three are generic enough to mislabel
+	// unrelated processes, and the rest are unverified.
+	"vscode": "the pty host's executable name is unverified, and its candidates are generic",
+	// Every IntelliJ platform IDE ships this terminal under its own binary
+	// name, and a Toolbox or JVM launch can appear as java. Covering the
+	// family would mean asserting a list of names no official source verifies.
+	"jetbrains": "one binary name per IDE, none verified, and java is too generic",
+	// npm scripts run as node, which would mislabel every unrelated node
+	// process. pnpm and bun run under their own names and do name them.
+	"npm": "npm scripts run as node, which is too generic to match safely",
+	// pre-commit is a Python entry point, so the ancestor is python or python3.
+	"pre-commit": "a Python entry point, so the ancestor name is python",
 }
 
 // builtinLabels is the mapping Detect builds from the built-in drivers, which
@@ -34,6 +48,7 @@ func builtinLabels() executableLabels {
 		agentDrivers:    builtinAgentDrivers,
 		terminalDrivers: builtinTerminalDrivers,
 		remoteDrivers:   builtinRemoteDrivers,
+		runnerDrivers:   builtinRunnerDrivers,
 	}.executableLabels()
 }
 
@@ -45,6 +60,7 @@ func TestExecutablesCoverEveryProduct(t *testing.T) {
 		matched[string(p.Agent)] = true
 		matched[string(p.Terminal)] = true
 		matched[string(p.Remote)] = true
+		matched[string(p.Runner)] = true
 	}
 
 	var products []string
@@ -55,6 +71,9 @@ func TestExecutablesCoverEveryProduct(t *testing.T) {
 		products = append(products, string(x))
 	}
 	for _, x := range RemotePlatforms() {
+		products = append(products, string(x))
+	}
+	for _, x := range RunnerTools() {
 		products = append(products, string(x))
 	}
 

@@ -24,11 +24,12 @@ type Process struct {
 	// Path is the executable's full path, empty when it could not be read.
 	Path string `json:"path,omitempty"`
 
-	// Agent, Terminal, and Remote name the product this executable is known
-	// to belong to, when it is recognized. At most one is set.
+	// Agent, Terminal, Remote, and Runner name the product this executable is
+	// known to belong to, when it is recognized. At most one is set.
 	Agent    Agent           `json:"agent,omitempty"`
 	Terminal TerminalProgram `json:"terminal,omitempty"`
 	Remote   RemotePlatform  `json:"remote,omitempty"`
+	Runner   RunnerTool      `json:"runner,omitempty"`
 }
 
 // ProcessTree is the ancestor chain of this process, nearest parent first.

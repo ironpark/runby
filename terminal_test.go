@@ -318,3 +318,114 @@ func TestTerminalProgramsAreOrderedAndVTEIsLast(t *testing.T) {
 		t.Fatalf(`TerminalProgram("").String() = %q`, runby.TerminalProgram("").String())
 	}
 }
+
+// TestVSCodeTerminal covers the VS Code family. The marker is a literal every
+// fork inherits, so the detection is deliberately family-level and probable.
+func TestVSCodeTerminal(t *testing.T) {
+	result := runby.Detect(runby.WithEnviron([]string{
+		"TERM_PROGRAM=vscode",
+		"TERM_PROGRAM_VERSION=1.99.0",
+		"VSCODE_INJECTION=1",
+		"VSCODE_STABLE=1",
+		"TERM=xterm-256color",
+	}))
+	term := result.Terminal
+	if !term.Detected || term.Program != runby.TerminalVSCode {
+		t.Fatalf("program = %s, detected = %v", term.Program, term.Detected)
+	}
+	// Forks of VS Code emit the same literal, so this can never be definite.
+	if term.Confidence != runby.ConfidenceProbable {
+		t.Errorf("confidence = %s, want probable", term.Confidence)
+	}
+	if term.Version != "1.99.0" {
+		t.Errorf("version = %q", term.Version)
+	}
+	// VS Code advertises no window, tab, or terminal identifier.
+	if term.SessionID != "" {
+		t.Errorf("session = %q, want empty", term.SessionID)
+	}
+	if term.Extra["vscode.injection"] != "1" || term.Extra["vscode.stable"] != "1" {
+		t.Errorf("extra = %v", term.Extra)
+	}
+
+	// The shell-integration variables are context, never the marker: they are
+	// absent whenever shell integration was not injected.
+	bare := runby.Detect(runby.WithEnviron([]string{"VSCODE_INJECTION=1", "VSCODE_STABLE=1"}))
+	if bare.Terminal.Detected {
+		t.Errorf("VSCODE_* alone detected %s", bare.Terminal.Program)
+	}
+}
+
+// TestJetBrainsTerminal covers the JediTerm family shared by every IntelliJ
+// platform IDE.
+func TestJetBrainsTerminal(t *testing.T) {
+	result := runby.Detect(runby.WithEnviron([]string{
+		"TERMINAL_EMULATOR=JetBrains-JediTerm",
+		"TERM_SESSION_ID=8f14e45f-ceea-467a-9c1e-9b3a1c2d4e5f",
+		"TERM=xterm-256color",
+	}))
+	term := result.Terminal
+	if !term.Detected || term.Program != runby.TerminalJetBrains {
+		t.Fatalf("program = %s, detected = %v", term.Program, term.Detected)
+	}
+	if term.Confidence != runby.ConfidenceProbable {
+		t.Errorf("confidence = %s, want probable", term.Confidence)
+	}
+	if term.SessionID != "8f14e45f-ceea-467a-9c1e-9b3a1c2d4e5f" {
+		t.Errorf("session = %q", term.SessionID)
+	}
+}
+
+// TestTermSessionIDIsNeverAMarker pins the consequence of a name collision:
+// Apple Terminal and JetBrains both use TERM_SESSION_ID for their own session
+// identifier, so the variable must never decide which terminal this is. Each
+// axis reads it only after its own marker has already matched.
+func TestTermSessionIDIsNeverAMarker(t *testing.T) {
+	alone := runby.Detect(runby.WithEnviron([]string{"TERM_SESSION_ID=w0t0p0:GUID"}))
+	if alone.Terminal.Detected {
+		t.Errorf("TERM_SESSION_ID alone detected %s", alone.Terminal.Program)
+	}
+
+	for _, test := range []struct {
+		name    string
+		environ []string
+		want    runby.TerminalProgram
+	}{
+		{
+			name:    "apple terminal",
+			environ: []string{"TERM_PROGRAM=Apple_Terminal", "TERM_SESSION_ID=abc"},
+			want:    runby.TerminalAppleTerminal,
+		},
+		{
+			name:    "jetbrains",
+			environ: []string{"TERMINAL_EMULATOR=JetBrains-JediTerm", "TERM_SESSION_ID=abc"},
+			want:    runby.TerminalJetBrains,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := runby.Detect(runby.WithEnviron(test.environ))
+			if result.Terminal.Program != test.want {
+				t.Errorf("program = %s, want %s", result.Terminal.Program, test.want)
+			}
+			if result.Terminal.SessionID != "abc" {
+				t.Errorf("session = %q, want abc", result.Terminal.SessionID)
+			}
+		})
+	}
+}
+
+// TestCursorAgentAndVSCodeTerminalCoexist covers the first product that lands
+// on two axes at once: Cursor is a VS Code fork, so its terminal reports the
+// vscode family, while CURSOR_AGENT reports the agent that ran the command.
+func TestCursorAgentAndVSCodeTerminalCoexist(t *testing.T) {
+	result := runby.Detect(runby.WithEnviron([]string{
+		"CURSOR_AGENT=1",
+		"TERM_PROGRAM=vscode",
+	}))
+	if !result.IsAgent() || result.Agent() != runby.AgentCursor {
+		t.Errorf("agent = %s, want cursor-agent", result.Agent())
+	}
+	if result.Terminal.Program != runby.TerminalVSCode {
+		t.Errorf("terminal = %s, want vscode", result.Terminal.Program)
+	}
+}

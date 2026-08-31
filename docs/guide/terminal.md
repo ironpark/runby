@@ -20,6 +20,8 @@ term.Confidence   // 멀티플렉서가 감지되면 probable로 낮아짐
 | Ghostty | `TerminalGhostty` | `TERM_PROGRAM=ghostty` |
 | Warp | `TerminalWarp` | `TERM_PROGRAM=WarpTerminal` |
 | Zed | `TerminalZed` | `ZED_TERM=true` + `TERM_PROGRAM=zed` |
+| VS Code 계열 | `TerminalVSCode` | `TERM_PROGRAM=vscode` (제품이 아니라 계열) |
+| JetBrains 계열 | `TerminalJetBrains` | `TERMINAL_EMULATOR=JetBrains-JediTerm` (계열) |
 | kitty | `TerminalKitty` | `KITTY_WINDOW_ID` |
 | Windows Terminal | `TerminalWindowsTerminal` | `WT_SESSION` |
 | Alacritty | `TerminalAlacritty` | `ALACRITTY_LOG` |
@@ -36,10 +38,12 @@ term.Confidence   // 멀티플렉서가 감지되면 probable로 낮아짐
 ## 알아둘 세부사항
 
 - **`TERM`은 마커가 아닙니다.** 정체성이 아니라 terminfo 능력을 나타내고, 사용자가 덮어쓰며, 멀티플렉서가 교체하고, Alacritty·Ghostty는 terminfo가 없으면 `xterm-256color`로 폴백합니다. 판정이 끝난 뒤 컨텍스트로만 기록합니다.
-- **`TERM_PROGRAM`은 절반에서만 쓸 수 있습니다.** kitty, Windows Terminal, Alacritty, Konsole, GNOME Terminal은 설정하지 않습니다.
+- **`TERM_PROGRAM`은 절반에서만 쓸 수 있습니다.** kitty, Windows Terminal, Alacritty, Konsole, GNOME Terminal, JetBrains는 설정하지 않습니다.
 - **`VTE_VERSION`은 계열입니다.** VTE 라이브러리가 설정하므로 XFCE Terminal·guake·terminator 등이 공유합니다. `GNOME_TERMINAL_*` 없이 이 값만 있으면 `TerminalVTE`로 보고합니다.
 - **`Terminal.PID`는 kitty만 제공합니다.** 다른 모든 신호와 달리 프로세스 조회로 낡은 마커와 살아 있는 터미널을 구분할 수 있습니다.
 - **Konsole은 항상 `probable`입니다.** `konsolepart`(Dolphin, Kate, KDevelop, Krusader)가 같은 라이브러리를 써서 동일한 변수를 주입하므로, 이 증거는 "Konsole 엔진"을 증명할 뿐 사용자가 Konsole 창을 보고 있다는 뜻은 아닙니다.
+- **VS Code와 JetBrains도 같은 이유로 `probable`입니다.** `TERM_PROGRAM=vscode`는 공유 소스에 박힌 리터럴이라 Cursor·Windsurf 같은 포크가 그대로 내보내고, `JetBrains-JediTerm`은 IDE가 아니라 터미널 엔진 이름이라 Android Studio 같은 서드파티 IntelliJ 플랫폼 IDE도 포함합니다. 두 값 모두 **엔진**을 증명하지 제품을 증명하지 않습니다.
+- **`TERM_SESSION_ID`는 두 제품이 공유합니다.** Apple Terminal과 JetBrains가 같은 이름을 서로 다른 형식으로 씁니다. 그래서 이 변수는 어느 쪽에서도 마커가 아니며, 각 축의 마커가 결정된 **뒤에만** 세션 식별자로 읽힙니다.
 
 터미널별 조사 근거는 [`docs/research/terminals/`](../research/terminals/)에, 멀티플렉서와 원격 실행 계층은 [`docs/research/remote/`](../research/remote/)에 있습니다.
 

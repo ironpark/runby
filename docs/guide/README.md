@@ -10,6 +10,7 @@
 | [`ci.md`](ci.md) | CI 축. 플랫폼별 필드 정규화 규칙 |
 | [`terminal.md`](terminal.md) | 터미널 축과 `TTY`. 이 축이 약한 이유 |
 | [`remote.md`](remote.md) | 멀티플렉서·SSH·컨테이너 계층과 잔존 위험 |
+| [`runner.md`](runner.md) | 실행 주체 축. 스크립트·훅·서비스가 실행했는지, git 훅을 감지할 수 없는 이유 |
 | [`process.md`](process.md) | 상위 프로세스 체인과 교차 검증 |
 
 각 판정의 **근거**(어떤 공식 문서·소스에서 확인했는지)는 [`docs/research/`](../research/)에 있습니다.

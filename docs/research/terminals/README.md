@@ -17,7 +17,7 @@
    | 그 외 터미널 마커 | 통과 | 통과 |
    | 갱신 기제 | `update-environment` (attach 시점, 목록에 있는 변수만) | **없음** |
 
-   따라서 **tmux 안에서는** `TERM_PROGRAM` 기반 터미널 6종(iTerm2·Apple Terminal·WezTerm·Ghostty·Warp·Zed)의 정체성이 잔존하는 게 아니라 **지워집니다**(거짓 음성). 잔존하는 것은 `TERM_PROGRAM`을 쓰지 않는 5종(kitty·Windows Terminal·Alacritty·Konsole·GNOME Terminal)이며 이쪽이 낡았지만 그럴듯한 **거짓 양성**을 만듭니다. **Screen 안에서는** `TERM_PROGRAM`도 통과하므로 **12종 전부가 잔존 가능**하고, 게다가 `update-environment`에 해당하는 기제가 아예 없어 설정으로 완화할 수도 없습니다.
+   따라서 **tmux 안에서는** `TERM_PROGRAM` 기반 터미널 7종(iTerm2·Apple Terminal·WezTerm·Ghostty·Warp·Zed·VS Code)의 정체성이 잔존하는 게 아니라 **지워집니다**(거짓 음성). 잔존하는 것은 `TERM_PROGRAM`을 쓰지 않는 6종(kitty·Windows Terminal·Alacritty·Konsole·GNOME Terminal·JetBrains)이며 이쪽이 낡았지만 그럴듯한 **거짓 양성**을 만듭니다. **Screen 안에서는** `TERM_PROGRAM`도 통과하므로 **14종 전부가 잔존 가능**하고, 게다가 `update-environment`에 해당하는 기제가 아예 없어 설정으로 완화할 수도 없습니다.
 
    tmux 3.7 기준 `update-environment` 기본 목록은 다음과 같습니다. 터미널 식별 변수는 하나도 포함되지 않습니다.
 
@@ -58,6 +58,8 @@ OpenSSH가 **문서화한** `SendEnv`·`AcceptEnv` 기본값은 둘 다 "아무 
 | [Ghostty](ghostty.md) | `TERM_PROGRAM=ghostty` | **없음** | `TERM`은 `xterm-ghostty`, 리소스 없으면 폴백 |
 | [Warp](warp.md) | `TERM_PROGRAM=WarpTerminal` | 없음 | 에이전트/사람 구분 변수 없음 |
 | [Zed](../agents/zed-agent.md) | `ZED_TERM=true` + `TERM_PROGRAM=zed` | 없음 | Agent 전용 신호 없음 |
+| [VS Code](vscode.md) | `TERM_PROGRAM=vscode` | 없음 | 포크(Cursor·Windsurf 등)와 구분 불가라 **계열**이며 `probable` 고정 |
+| [JetBrains](jetbrains.md) | `TERMINAL_EMULATOR=JetBrains-JediTerm` | `TERM_SESSION_ID` (UUID) | `TERM_PROGRAM` 미설정. IntelliJ 플랫폼 IDE 전체를 가리키는 **계열**. WSL 경계를 넘음 |
 | [kitty](kitty.md) | `KITTY_WINDOW_ID` | `KITTY_WINDOW_ID` | `TERM_PROGRAM` 미설정. `KITTY_PID`로 생존 확인 가능 |
 | [Windows Terminal](windows-terminal.md) | `WT_SESSION` | `WT_SESSION` (GUID) | `TERM_PROGRAM` 미설정. WSL 경계를 넘음 |
 | [Alacritty](alacritty.md) | `ALACRITTY_LOG` | `ALACRITTY_WINDOW_ID` (v0.11+, Unix 전용) | `TERM_PROGRAM` 미설정 |
@@ -67,7 +69,7 @@ OpenSSH가 **문서화한** `SendEnv`·`AcceptEnv` 기본값은 둘 다 "아무 
 
 ### `TERM_PROGRAM`은 절반에서만 쓸 수 있습니다
 
-kitty, Windows Terminal, Alacritty, Konsole, GNOME Terminal은 `TERM_PROGRAM`을 설정하지 않습니다. kitty는 작성자가 이슈 #957에서 의도적 결정임을 밝혔고 `KITTY_WINDOW_ID`를 대신 쓰라고 권합니다. 따라서 마커 전략은 터미널마다 다릅니다.
+kitty, Windows Terminal, Alacritty, Konsole, GNOME Terminal, JetBrains는 `TERM_PROGRAM`을 설정하지 않습니다. kitty는 작성자가 이슈 #957에서 의도적 결정임을 밝혔고 `KITTY_WINDOW_ID`를 대신 쓰라고 권합니다. 따라서 마커 전략은 터미널마다 다릅니다.
 
 ### `TERM`은 마커가 아닙니다
 

@@ -42,19 +42,24 @@ type Result struct {
 	CI       CI          // Layers와 독립된 축
 	Terminal Terminal    // Layers와 독립된 축
 	Remote   []Remote    // 동시에 여러 계층이 존재할 수 있음
+	Runner   []Runner    // 무엇이 직접 실행했는가. 중첩이 정상
 }
 
-// 축 술어 넷은 이름을 맞춰 두었습니다.
+// 축 술어 다섯은 이름을 맞춰 두었습니다.
 result.IsAgent()                       // AI 에이전트가 실행했는가
 result.IsCI()                          // CI 잡에서 도는가
 result.HasTerminal()                   // 터미널 에뮬레이터를 식별했는가
 result.IsRemote()                      // 낀 계층이 있는가
+result.HasRunner()                     // 도구가 실행했는가 (스크립트·훅·서비스)
 
 // 특정 제품이 계층에 있는지는 다른 질문이라 이름도 다릅니다.
 result.Layer(runby.AgentCodex)         // (Detection, bool)
 result.HasLayer(runby.AgentCodex)      // bool
 result.RemoteLayer(runby.RemoteTmux)   // (Remote, bool)
 result.HasRemoteLayer(runby.RemoteSSH) // bool
+result.RunnerBy(runby.RunnerNPM)       // (Runner, bool)
+result.HasRunnerBy(runby.RunnerMake)   // bool
+result.RunnerOfKind(runby.RunnerKindService) // (Runner, bool) — 데몬인가
 
 result.Agent()                         // 최상위 레이어의 Agent, 없으면 AgentUnknown
 result.Primary()                       // (Detection, bool)
@@ -65,7 +70,7 @@ result.Multiplexer()                   // (Remote, bool) — 잔존 위험의 �
 ## Detection
 
 ```go
-// Axis는 네 축의 결과가 공통으로 지니는 부분이며, 임베드되어 있습니다.
+// Axis는 다섯 축의 결과가 공통으로 지니는 부분이며, 임베드되어 있습니다.
 // 임베드이므로 직렬화 형태는 평평합니다 — JSON은 아래 필드를 그대로 갖습니다.
 type Axis struct {
 	Confidence Confidence
@@ -94,13 +99,13 @@ type Detection struct {
 
 모든 필드에 JSON 태그가 있어 로그·텔레메트리로 그대로 직렬화할 수 있습니다.
 
-`Axis`는 `CI`, `Terminal`, `Remote`에도 똑같이 임베드되어 있어, 어느 축의 결과든 `Confidence`·`Extra`·`Evidence`를 같은 이름으로 읽을 수 있습니다. `AncestorPID`는 `Axis`에 없습니다 — CI 잡은 이 프로세스가 파생된 프로세스가 아니라 러너 위의 작업이라 조상 체인에 대조할 대상이 없기 때문입니다.
+`Axis`는 `CI`, `Terminal`, `Remote`, `Runner`에도 똑같이 임베드되어 있어, 어느 축의 결과든 `Confidence`·`Extra`·`Evidence`를 같은 이름으로 읽을 수 있습니다. `AncestorPID`는 `Axis`에 없습니다 — CI 잡은 이 프로세스가 파생된 프로세스가 아니라 러너 위의 작업이라 조상 체인에 대조할 대상이 없기 때문입니다.
 
 `Extra`는 한 제품만 광고하는 값을 담아 공용 필드가 무한정 늘어나지 않게 합니다. 현재 키는 `codex.ci`와 `orca.*` 계열입니다.
 
-**`Evidence`에는 변수 이름만 들어갑니다.** 값은 민감할 수 있으므로 어떤 경우에도 복사하지 않습니다. 이 규칙은 네 축 전부에 동일하게 적용됩니다.
+**`Evidence`에는 변수 이름만 들어갑니다.** 값은 민감할 수 있으므로 어떤 경우에도 복사하지 않습니다. 이 규칙은 다섯 축 전부에 동일하게 적용됩니다.
 
-`AncestorPID`는 [`process.md`](process.md)를 참고하십시오. **0은 부정이 아닙니다.** `Terminal`과 `Remote[]`에도 같은 필드가 있습니다.
+`AncestorPID`는 [`process.md`](process.md)를 참고하십시오. **0은 부정이 아닙니다.** `Terminal`, `Remote[]`, `Runner[]`에도 같은 필드가 있습니다.
 
 드라이버의 `Executables`를 채우면 조상 확증 대상에 포함됩니다. agent·terminal·remote 세 축에서 동작합니다.
 
@@ -114,6 +119,7 @@ runby.IsAgent()     // Current().IsAgent()
 runby.IsCI()        // Current().IsCI()
 runby.HasTerminal() // Current().HasTerminal()
 runby.IsRemote()    // Current().IsRemote()
+runby.HasRunner()   // Current().HasRunner()
 ```
 
 첫 호출 이후의 `os.Setenv`를 반영하려면 `Detect()`를 직접 부르십시오.
@@ -150,6 +156,7 @@ result := runby.Detect(runby.WithAgentDrivers(acme))
 | CI | `CIDriver` | `Provider` | — | — |
 | terminal | `TerminalDriver` | `Program` | — | `Executables` |
 | remote | `RemoteDriver` | `Platform` | `Kind` | `Executables` |
+| runner | `RunnerDriver` | `Tool` | `Kind` | `Executables` |
 
 CI 드라이버만 `Executables`가 없습니다. CI 잡은 이 프로세스가 이어받은 조상 프로세스가 아니라 러너 위의 작업이므로, 체인에서 대조할 대상이 없습니다.
 

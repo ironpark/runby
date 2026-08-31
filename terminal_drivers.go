@@ -39,6 +39,48 @@ var terminalSpecs = []terminalSpec{
 		version: "TERM_PROGRAM_VERSION",
 	},
 	{
+		// VS Code writes TERM_PROGRAM = 'vscode' as a literal, so every fork
+		// that does not patch that line reports the same value. The evidence
+		// therefore proves a VS Code engine rather than Microsoft's build,
+		// which is the same situation as Konsole below and carries the same
+		// confidence.
+		//
+		// The VSCODE_* shell-integration variables are not used as a marker:
+		// they exist only when shell integration was injected, so their
+		// absence would not mean this is not VS Code. VSCODE_GIT_ASKPASS_NODE
+		// would identify the fork, but its value is a filesystem path rather
+		// than a product name, and reading values to decide is what this
+		// package avoids. See docs/research/terminals/vscode.md.
+		program: TerminalVSCode,
+		specCore: specCore{
+			marker:      MarkerTermProgram("vscode"),
+			markerNames: []string{"TERM_PROGRAM"},
+			confidence:  ConfidenceProbable,
+			extra: map[string]string{
+				"vscode.injection": "VSCODE_INJECTION",
+				"vscode.stable":    "VSCODE_STABLE",
+			},
+		},
+		version: "TERM_PROGRAM_VERSION",
+		// VS Code advertises no window, tab, or terminal identifier.
+	},
+	{
+		// JetBrains sets no TERM_PROGRAM. TERMINAL_EMULATOR names the JediTerm
+		// engine shared by every IntelliJ platform IDE, including third-party
+		// ones such as Android Studio, so it identifies a family.
+		//
+		// TERM_SESSION_ID is read only after the marker has decided, because
+		// Apple Terminal uses the same variable name for its own session
+		// identifier. See docs/research/terminals/jetbrains.md.
+		program: TerminalJetBrains,
+		specCore: specCore{
+			marker:      func(env Env) bool { return EqualsFold(env, "TERMINAL_EMULATOR", "JetBrains-JediTerm") },
+			markerNames: []string{"TERMINAL_EMULATOR"},
+			confidence:  ConfidenceProbable,
+		},
+		sessionID: "TERM_SESSION_ID",
+	},
+	{
 		program:     TerminalITerm2,
 		executables: []string{"iterm2"},
 		specCore: specCore{

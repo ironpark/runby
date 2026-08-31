@@ -29,6 +29,7 @@ agent     paseo>claude-code
 ci        -
 terminal  ghostty (definite)
 remote    tmux (multiplexer), openssh (environment)
+runner    npm (script) test, gnu-make (script)
 tty       대화형 (stdin과 출력이 터미널)
 process   조상 7개
 
@@ -93,6 +94,7 @@ runby -json | jq '{chain: [.layers[].agent] | join(">"), ci: .ci.provider, tty: 
 | CLI | 라이브러리 |
 |---|---|
 | `runby is agent` | `runby.IsAgent()` |
+| `runby is runner` | `runby.HasRunner()` |
 | `runby is ci` | `runby.IsCI()` |
 | `runby is terminal` | `runby.HasTerminal()` |
 | `runby is remote` | `runby.IsRemote()` |
