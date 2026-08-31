@@ -8,10 +8,9 @@ package proc
 // nothing rather than guessing.
 func Supported() bool { return false }
 
-func selfPID() int { return 0 }
+func selfPPID(reader) (int, bool) { return 0, false }
 
 type reader struct{}
 
 func newReader() reader                { return reader{} }
-func (reader) close()                  {}
 func (reader) lookup(int) (Info, bool) { return Info{}, false }

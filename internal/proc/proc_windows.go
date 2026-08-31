@@ -47,7 +47,12 @@ func newReader() reader {
 	}
 }
 
-func (reader) close() {}
+// selfPPID reads our own entry from the snapshot already in hand. os.Getppid
+// would be simpler but takes a second machine-wide snapshot to do it.
+func selfPPID(r reader) (int, bool) {
+	info, ok := r.lookup(os.Getpid())
+	return info.PPID, ok
+}
 
 func (r reader) lookup(pid int) (Info, bool) {
 	info, ok := r.table[pid]

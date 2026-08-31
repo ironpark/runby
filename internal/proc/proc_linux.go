@@ -12,16 +12,16 @@ import (
 // Supported reports whether this platform can read the ancestor chain.
 func Supported() bool { return true }
 
-func selfPID() int { return os.Getpid() }
+// selfPPID answers from the runtime rather than from /proc, so the walk starts
+// without any I/O.
+func selfPPID(reader) (int, bool) { return os.Getppid(), true }
 
 // reader is stateless here: this platform can look up one process directly.
 type reader struct{}
 
-func newReader() reader                    { return reader{} }
-func (reader) close()                      {}
-func (reader) lookup(pid int) (Info, bool) { return lookup(pid) }
+func newReader() reader { return reader{} }
 
-func lookup(pid int) (Info, bool) {
+func (reader) lookup(pid int) (Info, bool) {
 	dir := "/proc/" + strconv.Itoa(pid)
 
 	ppid, ok := readPPID(dir + "/stat")

@@ -2,6 +2,7 @@ package runby_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/ironpark/runby"
@@ -23,22 +24,10 @@ func TestProcessTreeIsInspectedForThisProcess(t *testing.T) {
 	}
 	// Names are normalized so one match table serves every platform.
 	for _, p := range tree.Ancestors {
-		if p.Name != normalizeForTest(p.Name) {
+		if p.Name != strings.ToLower(p.Name) {
 			t.Fatalf("Name = %q is not normalized", p.Name)
 		}
 	}
-}
-
-func normalizeForTest(s string) string {
-	out := make([]byte, 0, len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c >= 'A' && c <= 'Z' {
-			c += 'a' - 'A'
-		}
-		out = append(out, c)
-	}
-	return string(out)
 }
 
 func TestProcessTreeNotInspectedForExplicitEnvironment(t *testing.T) {

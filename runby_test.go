@@ -356,20 +356,8 @@ func assertJSONRoundTrip(t *testing.T, result runby.Result) {
 }
 
 func TestResultJSONShape(t *testing.T) {
-	result := runby.Detect(
+	assertJSONRoundTrip(t, runby.Detect(
 		runby.WithEnviron([]string{"CURSOR_AGENT=1"}),
 		runby.WithTTY(runby.TTY{Inspected: true}),
-	)
-	data, err := json.Marshal(result)
-	if err != nil {
-		t.Fatalf("Marshal: %v", err)
-	}
-
-	var round runby.Result
-	if err := json.Unmarshal(data, &round); err != nil {
-		t.Fatalf("Unmarshal: %v", err)
-	}
-	if !reflect.DeepEqual(round, result) {
-		t.Fatalf("round trip = %#v, want %#v", round, result)
-	}
+	))
 }

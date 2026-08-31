@@ -45,22 +45,22 @@ func Supported() bool {
 // nothing rather than reporting a number read from the wrong field.
 func verifyLayout() {
 	buf, err := sysctl(ctlKern, kernProc, kernProcPID, int32(os.Getpid()))
-	if err != nil || len(buf) < ppidOffset+4 || len(buf) != kinfoProcSize {
+	if err != nil || len(buf) != kinfoProcSize {
 		return
 	}
 	layoutOK = int(*(*int32)(unsafe.Pointer(&buf[ppidOffset]))) == os.Getppid()
 }
 
-func selfPID() int { return os.Getpid() }
+// selfPPID answers from the runtime rather than from a process record: the
+// kernel already knows our parent, so the walk starts without any I/O.
+func selfPPID(reader) (int, bool) { return os.Getppid(), true }
 
 // reader is stateless here: this platform can look up one process directly.
 type reader struct{}
 
-func newReader() reader                    { return reader{} }
-func (reader) close()                      {}
-func (reader) lookup(pid int) (Info, bool) { return lookup(pid) }
+func newReader() reader { return reader{} }
 
-func lookup(pid int) (Info, bool) {
+func (reader) lookup(pid int) (Info, bool) {
 	buf, err := sysctl(ctlKern, kernProc, kernProcPID, int32(pid))
 	if err != nil || len(buf) < ppidOffset+4 {
 		return Info{}, false

@@ -110,18 +110,20 @@ func inspectProcessTree() ProcessTree {
 		return tree
 	}
 
-	for _, info := range proc.Ancestors() {
-		process := Process{
-			PID:  info.PID,
-			PPID: info.PPID,
-			Name: normalizeExecutable(info.Name),
-			Path: info.Path,
-		}
-		if match, ok := executables[process.Name]; ok {
-			process.Agent = match.Agent
-			process.Terminal = match.Terminal
-			process.Remote = match.Remote
-		}
+	ancestors := proc.Ancestors()
+	if len(ancestors) == 0 {
+		// Leave Ancestors nil rather than empty: an empty slice and a nil one
+		// are the same to a caller but differ across a JSON round trip.
+		return tree
+	}
+
+	tree.Ancestors = make([]Process, 0, len(ancestors))
+	for _, info := range ancestors {
+		name := normalizeExecutable(info.Name)
+		// A miss yields the zero Process, so the labels stay empty without a
+		// second branch, and a new label field needs no change here.
+		process := executables[name]
+		process.PID, process.PPID, process.Name, process.Path = info.PID, info.PPID, name, info.Path
 		tree.Ancestors = append(tree.Ancestors, process)
 	}
 	return tree

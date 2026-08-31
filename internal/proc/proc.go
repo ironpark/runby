@@ -39,15 +39,14 @@ func Ancestors() []Info {
 	// per-process lookup, so without this it would snapshot every process on
 	// the machine once per ancestor.
 	r := newReader()
-	defer r.close()
 
-	var chain []Info
-	seen := make(map[int]bool)
-	self, ok := r.lookup(selfPID())
+	pid, ok := selfPPID(r)
 	if !ok {
 		return nil
 	}
-	pid := self.PPID
+
+	var chain []Info
+	seen := make(map[int]bool)
 	for depth := 0; depth < maxDepth; depth++ {
 		if pid <= 0 || seen[pid] {
 			// A repeat means the chain is corrupt; stop rather than loop.
