@@ -5,7 +5,7 @@
 | 문서 | 내용 |
 |---|---|
 | [`cli.md`](cli.md) | `runby` 명령. 셸 스크립트에서 쓰는 법 |
-| [`api.md`](api.md) | `Detect`, 옵션 전체, `Result`·`Detection` 구조, 캐시된 진입점, detector 확장 |
+| [`api.md`](api.md) | `Detect`, 옵션 전체, `Result`·`Detection` 구조, 캐시된 진입점, 드라이버 확장 |
 | [`agents.md`](agents.md) | 에이전트 축. 감지 대상, `Kind`, `Confidence`, 계층 해석 |
 | [`ci.md`](ci.md) | CI 축. 플랫폼별 필드 정규화 규칙 |
 | [`terminal.md`](terminal.md) | 터미널 축과 `TTY`. 이 축이 약한 이유 |

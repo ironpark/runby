@@ -29,24 +29,6 @@ const (
 	TerminalVTE TerminalProgram = "vte"
 )
 
-// terminalExecutables names the binaries each terminal runs as, so a live
-// ancestor process can corroborate an environment detection. A terminal is
-// absent when no name is specific enough to match safely: Apple Terminal's
-// binary is called Terminal, and VTE is a widget library rather than a
-// process.
-var terminalExecutables = map[TerminalProgram][]string{
-	TerminalITerm2:          {"iterm2"},
-	TerminalWezTerm:         {"wezterm", "wezterm-gui"},
-	TerminalGhostty:         {"ghostty"},
-	TerminalWarp:            {"warp"},
-	TerminalZed:             {"zed"},
-	TerminalKitty:           {"kitty"},
-	TerminalWindowsTerminal: {"windowsterminal"},
-	TerminalAlacritty:       {"alacritty"},
-	TerminalKonsole:         {"konsole"},
-	TerminalGNOMETerminal:   {"gnome-terminal-server"},
-}
-
 // String returns the stable slug used across this package, its documentation,
 // and its serialized output.
 func (p TerminalProgram) String() string {
@@ -59,9 +41,9 @@ func (p TerminalProgram) String() string {
 // TerminalPrograms returns every supported terminal in detection precedence
 // order.
 func TerminalPrograms() []TerminalProgram {
-	programs := make([]TerminalProgram, 0, len(builtinTerminalDetectors))
-	for _, detector := range builtinTerminalDetectors {
-		programs = append(programs, detector.Program())
+	programs := make([]TerminalProgram, 0, len(builtinTerminalDrivers))
+	for _, driver := range builtinTerminalDrivers {
+		programs = append(programs, driver.Program)
 	}
 	return programs
 }
@@ -131,30 +113,25 @@ type Terminal struct {
 	Evidence []string `json:"evidence"`
 }
 
-// TerminalDetector reports whether an environment shows its terminal emulator.
-// Implement it to detect a terminal this package does not support, then pass
-// it to Detect with WithTerminalDetectors.
-type TerminalDetector interface {
-	// Program returns the terminal this detector reports.
-	Program() TerminalProgram
-	// Detect returns the terminal, or false if the environment holds no
-	// evidence of it. Implementations must not retain env.
-	Detect(env Env) (Terminal, bool)
+// TerminalDriver detects one terminal emulator. It is the unit of extension
+// for this axis: the built-in terminals are declared as drivers, and a
+// terminal this package does not support is added by passing another to Detect
+// with WithTerminalDrivers.
+type TerminalDriver struct {
+	// Program identifies the terminal this driver reports. Detect fills it
+	// into every Terminal the driver returns, so Detect need not repeat it.
+	Program TerminalProgram
+	// Executables names the binaries this terminal runs as, so that a live
+	// ancestor process can corroborate an environment detection. It is the
+	// only thing that can tell a live terminal from a marker left behind by
+	// one that has closed, so it is worth setting wherever a name is specific
+	// enough to match safely.
+	Executables []string
+	// Detect returns the terminal, or false when the environment holds no
+	// evidence of it. It must not retain env. Program, Detected, and a
+	// missing Confidence are filled in by Detect.
+	Detect func(env Env) (Terminal, bool)
 }
-
-// NewTerminalDetector adapts a function into a TerminalDetector.
-func NewTerminalDetector(program TerminalProgram, detect func(env Env) (Terminal, bool)) TerminalDetector {
-	return funcTerminalDetector{program: program, detect: detect}
-}
-
-type funcTerminalDetector struct {
-	program TerminalProgram
-	detect  func(Env) (Terminal, bool)
-}
-
-func (d funcTerminalDetector) Program() TerminalProgram        { return d.program }
-func (d funcTerminalDetector) Executables() []string           { return terminalExecutables[d.program] }
-func (d funcTerminalDetector) Detect(env Env) (Terminal, bool) { return d.detect(env) }
 
 // parsePID reads an emulator process ID. Non-numeric and non-positive values
 // are reported as 0, meaning unknown.

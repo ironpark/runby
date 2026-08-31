@@ -27,9 +27,9 @@ func (p RemotePlatform) String() string {
 
 // RemotePlatforms returns every supported platform in detection order.
 func RemotePlatforms() []RemotePlatform {
-	platforms := make([]RemotePlatform, 0, len(builtinRemoteDetectors))
-	for _, detector := range builtinRemoteDetectors {
-		platforms = append(platforms, detector.Platform())
+	platforms := make([]RemotePlatform, 0, len(builtinRemoteDrivers))
+	for _, driver := range builtinRemoteDrivers {
+		platforms = append(platforms, driver.Platform)
 	}
 	return platforms
 }
@@ -49,36 +49,22 @@ const (
 	RemoteKindEnvironment RemoteKind = "environment"
 )
 
-// remoteInfo is everything this package knows about a platform that is not
-// the environment rule for detecting it.
-type remoteInfo struct {
-	kind RemoteKind
-	// executables names the binaries this platform runs as, so a live
-	// ancestor process can corroborate an environment detection. It is empty
-	// for a platform that is not a process, such as WSL or a hosted
-	// workspace.
-	executables []string
-}
-
-// remotes is the single source of truth for what a RemotePlatform is.
-var remotes = map[RemotePlatform]remoteInfo{
-	RemoteTmux:   {kind: RemoteKindMultiplexer, executables: []string{"tmux"}},
-	RemoteScreen: {kind: RemoteKindMultiplexer, executables: []string{"screen"}},
-	RemoteZellij: {kind: RemoteKindMultiplexer, executables: []string{"zellij"}},
-	RemoteSSH:    {kind: RemoteKindEnvironment, executables: []string{"sshd", "sshd-session"}},
-	// These describe where the process runs rather than an ancestor process,
-	// so there is nothing in the chain to match.
-	RemoteWSL:          {kind: RemoteKindEnvironment},
-	RemoteCodespaces:   {kind: RemoteKindEnvironment},
-	RemoteGitpod:       {kind: RemoteKindEnvironment},
-	RemoteDevContainer: {kind: RemoteKindEnvironment},
-}
+// remoteKinds is derived from the built-in driver table, so a driver is the
+// one place a platform is registered.
+var remoteKinds = func() map[RemotePlatform]RemoteKind {
+	kinds := make(map[RemotePlatform]RemoteKind, len(builtinRemoteDrivers))
+	for _, driver := range builtinRemoteDrivers {
+		kinds[driver.Platform] = driver.Kind
+	}
+	return kinds
+}()
 
 // Kind reports what a detection of p proves. It returns RemoteKindUnknown for
-// platforms this package does not support, which is not the map's zero value.
+// platforms this package does not support; a driver supplied through
+// WithRemoteDrivers carries its own Kind onto the Remote instead.
 func (p RemotePlatform) Kind() RemoteKind {
-	if info, ok := remotes[p]; ok {
-		return info.kind
+	if kind, ok := remoteKinds[p]; ok {
+		return kind
 	}
 	return RemoteKindUnknown
 }
@@ -130,30 +116,27 @@ type Remote struct {
 // IsMultiplexer reports whether this layer is a terminal multiplexer.
 func (r Remote) IsMultiplexer() bool { return r.Kind == RemoteKindMultiplexer }
 
-// RemoteDetector reports whether an environment shows its platform. Implement
-// it to detect a platform this package does not support, then pass it to
-// Detect with WithRemoteDetectors.
-type RemoteDetector interface {
-	// Platform returns the platform this detector reports.
-	Platform() RemotePlatform
-	// Detect returns the layer, or false if the environment holds no evidence
-	// of it. Implementations must not retain env.
-	Detect(env Env) (Remote, bool)
+// RemoteDriver detects one layer between the user and this process. It is the
+// unit of extension for this axis: the built-in platforms are declared as
+// drivers, and a platform this package does not support is added by passing
+// another to Detect with WithRemoteDrivers.
+type RemoteDriver struct {
+	// Platform identifies the layer this driver reports. Detect fills it into
+	// every Remote the driver returns, so Detect need not repeat it.
+	Platform RemotePlatform
+	// Kind is what a detection of this platform proves. Setting it to
+	// RemoteKindMultiplexer is what makes Result.Multiplexer report the layer,
+	// and with it the caveat that every other axis may be stale.
+	Kind RemoteKind
+	// Executables names the binaries this layer runs as, so that a live
+	// ancestor process can corroborate an environment detection. Leave it
+	// empty for a layer that is not a process.
+	Executables []string
+	// Detect returns the layer, or false when the environment holds no
+	// evidence of it. It must not retain env. Platform, Kind, and a missing
+	// Confidence are filled in by Detect.
+	Detect func(env Env) (Remote, bool)
 }
-
-// NewRemoteDetector adapts a function into a RemoteDetector.
-func NewRemoteDetector(platform RemotePlatform, detect func(env Env) (Remote, bool)) RemoteDetector {
-	return funcRemoteDetector{platform: platform, detect: detect}
-}
-
-type funcRemoteDetector struct {
-	platform RemotePlatform
-	detect   func(Env) (Remote, bool)
-}
-
-func (d funcRemoteDetector) Platform() RemotePlatform      { return d.platform }
-func (d funcRemoteDetector) Executables() []string         { return remotes[d.platform].executables }
-func (d funcRemoteDetector) Detect(env Env) (Remote, bool) { return d.detect(env) }
 
 // IsRemote reports whether any layer was detected between the user and this
 // process, using the cached Current result.

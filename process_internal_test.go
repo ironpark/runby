@@ -7,11 +7,9 @@ import (
 	"github.com/ironpark/runby/internal/proc"
 )
 
-// unmatchableProducts lists the products that deliberately have no entry in
-// the executables table, each with the reason. The table is a second place
-// where a product must be registered, so this pins the gap list: adding a
-// product forces a decision here rather than silently leaving it
-// uncorroborated forever.
+// unmatchableProducts lists the products whose driver deliberately names no
+// executable, each with the reason. This pins the gap list: adding a product
+// forces a decision rather than silently leaving it uncorroborated forever.
 var unmatchableProducts = map[string]string{
 	// Agents.
 	"antigravity-2": "no executable name verified against an official source",
@@ -29,14 +27,18 @@ var unmatchableProducts = map[string]string{
 	"devcontainers":     "a container spec, not an ancestor process",
 }
 
-func TestExecutablesCoverEveryProduct(t *testing.T) {
-	// The labels come from the built-in detectors, which is the only place a
-	// product's executable names live.
-	labels := options{
-		detectors:         builtinDetectors,
-		terminalDetectors: builtinTerminalDetectors,
-		remoteDetectors:   builtinRemoteDetectors,
+// builtinLabels is the mapping Detect builds from the built-in drivers, which
+// are the only place a product's executable names live.
+func builtinLabels() executableLabels {
+	return options{
+		agentDrivers:    builtinAgentDrivers,
+		terminalDrivers: builtinTerminalDrivers,
+		remoteDrivers:   builtinRemoteDrivers,
 	}.executableLabels()
+}
+
+func TestExecutablesCoverEveryProduct(t *testing.T) {
+	labels := builtinLabels()
 
 	matched := map[string]bool{}
 	for _, p := range labels {
@@ -61,13 +63,13 @@ func TestExecutablesCoverEveryProduct(t *testing.T) {
 		seen[product] = true
 		_, exempt := unmatchableProducts[product]
 		if !matched[product] && !exempt {
-			t.Errorf("%s has no executables entry: add one so a live ancestor "+
-				"can corroborate it, or list it in unmatchableProducts with the reason",
-				product)
+			t.Errorf("%s names no executables: add them to its driver so a live "+
+				"ancestor can corroborate it, or list it in unmatchableProducts "+
+				"with the reason", product)
 		}
 		if matched[product] && exempt {
-			t.Errorf("%s is listed in unmatchableProducts but the executables "+
-				"table matches it; drop the exemption", product)
+			t.Errorf("%s is listed in unmatchableProducts but its driver names "+
+				"an executable; drop the exemption", product)
 		}
 	}
 
@@ -81,11 +83,7 @@ func TestExecutablesCoverEveryProduct(t *testing.T) {
 func TestExecutableKeysAreNormalized(t *testing.T) {
 	// internal/proc lowercases names and strips any .exe suffix, so a key not
 	// already in that form can never be hit.
-	labels := options{
-		detectors:         builtinDetectors,
-		terminalDetectors: builtinTerminalDetectors,
-		remoteDetectors:   builtinRemoteDetectors,
-	}.executableLabels()
+	labels := builtinLabels()
 
 	for name := range labels {
 		if got := strings.TrimSuffix(strings.ToLower(name), ".exe"); got != name {
@@ -102,11 +100,7 @@ func TestTruncatedNamesMatchByPrefix(t *testing.T) {
 	// readable source for a process owned by another user — the common case
 	// for a terminal ancestor. gnome-terminal-server is 21 characters, so
 	// without prefix matching it could never be corroborated on Linux.
-	labels := options{
-		detectors:         builtinDetectors,
-		terminalDetectors: builtinTerminalDetectors,
-		remoteDetectors:   builtinRemoteDetectors,
-	}.executableLabels()
+	labels := builtinLabels()
 
 	full := "gnome-terminal-server"
 	truncated := full[:proc.CommLimit]

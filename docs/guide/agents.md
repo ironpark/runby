@@ -53,19 +53,20 @@ Orca가 항상 `probable`인 것이 그 예입니다. Orca는 자신이 호스�
 ## 사내 에이전트 추가
 
 ```go
-detector := runby.NewDetector("acme-orchestrator", func(env runby.Env) (runby.Detection, bool) {
-	id, ok := runby.Value(env, "ACME_RUN_ID")
-	if !ok {
-		return runby.Detection{}, false
-	}
-	return runby.Detection{
-		Kind:     runby.KindOrchestrator,
-		AgentID:  id,
-		Evidence: runby.PresentNames(env, "ACME_RUN_ID"),
-	}, true
-})
+acme := runby.AgentDriver{
+	Agent:       "acme-orchestrator",
+	Kind:        runby.KindOrchestrator,
+	Executables: []string{"acme-run"},
+	Detect: func(env runby.Env) (runby.Detection, bool) {
+		id, ok := runby.Value(env, "ACME_RUN_ID")
+		if !ok {
+			return runby.Detection{}, false
+		}
+		return runby.Detection{AgentID: id, Evidence: runby.PresentNames(env, "ACME_RUN_ID")}, true
+	},
+}
 
-result := runby.Detect(runby.WithDetectors(detector))
+result := runby.Detect(runby.WithAgentDrivers(acme))
 ```
 
-자세한 규칙은 [`api.md`](api.md#detector-확장)에 있습니다.
+자세한 규칙은 [`api.md`](api.md#드라이버-확장)에 있습니다.

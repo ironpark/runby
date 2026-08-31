@@ -34,9 +34,9 @@ func (p CIProvider) String() string {
 // CIProviders returns every supported provider in detection precedence order.
 // CIProviderGeneric is last because it is the fallback.
 func CIProviders() []CIProvider {
-	providers := make([]CIProvider, 0, len(builtinCIDetectors))
-	for _, detector := range builtinCIDetectors {
-		providers = append(providers, detector.Provider())
+	providers := make([]CIProvider, 0, len(builtinCIDrivers))
+	for _, driver := range builtinCIDrivers {
+		providers = append(providers, driver.Provider)
 	}
 	return providers
 }
@@ -82,29 +82,23 @@ type CI struct {
 	Evidence []string `json:"evidence"`
 }
 
-// CIDetector reports whether an environment shows a CI run of its platform.
-// Implement it to detect a platform this package does not support, then pass
-// it to Detect with WithCIDetectors.
-type CIDetector interface {
-	// Provider returns the platform this detector reports.
-	Provider() CIProvider
-	// Detect returns the CI result, or false if the environment holds no
-	// evidence of this platform. Implementations must not retain env.
-	Detect(env Env) (CI, bool)
+// CIDriver detects one CI platform. It is the unit of extension for this
+// axis: the built-in platforms are declared as drivers, and a platform this
+// package does not support is added by passing another to Detect with
+// WithCIDrivers.
+//
+// Unlike the other axes a CI driver names no executables. A CI run is a job on
+// a runner rather than a process this one descends from, so there is nothing
+// in the ancestor chain to corroborate it against.
+type CIDriver struct {
+	// Provider identifies the platform this driver reports. Detect fills it
+	// into every CI the driver returns, so Detect need not repeat it.
+	Provider CIProvider
+	// Detect returns the CI result, or false when the environment holds no
+	// evidence of this platform. It must not retain env. Provider, Detected,
+	// and a missing Confidence are filled in by Detect.
+	Detect func(env Env) (CI, bool)
 }
-
-// NewCIDetector adapts a function into a CIDetector.
-func NewCIDetector(provider CIProvider, detect func(env Env) (CI, bool)) CIDetector {
-	return funcCIDetector{provider: provider, detect: detect}
-}
-
-type funcCIDetector struct {
-	provider CIProvider
-	detect   func(Env) (CI, bool)
-}
-
-func (d funcCIDetector) Provider() CIProvider      { return d.provider }
-func (d funcCIDetector) Detect(env Env) (CI, bool) { return d.detect(env) }
 
 // IsCI reports whether this process is running in a CI job, using the cached
 // Current result.

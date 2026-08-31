@@ -15,6 +15,13 @@
 //
 // API keys and general configuration variables are not evidence that an agent
 // launched the process and are never used for detection.
+//
+// Every axis is extensible by the same means. A product this package does not
+// support is added by passing a driver — AgentDriver, CIDriver,
+// TerminalDriver, or RemoteDriver — to Detect. A driver carries the rule for
+// detecting the product together with the facts no environment can supply,
+// such as what a detection proves and which binaries the product runs as, so
+// the built-in products and yours are declared exactly the same way.
 package runby
 
 import (
@@ -22,39 +29,14 @@ import (
 	"sync"
 )
 
-// Detector reports whether an environment shows that its agent launched the
-// process. Implement it to detect an agent this package does not support, then
-// pass it to Detect with WithDetectors.
-type Detector interface {
-	// Agent returns the agent this detector reports.
-	Agent() Agent
-	// Detect returns the detection, or false if the environment holds no
-	// evidence of this agent. Implementations must not retain env.
-	Detect(env Env) (Detection, bool)
-}
-
-// NewDetector adapts a function into a Detector.
-func NewDetector(agent Agent, detect func(env Env) (Detection, bool)) Detector {
-	return funcDetector{agent: agent, detect: detect}
-}
-
-type funcDetector struct {
-	agent  Agent
-	detect func(Env) (Detection, bool)
-}
-
-func (d funcDetector) Agent() Agent                     { return d.agent }
-func (d funcDetector) Executables() []string            { return agents[d.agent].executables }
-func (d funcDetector) Detect(env Env) (Detection, bool) { return d.detect(env) }
-
 type options struct {
-	env               Env
-	detectors         []Detector
-	ciDetectors       []CIDetector
-	terminalDetectors []TerminalDetector
-	remoteDetectors   []RemoteDetector
-	tty               TTY
-	process           ProcessTree
+	env             Env
+	agentDrivers    []AgentDriver
+	ciDrivers       []CIDriver
+	terminalDrivers []TerminalDriver
+	remoteDrivers   []RemoteDriver
+	tty             TTY
+	process         ProcessTree
 	// inspectTTY and inspectProcess are only true when the environment being
 	// inspected is this process's own, so that the standard streams and the
 	// ancestor chain describe the same process as the detected layers.
@@ -128,69 +110,70 @@ func WithProcessTree(tree ProcessTree) Option {
 	}
 }
 
-// WithTerminalDetectors adds terminal detectors ahead of the built-in ones.
-// Detectors are tried in the order given, and the first match wins.
-func WithTerminalDetectors(detectors ...TerminalDetector) Option {
-	return func(o *options) {
-		o.terminalDetectors = append(append([]TerminalDetector{}, detectors...), o.terminalDetectors...)
-	}
-}
-
-// WithOnlyTerminalDetectors replaces the built-in terminal detectors entirely.
-// Passing no detectors disables terminal detection.
-func WithOnlyTerminalDetectors(detectors ...TerminalDetector) Option {
-	return func(o *options) {
-		o.terminalDetectors = append([]TerminalDetector{}, detectors...)
-	}
-}
-
-// WithRemoteDetectors adds remote-layer detectors ahead of the built-in ones.
-// Unlike the agent axis, every matching detector is reported, so ordering
-// affects only the order of Result.Remote.
-func WithRemoteDetectors(detectors ...RemoteDetector) Option {
-	return func(o *options) {
-		o.remoteDetectors = append(append([]RemoteDetector{}, detectors...), o.remoteDetectors...)
-	}
-}
-
-// WithOnlyRemoteDetectors replaces the built-in remote detectors entirely.
-// Passing no detectors disables remote detection.
-func WithOnlyRemoteDetectors(detectors ...RemoteDetector) Option {
-	return func(o *options) {
-		o.remoteDetectors = append([]RemoteDetector{}, detectors...)
-	}
-}
-
-// WithDetectors adds detectors ahead of the built-in ones, so a custom
+// WithAgentDrivers adds agent drivers ahead of the built-in ones, so a custom
 // orchestrator is reported as the primary layer over the runtime it drives.
-// Detectors are tried in the order given.
-func WithDetectors(detectors ...Detector) Option {
+// Drivers are tried in the order given, and every match is reported.
+func WithAgentDrivers(drivers ...AgentDriver) Option {
 	return func(o *options) {
-		o.detectors = append(append([]Detector{}, detectors...), o.detectors...)
+		o.agentDrivers = append(append([]AgentDriver{}, drivers...), o.agentDrivers...)
 	}
 }
 
-// WithOnlyDetectors replaces the built-in detectors entirely.
-func WithOnlyDetectors(detectors ...Detector) Option {
+// WithOnlyAgentDrivers replaces the built-in agent drivers entirely. Passing
+// no drivers disables agent detection.
+func WithOnlyAgentDrivers(drivers ...AgentDriver) Option {
 	return func(o *options) {
-		o.detectors = append([]Detector{}, detectors...)
+		o.agentDrivers = append([]AgentDriver{}, drivers...)
 	}
 }
 
-// WithCIDetectors adds CI detectors ahead of the built-in ones, so a platform
-// this package does not support is reported over the generic CI convention.
-// Detectors are tried in the order given, and the first match wins.
-func WithCIDetectors(detectors ...CIDetector) Option {
+// WithCIDrivers adds CI drivers ahead of the built-in ones, so a platform this
+// package does not support is reported over the generic CI convention. Drivers
+// are tried in the order given, and the first match wins.
+func WithCIDrivers(drivers ...CIDriver) Option {
 	return func(o *options) {
-		o.ciDetectors = append(append([]CIDetector{}, detectors...), o.ciDetectors...)
+		o.ciDrivers = append(append([]CIDriver{}, drivers...), o.ciDrivers...)
 	}
 }
 
-// WithOnlyCIDetectors replaces the built-in CI detectors entirely. Passing no
-// detectors disables CI detection.
-func WithOnlyCIDetectors(detectors ...CIDetector) Option {
+// WithOnlyCIDrivers replaces the built-in CI drivers entirely. Passing no
+// drivers disables CI detection.
+func WithOnlyCIDrivers(drivers ...CIDriver) Option {
 	return func(o *options) {
-		o.ciDetectors = append([]CIDetector{}, detectors...)
+		o.ciDrivers = append([]CIDriver{}, drivers...)
+	}
+}
+
+// WithTerminalDrivers adds terminal drivers ahead of the built-in ones.
+// Drivers are tried in the order given, and the first match wins.
+func WithTerminalDrivers(drivers ...TerminalDriver) Option {
+	return func(o *options) {
+		o.terminalDrivers = append(append([]TerminalDriver{}, drivers...), o.terminalDrivers...)
+	}
+}
+
+// WithOnlyTerminalDrivers replaces the built-in terminal drivers entirely.
+// Passing no drivers disables terminal detection.
+func WithOnlyTerminalDrivers(drivers ...TerminalDriver) Option {
+	return func(o *options) {
+		o.terminalDrivers = append([]TerminalDriver{}, drivers...)
+	}
+}
+
+// WithRemoteDrivers adds remote-layer drivers ahead of the built-in ones.
+// Unlike the agent axis, every matching driver is reported, so ordering
+// affects only the order of Result.Remote.
+func WithRemoteDrivers(drivers ...RemoteDriver) Option {
+	return func(o *options) {
+		o.remoteDrivers = append(append([]RemoteDriver{}, drivers...), o.remoteDrivers...)
+	}
+}
+
+// WithOnlyRemoteDrivers replaces the built-in remote drivers entirely. Passing
+// no drivers disables remote detection.
+func WithOnlyRemoteDrivers(drivers ...RemoteDriver) Option {
+	return func(o *options) {
+		o.remoteDrivers = append([]RemoteDriver{}, drivers...)
 	}
 }
 
@@ -199,13 +182,13 @@ func WithOnlyCIDetectors(detectors ...CIDetector) Option {
 // the current process, including its terminal.
 func Detect(opts ...Option) Result {
 	config := options{
-		env:               processEnv{},
-		detectors:         builtinDetectors,
-		ciDetectors:       builtinCIDetectors,
-		terminalDetectors: builtinTerminalDetectors,
-		remoteDetectors:   builtinRemoteDetectors,
-		inspectTTY:        true,
-		inspectProcess:    true,
+		env:             processEnv{},
+		agentDrivers:    builtinAgentDrivers,
+		ciDrivers:       builtinCIDrivers,
+		terminalDrivers: builtinTerminalDrivers,
+		remoteDrivers:   builtinRemoteDrivers,
+		inspectTTY:      true,
+		inspectProcess:  true,
 	}
 	for _, opt := range opts {
 		opt(&config)
@@ -216,9 +199,9 @@ func Detect(opts ...Option) Result {
 		result.TTY = InspectTTY()
 	}
 
-	// The ancestor chain is labelled from the detectors this call was
-	// configured with, so a detector added through WithDetectors is
-	// corroborated exactly like a built-in one.
+	// The ancestor chain is labelled from the drivers this call was configured
+	// with, so a driver added through WithAgentDrivers is corroborated exactly
+	// like a built-in one.
 	labels := config.executableLabels()
 	if config.inspectProcess {
 		result.Process = inspectProcessTree(labels)
@@ -234,17 +217,17 @@ func Detect(opts ...Option) Result {
 }
 
 // executableLabels gathers the name-to-product mapping from every configured
-// detector that names its executables.
+// driver that names its executables.
 func (config options) executableLabels() executableLabels {
 	labels := make(executableLabels)
-	for _, detector := range config.detectors {
-		labels.add(detector, Process{Agent: detector.Agent()})
+	for _, driver := range config.agentDrivers {
+		labels.add(driver.Executables, Process{Agent: driver.Agent})
 	}
-	for _, detector := range config.terminalDetectors {
-		labels.add(detector, Process{Terminal: detector.Program()})
+	for _, driver := range config.terminalDrivers {
+		labels.add(driver.Executables, Process{Terminal: driver.Program})
 	}
-	for _, detector := range config.remoteDetectors {
-		labels.add(detector, Process{Remote: detector.Platform()})
+	for _, driver := range config.remoteDrivers {
+		labels.add(driver.Executables, Process{Remote: driver.Platform})
 	}
 	return labels
 }
@@ -252,18 +235,17 @@ func (config options) executableLabels() executableLabels {
 // detectAgents reports every agent layer, most specific orchestrator first.
 func detectAgents(config options, tree ProcessTree) []Detection {
 	var layers []Detection
-	for _, detector := range config.detectors {
-		detection, ok := detector.Detect(config.env)
+	for _, driver := range config.agentDrivers {
+		detection, ok := driver.Detect(config.env)
 		if !ok {
 			continue
 		}
-		// Detectors fill in only what their agent advertises; the defaults
-		// shared by every detection are applied once, here.
-		if detection.Agent == "" {
-			detection.Agent = detector.Agent()
-		}
+		// Drivers fill in only what their agent advertises; the identity and
+		// the defaults shared by every detection are applied once, here.
+		detection.Agent = driver.Agent
+		detection.Kind = driver.Kind
 		if detection.Kind == "" {
-			detection.Kind = detection.Agent.Kind()
+			detection.Kind = KindUnknown
 		}
 		if detection.Confidence == "" {
 			detection.Confidence = ConfidenceDefinite
@@ -285,14 +267,12 @@ func detectAgents(config options, tree ProcessTree) []Detection {
 // reported; every platform also sets the generic CI variable, so later matches
 // are redundant.
 func detectCI(config options) CI {
-	for _, detector := range config.ciDetectors {
-		ci, ok := detector.Detect(config.env)
+	for _, driver := range config.ciDrivers {
+		ci, ok := driver.Detect(config.env)
 		if !ok {
 			continue
 		}
-		if ci.Provider == "" {
-			ci.Provider = detector.Provider()
-		}
+		ci.Provider = driver.Provider
 		if ci.Confidence == "" {
 			ci.Confidence = ConfidenceDefinite
 		}
@@ -307,16 +287,15 @@ func detectCI(config options) CI {
 // Codespace running tmux is three concurrent layers, not a precedence contest.
 func detectRemote(config options, tree ProcessTree) []Remote {
 	var layers []Remote
-	for _, detector := range config.remoteDetectors {
-		remote, ok := detector.Detect(config.env)
+	for _, driver := range config.remoteDrivers {
+		remote, ok := driver.Detect(config.env)
 		if !ok {
 			continue
 		}
-		if remote.Platform == "" {
-			remote.Platform = detector.Platform()
-		}
+		remote.Platform = driver.Platform
+		remote.Kind = driver.Kind
 		if remote.Kind == "" {
-			remote.Kind = remote.Platform.Kind()
+			remote.Kind = RemoteKindUnknown
 		}
 		if remote.Confidence == "" {
 			remote.Confidence = ConfidenceDefinite
@@ -334,15 +313,13 @@ func detectRemote(config options, tree ProcessTree) []Remote {
 // earlier steps produced.
 func detectTerminal(config options, result Result) Terminal {
 	var terminal Terminal
-	for _, detector := range config.terminalDetectors {
-		found, ok := detector.Detect(config.env)
+	for _, driver := range config.terminalDrivers {
+		found, ok := driver.Detect(config.env)
 		if !ok {
 			continue
 		}
 		terminal = found
-		if terminal.Program == "" {
-			terminal.Program = detector.Program()
-		}
+		terminal.Program = driver.Program
 		if terminal.Confidence == "" {
 			terminal.Confidence = ConfidenceDefinite
 		}
@@ -400,5 +377,5 @@ func IsAgent() bool { return Current().Found() }
 func IsTerminal() bool { return Current().Terminal.Detected }
 
 // Environ returns the current process environment as an Env. It is a
-// convenience for callers that build their own detector pipelines.
+// convenience for callers that build their own driver pipelines.
 func Environ() Env { return EnvironEnv(os.Environ()) }

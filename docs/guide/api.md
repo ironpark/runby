@@ -6,7 +6,7 @@
 result := runby.Detect()                                   // 현재 프로세스
 result := runby.Detect(runby.WithEnviron(environ))         // 명시적 환경
 result := runby.Detect(runby.WithoutTTY())                 // TTY 시스템콜 생략
-result := runby.Detect(runby.WithDetectors(myDetector))    // 사내 오케스트레이터 추가
+result := runby.Detect(runby.WithAgentDrivers(myDriver))   // 사내 오케스트레이터 추가
 ```
 
 ## 옵션
@@ -19,14 +19,14 @@ result := runby.Detect(runby.WithDetectors(myDetector))    // 사내 오케스�
 | `WithTTY(TTY)` | 표준 스트림 상태를 직접 주입 |
 | `WithoutProcessTree()` | 상위 프로세스 체인 읽기 생략 |
 | `WithProcessTree(ProcessTree)` | 상위 프로세스 체인을 직접 주입 |
-| `WithDetectors(...Detector)` | 내장 agent detector 앞에 추가 |
-| `WithOnlyDetectors(...Detector)` | 내장 agent detector를 완전히 대체 |
-| `WithCIDetectors(...CIDetector)` | 내장 CI detector 앞에 추가 |
-| `WithOnlyCIDetectors(...CIDetector)` | 내장 CI detector를 대체. 인자가 없으면 CI 감지 비활성화 |
-| `WithTerminalDetectors(...TerminalDetector)` | 내장 터미널 detector 앞에 추가 |
-| `WithOnlyTerminalDetectors(...)` | 내장 터미널 detector를 대체. 인자가 없으면 비활성화 |
-| `WithRemoteDetectors(...RemoteDetector)` | 내장 remote detector 앞에 추가 |
-| `WithOnlyRemoteDetectors(...)` | 내장 remote detector를 대체. 인자가 없으면 비활성화 |
+| `WithAgentDrivers(...AgentDriver)` | 내장 agent 드라이버 앞에 추가 |
+| `WithOnlyAgentDrivers(...)` | 내장 agent 드라이버를 대체. 인자가 없으면 비활성화 |
+| `WithCIDrivers(...CIDriver)` | 내장 CI 드라이버 앞에 추가 |
+| `WithOnlyCIDrivers(...)` | 내장 CI 드라이버를 대체. 인자가 없으면 비활성화 |
+| `WithTerminalDrivers(...TerminalDriver)` | 내장 터미널 드라이버 앞에 추가 |
+| `WithOnlyTerminalDrivers(...)` | 내장 터미널 드라이버를 대체. 인자가 없으면 비활성화 |
+| `WithRemoteDrivers(...RemoteDriver)` | 내장 remote 드라이버 앞에 추가 |
+| `WithOnlyRemoteDrivers(...)` | 내장 remote 드라이버를 대체. 인자가 없으면 비활성화 |
 
 `WithEnviron`·`WithEnv`·`WithLookup`은 **이 프로세스의 것이 아닐 수도 있는** 환경을 넘기는 것이므로, 같은 프로세스를 설명해야만 의미가 있는 `TTY`와 `Process` 축은 자동으로 꺼집니다.
 
@@ -88,7 +88,7 @@ type Detection struct {
 
 `AncestorPID`는 [`process.md`](process.md)를 참고하십시오. **0은 부정이 아닙니다.** `Terminal`과 `Remote[]`에도 같은 필드가 있습니다.
 
-검출기가 `Executables() []string`을 구현하면 조상 확증 대상에 포함됩니다. 이 선택적 인터페이스는 네 축 모두에서 동작합니다.
+드라이버의 `Executables`를 채우면 조상 확증 대상에 포함됩니다. agent·terminal·remote 세 축에서 동작합니다.
 
 ## 캐시된 진입점
 
@@ -104,30 +104,56 @@ runby.IsRemote()   // len(Current().Remote) > 0
 
 첫 호출 이후의 `os.Setenv`를 반영하려면 `Detect()`를 직접 부르십시오.
 
-## detector 확장
+## 드라이버 확장
+
+축마다 드라이버 구조체가 하나씩 있고, 내장 제품과 사내 제품이 **같은 타입**을 씁니다. 드라이버는 감지 규칙과 함께, 환경이 알려줄 수 없는 사실(축위, 실행 파일 이름)까지 한 곳에 담습니다.
 
 ```go
-detector := runby.NewDetector("acme-orchestrator", func(env runby.Env) (runby.Detection, bool) {
-	id, ok := runby.Value(env, "ACME_RUN_ID")
-	if !ok {
-		return runby.Detection{}, false
-	}
-	return runby.Detection{
-		Kind:     runby.KindOrchestrator,
-		AgentID:  id,
-		Evidence: runby.PresentNames(env, "ACME_RUN_ID"),
-	}, true
-})
+acme := runby.AgentDriver{
+	Agent:       "acme-orchestrator",
+	Kind:        runby.KindOrchestrator,
+	Executables: []string{"acme-run"}, // 살아 있는 조상 프로세스로 확증
+	Detect: func(env runby.Env) (runby.Detection, bool) {
+		id, ok := runby.Value(env, "ACME_RUN_ID")
+		if !ok {
+			return runby.Detection{}, false
+		}
+		return runby.Detection{AgentID: id, Evidence: runby.PresentNames(env, "ACME_RUN_ID")}, true
+	},
+}
 
-result := runby.Detect(runby.WithDetectors(detector))
+result := runby.Detect(runby.WithAgentDrivers(acme))
 ```
 
-`WithDetectors`로 추가한 detector는 내장 detector보다 앞서므로, 사내 오케스트레이터가 그것이 구동한 런타임보다 우선해 보고됩니다.
+`WithAgentDrivers`로 추가한 드라이버는 내장 드라이버보다 앞서므로, 사내 오케스트레이터가 그것이 구동한 런타임보다 우선해 보고됩니다.
 
-`Value`, `Bool`, `IsTrue`, `EqualsFold`, `PresentNames`는 내장 detector와 동일한 파싱 규칙을 재사용하도록 공개되어 있습니다. `Agent`, `Kind`, `Confidence`, `Sandbox.Network`를 비워두면 `Detect`가 기본값을 채웁니다.
+`Agent`·`Kind`는 드라이버가 제공하므로 `Detect` 안에서 다시 쓸 필요가 없고, `Confidence`와 `Sandbox.Network`는 비워두면 기본값이 채워집니다.
 
-CI·터미널·remote 축도 각각 `NewCIDetector`, `NewTerminalDetector`, `NewRemoteDetector`로 같은 방식으로 확장합니다.
+| 축 | 드라이버 | 식별자 | 축위 | 실행 파일 |
+|---|---|---|---|---|
+| agent | `AgentDriver` | `Agent` | `Kind` | `Executables` |
+| CI | `CIDriver` | `Provider` | — | — |
+| terminal | `TerminalDriver` | `Program` | — | `Executables` |
+| remote | `RemoteDriver` | `Platform` | `Kind` | `Executables` |
 
-### detector가 환경을 바꿀 수 없는 이유
+CI 드라이버만 `Executables`가 없습니다. CI 잡은 이 프로세스가 이어받은 조상 프로세스가 아니라 러너 위의 작업이므로, 체인에서 대조할 대상이 없습니다.
 
-detector는 `Env` 인터페이스(`Lookup(name) (string, bool)`)만 받습니다. `os.Environ()`을 직접 읽지 않으므로 사내 detector가 실수로 환경을 변경하거나 다른 프로세스의 환경을 섞을 수 없고, 같은 detector를 테스트에서 임의의 환경으로 그대로 실행할 수 있습니다.
+remote 드라이버의 `Kind`를 `RemoteKindMultiplexer`로 두면 `Result.Multiplexer()`가 그 계층을 보고하고, 다른 모든 축이 낡았을 수 있다는 경고가 함께 적용됩니다. 비워두면 그 처리가 조용히 빠지므로 멀티플렉서라면 반드시 지정하십시오.
+
+### 저작 헬퍼
+
+내장 드라이버와 동일한 파싱 규칙을 재사용하도록 공개되어 있습니다.
+
+| 헬퍼 | 용도 |
+|---|---|
+| `Value` / `Bool` / `IsTrue` / `EqualsFold` | 변수 하나 읽기 (공백 트림, 빈 값은 근거 아님) |
+| `AnyPresent(env, names...)` | 여러 후보 중 하나라도 설정됐는지 |
+| `MarkerSet` / `MarkerTrue` / `MarkerTermProgram` | `Marker`(= `func(Env) bool`) 생성 |
+| `CollectExtra(env, keys)` | `Extra` 맵 구성. 설정되지 않은 키는 건너뜀 |
+| `PresentNames(env, names...)` | `Evidence` 구성. 정렬·중복 제거, **이름만** |
+
+`Evidence`에는 값이 절대 들어가지 않습니다. `PresentNames`에 후보 이름을 전부 넘기면 설정된 것만 남으므로, 값을 직접 다루지 않고 근거 목록을 만들 수 있습니다.
+
+### 드라이버가 환경을 바꿀 수 없는 이유
+
+드라이버의 `Detect`는 `Env` 인터페이스(`Lookup(name) (string, bool)`)만 받습니다. `os.Environ()`을 직접 읽지 않으므로 사내 드라이버가 실수로 환경을 변경하거나 다른 프로세스의 환경을 섞을 수 없고, 같은 드라이버를 테스트에서 임의의 환경으로 그대로 실행할 수 있습니다.

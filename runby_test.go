@@ -27,7 +27,7 @@ func TestDetectCurrentEnvironmentPaseoCodex(t *testing.T) {
 func TestDetectUnknownStillInspectsTerminal(t *testing.T) {
 	// The zero-detection path must not skip terminal inspection; Terminal is a
 	// property of the process, not of a detected layer.
-	result := runby.Detect(runby.WithOnlyDetectors())
+	result := runby.Detect(runby.WithOnlyAgentDrivers())
 
 	if result.Found() {
 		t.Fatalf("Found() = true, want false: %#v", result.Layers)
@@ -279,31 +279,33 @@ func TestWithLookupAndLastValueWins(t *testing.T) {
 	}
 }
 
-func TestWithDetectorsTakesPrecedence(t *testing.T) {
+func TestWithAgentDriversTakePrecedence(t *testing.T) {
 	const inHouse runby.Agent = "acme-orchestrator"
-	detector := runby.NewDetector(inHouse, func(env runby.Env) (runby.Detection, bool) {
-		id, ok := runby.Value(env, "ACME_RUN_ID")
-		if !ok {
-			return runby.Detection{}, false
-		}
-		return runby.Detection{
-			Kind:     runby.KindOrchestrator,
-			AgentID:  id,
-			Evidence: runby.PresentNames(env, "ACME_RUN_ID"),
-		}, true
-	})
+	driver := runby.AgentDriver{
+		Agent: inHouse,
+		Kind:  runby.KindOrchestrator,
+		Detect: func(env runby.Env) (runby.Detection, bool) {
+			id, ok := runby.Value(env, "ACME_RUN_ID")
+			if !ok {
+				return runby.Detection{}, false
+			}
+			return runby.Detection{AgentID: id, Evidence: runby.PresentNames(env, "ACME_RUN_ID")}, true
+		},
+	}
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_RUN_ID=run-7", "CODEX_THREAD_ID=t-1"}),
-		runby.WithDetectors(detector),
+		runby.WithAgentDrivers(driver),
 	)
 
 	if got, want := result.Chain(), "acme-orchestrator>codex"; got != want {
 		t.Fatalf("Chain() = %q, want %q", got, want)
 	}
-	// Agent and Confidence default from the detector when it leaves them unset.
+	// Agent and Kind come from the driver, and Confidence defaults, so Detect
+	// need not repeat any of them.
 	primary, _ := result.Primary()
-	if primary.Agent != inHouse || primary.AgentID != "run-7" || primary.Confidence != runby.ConfidenceDefinite {
+	if primary.Agent != inHouse || primary.Kind != runby.KindOrchestrator ||
+		primary.AgentID != "run-7" || primary.Confidence != runby.ConfidenceDefinite {
 		t.Fatalf("primary = %#v", primary)
 	}
 	if !result.Found() {

@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-// Env is a read-only view of an environment. Detectors receive an Env rather
-// than a map so that they cannot mutate the environment being inspected and so
-// that the process-backed implementation can look values up lazily.
+// Env is a read-only view of an environment. A driver's Detect receives an Env
+// rather than a map so that it cannot mutate the environment being inspected,
+// and so that the process-backed implementation can look values up lazily.
 type Env interface {
 	// Lookup returns the value bound to name and whether name is set.
 	Lookup(name string) (value string, ok bool)
@@ -50,8 +50,9 @@ func EnvironEnv(environ []string) Env {
 	return env
 }
 
-// The helpers below are exported so that detectors supplied through
-// WithDetectors parse the environment exactly like the built-in ones.
+// The helpers below are exported so that a driver supplied through
+// WithAgentDrivers and its siblings parses the environment exactly like the
+// built-in ones.
 
 // Value returns the space-trimmed value of name, and whether it is set to a
 // non-empty value. A variable set to the empty string is not evidence.
@@ -87,13 +88,13 @@ func EqualsFold(env Env, name, want string) bool {
 	return ok && strings.EqualFold(value, want)
 }
 
-// collectExtra returns the values of the given variables keyed by the stable
+// CollectExtra returns the values of the given variables keyed by the stable
 // Extra key each maps to, skipping the ones that are not set. It returns nil
 // when none are present, so a detection carrying no context carries no map.
 //
-// The spec-driven axes build Extra from their spec tables; the hand-written
-// agent detectors use this.
-func collectExtra(env Env, keys map[string]string) map[string]string {
+// It builds the Extra map of a Detection, CI, Terminal, or Remote the same way
+// the built-in drivers do.
+func CollectExtra(env Env, keys map[string]string) map[string]string {
 	var extra map[string]string
 	for key, name := range keys {
 		value, ok := Value(env, name)
@@ -109,8 +110,8 @@ func collectExtra(env Env, keys map[string]string) map[string]string {
 }
 
 // PresentNames returns the sorted, deduplicated subset of names that are set
-// to a non-empty value. Detectors use it to build Evidence, which holds
-// variable names only; values may be sensitive and are never copied into it.
+// to a non-empty value. Drivers use it to build Evidence, which holds variable
+// names only; values may be sensitive and are never copied into it.
 //
 // Duplicates are dropped because Evidence is a set: a caller often assembles
 // the candidate list from several overlapping sources, such as a marker that
@@ -129,4 +130,45 @@ func PresentNames(env Env, names ...string) []string {
 	}
 	sort.Strings(present)
 	return present
+}
+
+// Marker reports whether an environment shows a product is present. It is the
+// first question every driver answers, and it is kept separate from reading
+// the product's variables so that recognition and extraction cannot disagree.
+type Marker func(env Env) bool
+
+// MarkerSet matches when every name is set to a non-empty value.
+func MarkerSet(names ...string) Marker {
+	return func(env Env) bool {
+		for _, name := range names {
+			if _, ok := Value(env, name); !ok {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// MarkerTrue matches when every name holds a parsable boolean that is true.
+func MarkerTrue(names ...string) Marker {
+	return func(env Env) bool {
+		for _, name := range names {
+			if !IsTrue(env, name) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
+// AnyPresent reports whether at least one of the names is set to a non-empty
+// value. Use it inside a Marker for a product that advertises alternatives
+// rather than one fixed variable.
+func AnyPresent(env Env, names ...string) bool {
+	for _, name := range names {
+		if _, ok := Value(env, name); ok {
+			return true
+		}
+	}
+	return false
 }

@@ -259,18 +259,21 @@ func TestCIEvidenceIsNamesOnly(t *testing.T) {
 	}
 }
 
-func TestWithCIDetectors(t *testing.T) {
-	detector := runby.NewCIDetector("acme-ci", func(env runby.Env) (runby.CI, bool) {
-		id, ok := runby.Value(env, "ACME_CI_BUILD")
-		if !ok {
-			return runby.CI{}, false
-		}
-		return runby.CI{PipelineID: id, Evidence: runby.PresentNames(env, "ACME_CI_BUILD")}, true
-	})
+func TestWithCIDrivers(t *testing.T) {
+	driver := runby.CIDriver{
+		Provider: "acme-ci",
+		Detect: func(env runby.Env) (runby.CI, bool) {
+			id, ok := runby.Value(env, "ACME_CI_BUILD")
+			if !ok {
+				return runby.CI{}, false
+			}
+			return runby.CI{PipelineID: id, Evidence: runby.PresentNames(env, "ACME_CI_BUILD")}, true
+		},
+	}
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"CI=true", "ACME_CI_BUILD=b-9"}),
-		runby.WithCIDetectors(detector),
+		runby.WithCIDrivers(driver),
 	)
 	if result.CI.Provider != "acme-ci" || result.CI.PipelineID != "b-9" {
 		t.Fatalf("CI = %#v", result.CI)
@@ -279,7 +282,7 @@ func TestWithCIDetectors(t *testing.T) {
 		t.Fatalf("CI = %#v", result.CI)
 	}
 
-	disabled := runby.Detect(runby.WithEnviron([]string{"CI=true"}), runby.WithOnlyCIDetectors())
+	disabled := runby.Detect(runby.WithEnviron([]string{"CI=true"}), runby.WithOnlyCIDrivers())
 	if disabled.IsCI() {
 		t.Fatalf("CI = %#v, want detection disabled", disabled.CI)
 	}

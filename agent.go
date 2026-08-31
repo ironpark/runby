@@ -33,38 +33,48 @@ const (
 	KindHarness Kind = "harness"
 )
 
-// agentInfo is everything this package knows about an agent that is not the
-// environment rule for detecting it.
-type agentInfo struct {
-	kind Kind
-	// executables names the binaries this agent runs as, so a live ancestor
-	// process can corroborate an environment detection. Leave it empty when
-	// no name is specific enough to match safely; a generic name would
-	// mislabel unrelated processes.
-	executables []string
+// AgentDriver detects one agent. It is the unit of extension for this axis:
+// the built-in agents are declared as drivers, and an agent this package does
+// not support is added by passing another to Detect with WithAgentDrivers.
+//
+// A driver carries both the rule for detecting the agent and the facts about
+// it that no environment can supply, so registering an agent is one step and
+// there is nothing to keep in sync elsewhere.
+type AgentDriver struct {
+	// Agent identifies the agent this driver reports. Detect fills it into
+	// every Detection the driver returns, so Detect need not repeat it.
+	Agent Agent
+	// Kind is how much a detection of this agent proves. Detect fills it in
+	// the same way, and Agent.Kind answers it for the built-in agents.
+	Kind Kind
+	// Executables names the binaries this agent runs as, so that a live
+	// ancestor process can corroborate an environment detection. Leave it
+	// empty when no name is specific enough to match safely; a generic name
+	// would mislabel unrelated processes.
+	Executables []string
+	// Detect returns the detection, or false when the environment holds no
+	// evidence of this agent. It must not retain env. Agent, Kind, and a
+	// missing Confidence are filled in by Detect, so an implementation sets
+	// only what its agent actually advertises.
+	Detect func(env Env) (Detection, bool)
 }
 
-// agents is the single source of truth for what an Agent is. A product is
-// registered here and detected in agent_detectors.go, and nowhere else.
-var agents = map[Agent]agentInfo{
-	AgentPaseo:      {kind: KindOrchestrator, executables: []string{"paseo"}},
-	AgentOrca:       {kind: KindOrchestrator},
-	AgentCodex:      {kind: KindHarness, executables: []string{"codex"}},
-	AgentClaudeCode: {kind: KindHarness, executables: []string{"claude"}},
-	AgentAmp:        {kind: KindHarness, executables: []string{"amp"}},
-	AgentCursor:     {kind: KindHarness, executables: []string{"cursor-agent"}},
-	AgentOpenCode:   {kind: KindHarness, executables: []string{"opencode"}},
-	// Orca's binary shares its name with the GNOME screen reader, and no
-	// Antigravity executable name has been verified against an official
-	// source, so neither can be corroborated by an ancestor.
-	AgentAntigravity2: {kind: KindHarness},
-}
+// agentKinds is derived from the built-in driver table, so a driver is the one
+// place an agent is registered.
+var agentKinds = func() map[Agent]Kind {
+	kinds := make(map[Agent]Kind, len(builtinAgentDrivers))
+	for _, driver := range builtinAgentDrivers {
+		kinds[driver.Agent] = driver.Kind
+	}
+	return kinds
+}()
 
 // Kind reports how much a detection of a proves. It returns KindUnknown for
-// agents this package does not support, which is not the map's zero value.
+// agents this package does not support; a driver supplied through
+// WithAgentDrivers carries its own Kind onto the Detection instead.
 func (a Agent) Kind() Kind {
-	if info, ok := agents[a]; ok {
-		return info.kind
+	if kind, ok := agentKinds[a]; ok {
+		return kind
 	}
 	return KindUnknown
 }
@@ -80,9 +90,9 @@ func (a Agent) String() string {
 
 // Agents returns every supported agent in detection precedence order.
 func Agents() []Agent {
-	agents := make([]Agent, 0, len(builtinDetectors))
-	for _, detector := range builtinDetectors {
-		agents = append(agents, detector.Agent())
+	agents := make([]Agent, 0, len(builtinAgentDrivers))
+	for _, driver := range builtinAgentDrivers {
+		agents = append(agents, driver.Agent)
 	}
 	return agents
 }

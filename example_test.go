@@ -47,24 +47,27 @@ func ExampleResult_Get() {
 	// Output: thread-123 workspace-write disabled
 }
 
-// Detectors for agents this package does not support are added ahead of the
-// built-in ones.
-func ExampleWithDetectors() {
-	acme := runby.NewDetector("acme-orchestrator", func(env runby.Env) (runby.Detection, bool) {
-		id, ok := runby.Value(env, "ACME_RUN_ID")
-		if !ok {
-			return runby.Detection{}, false
-		}
-		return runby.Detection{
-			Kind:     runby.KindOrchestrator,
-			AgentID:  id,
-			Evidence: runby.PresentNames(env, "ACME_RUN_ID"),
-		}, true
-	})
+// A driver for an agent this package does not support is added ahead of the
+// built-in ones. It carries the agent's identity, what a detection of it
+// proves, and the binaries it runs as, so nothing has to be registered
+// elsewhere.
+func ExampleWithAgentDrivers() {
+	acme := runby.AgentDriver{
+		Agent:       "acme-orchestrator",
+		Kind:        runby.KindOrchestrator,
+		Executables: []string{"acme-run"},
+		Detect: func(env runby.Env) (runby.Detection, bool) {
+			id, ok := runby.Value(env, "ACME_RUN_ID")
+			if !ok {
+				return runby.Detection{}, false
+			}
+			return runby.Detection{AgentID: id, Evidence: runby.PresentNames(env, "ACME_RUN_ID")}, true
+		},
+	}
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_RUN_ID=run-7", "CLAUDECODE=1"}),
-		runby.WithDetectors(acme),
+		runby.WithAgentDrivers(acme),
 	)
 
 	fmt.Println(result.Chain())

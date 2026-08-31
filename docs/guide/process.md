@@ -41,17 +41,21 @@ for _, layer := range runby.Current().Layers {
 
 근거는 멀티플렉서 서버가 데몬화되면서 자신을 시작한 터미널로부터 재부모화된다는 점입니다. tmux 3.7c로 실측한 결과 pane 안의 조상 체인은 `zsh → tmux → pid 1`로 끝나고 **원래 터미널이 나타나지 않습니다.** 따라서 터미널이 조상에 있다는 것은 낡은 pane 뒤가 아니라는 뜻입니다.
 
-### 사내 검출기도 확증을 받습니다
+### 사내 드라이버도 확증을 받습니다
 
-검출기가 선택적 인터페이스를 구현하면 내장 제품과 똑같이 조상 확인을 받습니다.
+드라이버에 `Executables`를 채우면 내장 제품과 똑같이 조상 확인을 받습니다.
 
 ```go
-type ExecutableNamer interface {
-	Executables() []string
+runby.AgentDriver{
+	Agent:       "acme-orchestrator",
+	Executables: []string{"acme-run"},
+	Detect:      detectAcme,
 }
 ```
 
-라벨은 `Detect` 호출에 설정된 검출기들로부터 만들어지므로, `WithDetectors`로 추가한 검출기의 실행 파일 이름도 조상 체인 라벨링에 참여합니다.
+라벨은 `Detect` 호출에 설정된 드라이버들로부터 만들어지므로, `WithAgentDrivers`·`WithTerminalDrivers`·`WithRemoteDrivers`로 추가한 드라이버의 실행 파일 이름도 조상 체인 라벨링에 참여합니다.
+
+이름은 소문자 base name에 `.exe`를 뗀 형태로 맞춰야 합니다(`internal/proc`가 그렇게 정규화합니다). Linux `/proc/<pid>/comm`은 15바이트에서 잘리므로, 잘린 이름은 접두사로 대조하되 후보가 둘 이상이면 아무것도 라벨링하지 않습니다.
 
 **`AncestorPID == 0`은 부정이 아닙니다.** 체인은 다른 사용자 소유 프로세스에서 멈추고, 일부 플랫폼에서는 아예 읽을 수 없으며, 에이전트가 조상으로 남지 않는 방식으로 프로세스를 띄울 수도 있습니다. **긍정을 강화하는 데만 쓰고, 부정의 근거로 쓰면 안 됩니다.** 이 규칙을 테스트로 고정해 두었습니다.
 

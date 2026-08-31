@@ -143,17 +143,16 @@ func TestProcessTreeSurvivesJSON(t *testing.T) {
 	assertJSONRoundTrip(t, result)
 }
 
-func TestCustomDetectorGetsAncestorCorroboration(t *testing.T) {
-	// A detector supplied through WithDetectors can name its executables, and
-	// then gets the same live-ancestor confirmation the built-in ones do.
-	// Before the labels were derived from the configured detectors this was
-	// impossible: the name table was closed.
+func TestCustomDriverGetsAncestorCorroboration(t *testing.T) {
+	// A driver supplied through WithAgentDrivers names its executables like a
+	// built-in one, and gets the same live-ancestor confirmation. Before the
+	// labels were derived from the configured drivers this was impossible: the
+	// name table was closed.
 	const acme runby.Agent = "acme-orchestrator"
-	detector := acmeDetector{}
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_RUN_ID=run-7"}),
-		runby.WithDetectors(detector),
+		runby.WithAgentDrivers(acmeDriver),
 		runby.WithProcessTree(runby.ProcessTree{
 			Inspected: true,
 			Supported: true,
@@ -177,17 +176,17 @@ func TestCustomDetectorGetsAncestorCorroboration(t *testing.T) {
 	}
 }
 
-// acmeDetector implements the optional ExecutableNamer interface.
-type acmeDetector struct{}
-
-func (acmeDetector) Agent() runby.Agent    { return "acme-orchestrator" }
-func (acmeDetector) Executables() []string { return []string{"acme-run"} }
-func (acmeDetector) Detect(env runby.Env) (runby.Detection, bool) {
-	id, ok := runby.Value(env, "ACME_RUN_ID")
-	if !ok {
-		return runby.Detection{}, false
-	}
-	return runby.Detection{Kind: runby.KindOrchestrator, AgentID: id}, true
+var acmeDriver = runby.AgentDriver{
+	Agent:       "acme-orchestrator",
+	Kind:        runby.KindOrchestrator,
+	Executables: []string{"acme-run"},
+	Detect: func(env runby.Env) (runby.Detection, bool) {
+		id, ok := runby.Value(env, "ACME_RUN_ID")
+		if !ok {
+			return runby.Detection{}, false
+		}
+		return runby.Detection{AgentID: id}, true
+	},
 }
 
 func TestTerminalAndRemoteAreCorroboratedToo(t *testing.T) {

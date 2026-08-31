@@ -264,18 +264,21 @@ func TestTerminalDetectionUsesEnvironNotTTY(t *testing.T) {
 	}
 }
 
-func TestWithTerminalDetectors(t *testing.T) {
-	detector := runby.NewTerminalDetector("acme-term", func(env runby.Env) (runby.Terminal, bool) {
-		id, ok := runby.Value(env, "ACME_TERM_SESSION")
-		if !ok {
-			return runby.Terminal{}, false
-		}
-		return runby.Terminal{SessionID: id, Evidence: runby.PresentNames(env, "ACME_TERM_SESSION")}, true
-	})
+func TestWithTerminalDrivers(t *testing.T) {
+	driver := runby.TerminalDriver{
+		Program: "acme-term",
+		Detect: func(env runby.Env) (runby.Terminal, bool) {
+			id, ok := runby.Value(env, "ACME_TERM_SESSION")
+			if !ok {
+				return runby.Terminal{}, false
+			}
+			return runby.Terminal{SessionID: id, Evidence: runby.PresentNames(env, "ACME_TERM_SESSION")}, true
+		},
+	}
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_TERM_SESSION=s-1", "TERM_PROGRAM=ghostty"}),
-		runby.WithTerminalDetectors(detector),
+		runby.WithTerminalDrivers(driver),
 	)
 	if result.Terminal.Program != "acme-term" || result.Terminal.SessionID != "s-1" {
 		t.Fatalf("Terminal = %#v", result.Terminal)
@@ -283,7 +286,7 @@ func TestWithTerminalDetectors(t *testing.T) {
 
 	disabled := runby.Detect(
 		runby.WithEnviron([]string{"TERM_PROGRAM=ghostty"}),
-		runby.WithOnlyTerminalDetectors(),
+		runby.WithOnlyTerminalDrivers(),
 	)
 	if disabled.IsTerminal() {
 		t.Fatalf("Terminal = %#v, want detection disabled", disabled.Terminal)

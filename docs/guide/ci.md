@@ -28,20 +28,23 @@ result.CI.Trigger         // GITHUB_EVENT_NAME ("push", "pull_request", ...)
 정규화 시 두 가지를 처리합니다.
 
 - **`Attempt`는 1-based로 통일합니다.** Buildkite `BUILDKITE_RETRY_COUNT`와 GitLab `CI_JOB_RETRY_COUNT`는 0부터 세는 재시도 횟수이므로 +1 해서 맞춥니다. GitHub `GITHUB_RUN_ATTEMPT`와 Azure `SYSTEM_JOBATTEMPT`는 이미 1부터라 그대로 씁니다.
-- **Bitbucket UUID의 중괄호를 벗깁니다.** `BITBUCKET_PIPELINE_UUID`는 `{11d8...}` 형태로 오므로 `PipelineID`/`JobID`에는 중괄호를 뺀 값이 들어갑니다.
+- **Bitbucket UUID의 중괄호를 벗깁니다.** `BITBUCKET_PIPELINE_UUID`는 `{11d8...}` 형태로 오므로 `PipelineID`/`JobID`, 그리고 해당 플랫폼의 `Extra` 값에는 중괄호를 뺀 값이 들어갑니다.
 
 Forgejo Actions는 Runner v7+에서 모든 `FORGEJO_*`를 `GITHUB_*` 별칭으로도 제공하므로 GitHub Actions보다 **먼저** 검사합니다. v7 미만 Runner는 `GITHUB_*`만 제공해 환경변수로는 구별할 수 없어 GitHub Actions로 보고됩니다.
 
-플랫폼별 조사 근거는 [`docs/research/ci/`](../research/ci/)에 있습니다. 지원하지 않는 플랫폼은 `WithCIDetectors`로 추가할 수 있습니다.
+플랫폼별 조사 근거는 [`docs/research/ci/`](../research/ci/)에 있습니다. 지원하지 않는 플랫폼은 `WithCIDrivers`로 추가할 수 있습니다.
 
 ```go
-detector := runby.NewCIDetector("acme-ci", func(env runby.Env) (runby.CI, bool) {
-	id, ok := runby.Value(env, "ACME_CI_BUILD")
-	if !ok {
-		return runby.CI{}, false
-	}
-	return runby.CI{PipelineID: id, Evidence: runby.PresentNames(env, "ACME_CI_BUILD")}, true
-})
+acme := runby.CIDriver{
+	Provider: "acme-ci",
+	Detect: func(env runby.Env) (runby.CI, bool) {
+		id, ok := runby.Value(env, "ACME_CI_BUILD")
+		if !ok {
+			return runby.CI{}, false
+		}
+		return runby.CI{PipelineID: id, Evidence: runby.PresentNames(env, "ACME_CI_BUILD")}, true
+	},
+}
 
-result := runby.Detect(runby.WithCIDetectors(detector))
+result := runby.Detect(runby.WithCIDrivers(acme))
 ```

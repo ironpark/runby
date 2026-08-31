@@ -75,7 +75,7 @@ if runby is agent; then export NO_COLOR=1; fi    # 종료 코드로만 답합니
 
 **원격·멀티플렉서** — tmux, GNU Screen, Zellij, OpenSSH, WSL, GitHub Codespaces, Gitpod, Dev Containers
 
-목록에 없는 제품은 `WithDetectors` 계열 옵션으로 추가할 수 있습니다. 지원하지 않기로 한 제품과 그 이유는 [`docs/research/`](docs/research/)에 제품별로 기록되어 있습니다.
+목록에 없는 제품은 `WithAgentDrivers` 계열 옵션으로 드라이버를 추가해 지원할 수 있습니다. 지원하지 않기로 한 제품과 그 이유는 [`docs/research/`](docs/research/)에 제품별로 기록되어 있습니다.
 
 ## 알아야 할 한 가지
 

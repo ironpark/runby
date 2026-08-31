@@ -62,28 +62,14 @@ func (t ProcessTree) FindAgent(agent Agent) (Process, bool) {
 	return t.Find(func(p Process) bool { return p.Agent == agent })
 }
 
-// ExecutableNamer is an optional interface a detector may implement to name
-// the binaries its product runs as. Detect uses it to label the ancestor chain,
-// so a detector that implements it gets the same live-ancestor corroboration
-// the built-in ones do.
-//
-// Only names specific enough to be worth acting on should be returned. A
-// generic name would label every unrelated process running it.
-type ExecutableNamer interface {
-	Executables() []string
-}
-
-// executableLabels collects the name-to-product mapping from a set of
-// detectors. Building it per Detect call rather than once at init is what lets
-// a detector supplied through WithDetectors be corroborated too.
+// executableLabels collects the name-to-product mapping from a set of drivers.
+// Building it per Detect call rather than once at init is what lets a driver
+// supplied through WithAgentDrivers and its siblings be corroborated exactly
+// like a built-in one.
 type executableLabels map[string]Process
 
-func (labels executableLabels) add(detector any, label Process) {
-	namer, ok := detector.(ExecutableNamer)
-	if !ok {
-		return
-	}
-	for _, name := range namer.Executables() {
+func (labels executableLabels) add(executables []string, label Process) {
+	for _, name := range executables {
 		labels[name] = label
 	}
 }

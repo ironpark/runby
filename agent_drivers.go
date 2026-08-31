@@ -2,27 +2,34 @@ package runby
 
 import "strings"
 
-// builtinDetectors is ordered from the most specific orchestrator to the
+// builtinAgentDrivers is ordered from the most specific orchestrator to the
 // underlying runtime. Result.Primary reports the first match, so this order is
 // the precedence contract.
-var builtinDetectors = []Detector{
-	NewDetector(AgentPaseo, detectPaseo),
-	NewDetector(AgentOrca, detectOrca),
-	NewDetector(AgentCodex, detectCodex),
-	NewDetector(AgentClaudeCode, detectClaudeCode),
-	NewDetector(AgentCursor, detectCursor),
-	NewDetector(AgentOpenCode, detectOpenCode),
-	NewDetector(AgentAmp, detectAmp),
-	NewDetector(AgentAntigravity2, detectAntigravity2),
+//
+// This table is the single source of truth for what an Agent is: a product is
+// registered here and nowhere else.
+var builtinAgentDrivers = []AgentDriver{
+	{Agent: AgentPaseo, Kind: KindOrchestrator, Executables: []string{"paseo"}, Detect: detectPaseo},
+	// Orca's binary shares its name with the GNOME screen reader, so an
+	// ancestor running it is not evidence of this orchestrator.
+	{Agent: AgentOrca, Kind: KindOrchestrator, Detect: detectOrca},
+	{Agent: AgentCodex, Kind: KindHarness, Executables: []string{"codex"}, Detect: detectCodex},
+	{Agent: AgentClaudeCode, Kind: KindHarness, Executables: []string{"claude"}, Detect: detectClaudeCode},
+	{Agent: AgentCursor, Kind: KindHarness, Executables: []string{"cursor-agent"}, Detect: detectCursor},
+	{Agent: AgentOpenCode, Kind: KindHarness, Executables: []string{"opencode"}, Detect: detectOpenCode},
+	{Agent: AgentAmp, Kind: KindHarness, Executables: []string{"amp"}, Detect: detectAmp},
+	// No Antigravity executable name has been verified against an official
+	// source, so there is nothing safe to match in the ancestor chain.
+	{Agent: AgentAntigravity2, Kind: KindHarness, Detect: detectAntigravity2},
 }
 
-// Detectors returns the built-in agent detectors in precedence order. The
-// returned slice is a copy and may be reordered or filtered before being
-// passed back through WithOnlyDetectors.
-func Detectors() []Detector {
-	detectors := make([]Detector, len(builtinDetectors))
-	copy(detectors, builtinDetectors)
-	return detectors
+// AgentDrivers returns the built-in agent drivers in precedence order. The
+// returned slice is a copy and may be reordered, filtered, or adjusted before
+// being passed back through WithOnlyAgentDrivers.
+func AgentDrivers() []AgentDriver {
+	drivers := make([]AgentDriver, len(builtinAgentDrivers))
+	copy(drivers, builtinAgentDrivers)
+	return drivers
 }
 
 // detectPaseo identifies a process launched by a Paseo agent. PASEO_AGENT_ID is
@@ -35,7 +42,6 @@ func detectPaseo(env Env) (Detection, bool) {
 
 	workingDirectory, _ := Value(env, "PASEO_AGENT_CWD")
 	return Detection{
-		Agent:    AgentPaseo,
 		AgentID:  agentID,
 		Paths:    Paths{WorkingDirectory: workingDirectory},
 		Evidence: PresentNames(env, "PASEO_AGENT_ID", "PASEO_AGENT_CWD"),
@@ -90,7 +96,7 @@ var orcaNames = func() []string {
 // the confidence is never definite. When Orca did launch an agent, that agent
 // sets its own marker and is reported as its own layer.
 func detectOrca(env Env) (Detection, bool) {
-	if !anyPresent(env, orcaMarkers.owner) || !anyPresent(env, orcaMarkers.location) {
+	if !AnyPresent(env, orcaMarkers.owner...) || !AnyPresent(env, orcaMarkers.location...) {
 		return Detection{}, false
 	}
 
@@ -110,26 +116,15 @@ func detectOrca(env Env) (Detection, bool) {
 	dataDirectory, _ := Value(env, "ORCA_USER_DATA_PATH")
 
 	return Detection{
-		Agent:      AgentOrca,
 		Confidence: ConfidenceProbable,
 		SessionID:  sessionID,
 		Paths: Paths{
 			WorkingDirectory: workingDirectory,
 			DataDirectory:    dataDirectory,
 		},
-		Extra:    collectExtra(env, orcaExtra),
+		Extra:    CollectExtra(env, orcaExtra),
 		Evidence: PresentNames(env, orcaNames...),
 	}, true
-}
-
-// anyPresent reports whether at least one of the names is set.
-func anyPresent(env Env, names []string) bool {
-	for _, name := range names {
-		if _, ok := Value(env, name); ok {
-			return true
-		}
-	}
-	return false
 }
 
 func detectCodex(env Env) (Detection, bool) {
@@ -167,7 +162,6 @@ func detectCodex(env Env) (Detection, bool) {
 	}
 
 	return Detection{
-		Agent:      AgentCodex,
 		Confidence: confidence,
 		SessionID:  threadID,
 		Sandbox:    Sandbox{Mode: sandbox, Network: network},
@@ -193,7 +187,6 @@ func detectClaudeCode(env Env) (Detection, bool) {
 		names = append(names, "AI_AGENT")
 	}
 	return Detection{
-		Agent:      AgentClaudeCode,
 		SessionID:  sessionID,
 		Entrypoint: entrypoint,
 		Nested:     childSession,
@@ -206,7 +199,6 @@ func detectCursor(env Env) (Detection, bool) {
 		return Detection{}, false
 	}
 	return Detection{
-		Agent:    AgentCursor,
 		Evidence: []string{"CURSOR_AGENT"},
 	}, true
 }
@@ -219,7 +211,6 @@ func detectOpenCode(env Env) (Detection, bool) {
 		return Detection{}, false
 	}
 	return Detection{
-		Agent:      AgentOpenCode,
 		Confidence: ConfidenceProbable,
 		Entrypoint: "acp",
 		Evidence:   []string{"OPENCODE_CLIENT"},
@@ -237,7 +228,6 @@ func detectAmp(env Env) (Detection, bool) {
 		entrypoint = "orb-service"
 	}
 	return Detection{
-		Agent:      AgentAmp,
 		SessionID:  threadID,
 		Entrypoint: entrypoint,
 		Evidence:   PresentNames(env, "AMP_ORB", "AMP_THREAD_ID"),
@@ -252,7 +242,6 @@ func detectAntigravity2(env Env) (Detection, bool) {
 		return Detection{}, false
 	}
 	return Detection{
-		Agent:      AgentAntigravity2,
 		Entrypoint: "sidecar",
 		Paths:      Paths{DataDirectory: dataDirectory},
 		Evidence:   []string{"ANTIGRAVITY_EXECUTABLE_DATA_DIR"},

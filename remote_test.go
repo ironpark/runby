@@ -231,25 +231,27 @@ func TestRemoteEvidenceIsNamesOnly(t *testing.T) {
 	}
 }
 
-func TestWithRemoteDetectors(t *testing.T) {
-	detector := runby.NewRemoteDetector("acme-vpn", func(env runby.Env) (runby.Remote, bool) {
-		id, ok := runby.Value(env, "ACME_VPN_SESSION")
-		if !ok {
-			return runby.Remote{}, false
-		}
-		return runby.Remote{SessionID: id, Evidence: runby.PresentNames(env, "ACME_VPN_SESSION")}, true
-	})
+func TestWithRemoteDrivers(t *testing.T) {
+	driver := runby.RemoteDriver{
+		Platform: "acme-vpn",
+		Detect: func(env runby.Env) (runby.Remote, bool) {
+			id, ok := runby.Value(env, "ACME_VPN_SESSION")
+			if !ok {
+				return runby.Remote{}, false
+			}
+			return runby.Remote{SessionID: id, Evidence: runby.PresentNames(env, "ACME_VPN_SESSION")}, true
+		},
+	}
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_VPN_SESSION=v-1", "TMUX=/tmp/t,1,0"}),
-		runby.WithRemoteDetectors(detector),
+		runby.WithRemoteDrivers(driver),
 	)
 	layer, ok := result.GetRemote("acme-vpn")
 	if !ok || layer.SessionID != "v-1" || layer.Confidence != runby.ConfidenceDefinite {
 		t.Fatalf("Remote = %#v", result.Remote)
 	}
-	// An unregistered platform has no Kind, and must not be mistaken for a
-	// multiplexer.
+	// A driver that names no Kind must not be mistaken for a multiplexer.
 	if layer.Kind != runby.RemoteKindUnknown || layer.IsMultiplexer() {
 		t.Fatalf("Kind = %q", layer.Kind)
 	}
@@ -257,7 +259,7 @@ func TestWithRemoteDetectors(t *testing.T) {
 		t.Fatalf("Multiplexer() = %#v", mux)
 	}
 
-	disabled := runby.Detect(runby.WithEnviron([]string{"TMUX=/tmp/t,1,0"}), runby.WithOnlyRemoteDetectors())
+	disabled := runby.Detect(runby.WithEnviron([]string{"TMUX=/tmp/t,1,0"}), runby.WithOnlyRemoteDrivers())
 	if disabled.IsRemote() {
 		t.Fatalf("Remote = %#v, want detection disabled", disabled.Remote)
 	}
