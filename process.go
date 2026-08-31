@@ -62,49 +62,63 @@ func (t ProcessTree) FindAgent(agent Agent) (Process, bool) {
 	return t.Find(func(p Process) bool { return p.Agent == agent })
 }
 
-// executables maps a normalized executable name to the product it belongs to.
-// Only names specific enough to be worth acting on are listed; a generic name
-// would turn every unrelated program into a false positive.
-var executables = map[string]Process{
-	// Agents.
-	"claude":       {Agent: AgentClaudeCode},
-	"codex":        {Agent: AgentCodex},
-	"cursor-agent": {Agent: AgentCursor},
-	"amp":          {Agent: AgentAmp},
-	"opencode":     {Agent: AgentOpenCode},
-	"paseo":        {Agent: AgentPaseo},
-
-	// Terminals.
-	"kitty":                 {Terminal: TerminalKitty},
-	"alacritty":             {Terminal: TerminalAlacritty},
-	"ghostty":               {Terminal: TerminalGhostty},
-	"wezterm":               {Terminal: TerminalWezTerm},
-	"wezterm-gui":           {Terminal: TerminalWezTerm},
-	"iterm2":                {Terminal: TerminalITerm2},
-	"warp":                  {Terminal: TerminalWarp},
-	"konsole":               {Terminal: TerminalKonsole},
-	"gnome-terminal-server": {Terminal: TerminalGNOMETerminal},
-	"windowsterminal":       {Terminal: TerminalWindowsTerminal},
-	"zed":                   {Terminal: TerminalZed},
-
-	// Multiplexers and remote layers.
-	"tmux":         {Remote: RemoteTmux},
-	"screen":       {Remote: RemoteScreen},
-	"zellij":       {Remote: RemoteZellij},
-	"sshd":         {Remote: RemoteSSH},
-	"sshd-session": {Remote: RemoteSSH},
+// ExecutableNamer is an optional interface a detector may implement to name
+// the binaries its product runs as. Detect uses it to label the ancestor chain,
+// so a detector that implements it gets the same live-ancestor corroboration
+// the built-in ones do.
+//
+// Only names specific enough to be worth acting on should be returned. A
+// generic name would label every unrelated process running it.
+type ExecutableNamer interface {
+	Executables() []string
 }
 
-// normalizeExecutable lowercases a base name and drops a Windows .exe suffix,
-// so one table serves every platform.
-func normalizeExecutable(name string) string {
-	name = strings.ToLower(name)
-	return strings.TrimSuffix(name, ".exe")
+// executableLabels collects the name-to-product mapping from a set of
+// detectors. Building it per Detect call rather than once at init is what lets
+// a detector supplied through WithDetectors be corroborated too.
+type executableLabels map[string]Process
+
+func (labels executableLabels) add(detector any, label Process) {
+	namer, ok := detector.(ExecutableNamer)
+	if !ok {
+		return
+	}
+	for _, name := range namer.Executables() {
+		labels[name] = label
+	}
 }
 
-// inspectProcessTree reads the ancestor chain and annotates each entry with
-// the product its executable belongs to.
-func inspectProcessTree() ProcessTree {
+// find returns the label for an executable name. A truncated name is matched
+// as a prefix, because Linux caps /proc/<pid>/comm and the full name is
+// unreadable for a process owned by another user.
+func (labels executableLabels) find(info procInfo) (Process, bool) {
+	if label, ok := labels[info.Name]; ok {
+		return label, true
+	}
+	if !info.Truncated {
+		return Process{}, false
+	}
+	var match Process
+	found := 0
+	for name, label := range labels {
+		if strings.HasPrefix(name, info.Name) {
+			match, found = label, found+1
+		}
+	}
+	// An ambiguous prefix names no single product, so it labels nothing.
+	if found == 1 {
+		return match, true
+	}
+	return Process{}, false
+}
+
+// procInfo is the shape inspectProcessTree needs from internal/proc, named
+// here so the labelling helpers do not import it in their signatures.
+type procInfo = proc.Info
+
+// inspectProcessTree reads the ancestor chain and labels each entry with the
+// product its executable belongs to.
+func inspectProcessTree(labels executableLabels) ProcessTree {
 	tree := ProcessTree{Inspected: true, Supported: proc.Supported()}
 	if !tree.Supported {
 		return tree
@@ -119,12 +133,27 @@ func inspectProcessTree() ProcessTree {
 
 	tree.Ancestors = make([]Process, 0, len(ancestors))
 	for _, info := range ancestors {
-		name := normalizeExecutable(info.Name)
 		// A miss yields the zero Process, so the labels stay empty without a
 		// second branch, and a new label field needs no change here.
-		process := executables[name]
-		process.PID, process.PPID, process.Name, process.Path = info.PID, info.PPID, name, info.Path
+		process, _ := labels.find(info)
+		process.PID, process.PPID, process.Name, process.Path = info.PID, info.PPID, info.Name, info.Path
 		tree.Ancestors = append(tree.Ancestors, process)
 	}
+	return tree
+}
+
+// labelProcessTree applies labels to a tree that was supplied rather than
+// read, so an injected tree is described the same way a live one is.
+func labelProcessTree(tree ProcessTree, labels executableLabels) ProcessTree {
+	if len(tree.Ancestors) == 0 {
+		return tree
+	}
+	labelled := make([]Process, len(tree.Ancestors))
+	for i, process := range tree.Ancestors {
+		label, _ := labels.find(procInfo{Name: process.Name})
+		label.PID, label.PPID, label.Name, label.Path = process.PID, process.PPID, process.Name, process.Path
+		labelled[i] = label
+	}
+	tree.Ancestors = labelled
 	return tree
 }

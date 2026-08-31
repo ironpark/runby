@@ -16,7 +16,7 @@ const (
 )
 
 // Kind separates an orchestrator that manages other agents from the agent
-// runtime it drives. It mirrors the product_type field recorded in docs/agents.
+// runtime it drives. It mirrors the product_type field recorded in docs/research/agents.
 //
 // There is no host kind. A product that only proves which application owns the
 // terminal, such as Zed, is reported on the Terminal axis instead, because
@@ -33,24 +33,38 @@ const (
 	KindHarness Kind = "harness"
 )
 
-// agentKinds is the single source of truth for Agent classification. Agents
-// added here must also be added to detectors in runby.go.
-var agentKinds = map[Agent]Kind{
-	AgentPaseo:        KindOrchestrator,
-	AgentOrca:         KindOrchestrator,
-	AgentCodex:        KindHarness,
-	AgentClaudeCode:   KindHarness,
-	AgentAntigravity2: KindHarness,
-	AgentAmp:          KindHarness,
-	AgentCursor:       KindHarness,
-	AgentOpenCode:     KindHarness,
+// agentInfo is everything this package knows about an agent that is not the
+// environment rule for detecting it.
+type agentInfo struct {
+	kind Kind
+	// executables names the binaries this agent runs as, so a live ancestor
+	// process can corroborate an environment detection. Leave it empty when
+	// no name is specific enough to match safely; a generic name would
+	// mislabel unrelated processes.
+	executables []string
+}
+
+// agents is the single source of truth for what an Agent is. A product is
+// registered here and detected in agent_detectors.go, and nowhere else.
+var agents = map[Agent]agentInfo{
+	AgentPaseo:      {kind: KindOrchestrator, executables: []string{"paseo"}},
+	AgentOrca:       {kind: KindOrchestrator},
+	AgentCodex:      {kind: KindHarness, executables: []string{"codex"}},
+	AgentClaudeCode: {kind: KindHarness, executables: []string{"claude"}},
+	AgentAmp:        {kind: KindHarness, executables: []string{"amp"}},
+	AgentCursor:     {kind: KindHarness, executables: []string{"cursor-agent"}},
+	AgentOpenCode:   {kind: KindHarness, executables: []string{"opencode"}},
+	// Orca's binary shares its name with the GNOME screen reader, and no
+	// Antigravity executable name has been verified against an official
+	// source, so neither can be corroborated by an ancestor.
+	AgentAntigravity2: {kind: KindHarness},
 }
 
 // Kind reports how much a detection of a proves. It returns KindUnknown for
-// agents this package does not support.
+// agents this package does not support, which is not the map's zero value.
 func (a Agent) Kind() Kind {
-	if kind, ok := agentKinds[a]; ok {
-		return kind
+	if info, ok := agents[a]; ok {
+		return info.kind
 	}
 	return KindUnknown
 }

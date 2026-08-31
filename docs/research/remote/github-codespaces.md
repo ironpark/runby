@@ -45,7 +45,7 @@ GitHub Codespaces는 저장소별로 클라우드에 컨테이너를 띄우고 �
 
 `runby`는 이미 `GITHUB_ACTIONS=true`로 GitHub Actions를, `FORGEJO_ACTIONS=true`(및 Forgejo Runner v7 미만의 `GITHUB_*` 별칭)로 Forgejo Actions를 판정합니다. Codespaces는 같은 `GITHUB_*` 네임스페이스의 세 번째 소비자이므로, 이 절이 이 문서에서 가장 중요합니다.
 
-**Codespaces는 `GITHUB_ACTIONS`를 설정하지 않습니다.** 공식 "Default environment variables for your codespace" 문서가 나열하는 기본 변수 표에는 `CODESPACE_NAME`, `CODESPACES`, `GIT_COMMITTER_EMAIL`, `GIT_COMMITTER_NAME`, `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`, `GITHUB_API_URL`, `GITHUB_GRAPHQL_URL`, `GITHUB_REPOSITORY`, `GITHUB_SERVER_URL`, `GITHUB_TOKEN`, `GITHUB_USER` 11개만 있고, `GITHUB_ACTIONS`는 등장하지 않습니다. `docs/ci/github-actions.md`가 근거로 삼는 GitHub Actions "Default environment variables" 문서와 비교하면, Codespaces 쪽 목록은 `GITHUB_REPOSITORY`·`GITHUB_SERVER_URL`·`GITHUB_API_URL`·`GITHUB_TOKEN` 네 개만 이름이 겹치고 나머지(`GITHUB_ACTIONS`, `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `GITHUB_JOB`, `GITHUB_SHA`, `GITHUB_REF`, `GITHUB_ACTOR`, `GITHUB_WORKFLOW` 등)는 Codespaces 쪽에 전혀 없습니다. 이 부재가 두 컨텍스트를 갈라놓는 핵심 근거입니다.
+**Codespaces는 `GITHUB_ACTIONS`를 설정하지 않습니다.** 공식 "Default environment variables for your codespace" 문서가 나열하는 기본 변수 표에는 `CODESPACE_NAME`, `CODESPACES`, `GIT_COMMITTER_EMAIL`, `GIT_COMMITTER_NAME`, `GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN`, `GITHUB_API_URL`, `GITHUB_GRAPHQL_URL`, `GITHUB_REPOSITORY`, `GITHUB_SERVER_URL`, `GITHUB_TOKEN`, `GITHUB_USER` 11개만 있고, `GITHUB_ACTIONS`는 등장하지 않습니다. `docs/research/ci/github-actions.md`가 근거로 삼는 GitHub Actions "Default environment variables" 문서와 비교하면, Codespaces 쪽 목록은 `GITHUB_REPOSITORY`·`GITHUB_SERVER_URL`·`GITHUB_API_URL`·`GITHUB_TOKEN` 네 개만 이름이 겹치고 나머지(`GITHUB_ACTIONS`, `GITHUB_RUN_ID`, `GITHUB_RUN_ATTEMPT`, `GITHUB_JOB`, `GITHUB_SHA`, `GITHUB_REF`, `GITHUB_ACTOR`, `GITHUB_WORKFLOW` 등)는 Codespaces 쪽에 전혀 없습니다. 이 부재가 두 컨텍스트를 갈라놓는 핵심 근거입니다.
 
 **Codespaces가 `CI`를 설정하는지도 공식 문서상 확인되지 않습니다.** 같은 기본 변수 표에 `CI`는 등장하지 않으며, `runby`는 `CI=true`를 보면 제품을 특정하지 못하는 범용 CI로 폴백하므로, 만약 Codespaces가 이 변수를 조용히 설정한다면 대화형 개발 환경이 CI 작업으로 오판될 위험이 있습니다. 공식 문서가 이 변수의 존재를 언급하지 않는다는 사실 자체는 강한 근거이지만, "표에 없다"는 소거법적 확인이므로 절대적 보장은 아닙니다. 이 지점이 `runtime_test_required: true`로 표시한 이유이며, 실제 Codespace에서 `env` 전체 덤프를 떠서 `CI`와 `GITHUB_ACTIONS`가 정말 부재하는지 직접 확인하는 검증이 필요합니다.
 
@@ -53,7 +53,7 @@ GitHub Codespaces는 저장소별로 클라우드에 컨테이너를 띄우고 �
 
 **권장 판정 순서**
 
-1. `FORGEJO_ACTIONS == "true"`이면 Forgejo Actions로 판정한다 (`docs/ci/forgejo-runner.md` 규칙).
+1. `FORGEJO_ACTIONS == "true"`이면 Forgejo Actions로 판정한다 (`docs/research/ci/forgejo-runner.md` 규칙).
 2. 그렇지 않고 `GITHUB_ACTIONS == "true"`이면 GitHub Actions로 판정한다.
 3. `GITHUB_ACTIONS`와 `FORGEJO_ACTIONS`가 모두 없고 `CODESPACES == "true"`이면 GitHub Codespaces로 판정한다. `GITHUB_REPOSITORY`·`GITHUB_SERVER_URL` 등 겹치는 이름의 변수가 있어도 무시하고 `CODESPACES`를 1차 마커로 삼는다.
 4. `CI`는 어느 판정에서도 1차 근거로 쓰지 않는다. GitHub Actions·Forgejo 판정 이후의 보조 신호로만 재확인하고, Codespaces 판정에는 아예 관여시키지 않는다.
@@ -75,7 +75,7 @@ Codespace는 사용자의 로컬 머신과는 별개의 원격 컨테이너입�
 
 ## 다른 축에 미치는 영향
 
-Codespace는 리눅스 컨테이너이므로 그 안에서 실행되는 터미널 에뮬레이터 신호(`docs/terminals/`)는 컨테이너에 실제로 붙은 클라이언트(브라우저 내장 xterm.js 터미널, VS Code 통합 터미널 등)의 것이며, 로컬 터미널의 값과는 무관하게 독립적으로 관측됩니다. 에이전트 축(`docs/agents/`)도 마찬가지로, 컨테이너 안에서 에이전트 CLI를 실행해야만 해당 마커가 나타나고 로컬에서 실행 중인 에이전트는 이 컨테이너에 아무 흔적도 남기지 않습니다. CI 축은 앞 절에서 다룬 대로 `CODESPACES=true`가 `GITHUB_ACTIONS`·`FORGEJO_ACTIONS` 어느 쪽과도 동시에 서지 않는다는 점에서, 세 축(터미널·에이전트·CI) 모두 Codespaces와 원칙적으로 독립적으로 병존할 수 있는 구조입니다.
+Codespace는 리눅스 컨테이너이므로 그 안에서 실행되는 터미널 에뮬레이터 신호(`docs/research/terminals/`)는 컨테이너에 실제로 붙은 클라이언트(브라우저 내장 xterm.js 터미널, VS Code 통합 터미널 등)의 것이며, 로컬 터미널의 값과는 무관하게 독립적으로 관측됩니다. 에이전트 축(`docs/research/agents/`)도 마찬가지로, 컨테이너 안에서 에이전트 CLI를 실행해야만 해당 마커가 나타나고 로컬에서 실행 중인 에이전트는 이 컨테이너에 아무 흔적도 남기지 않습니다. CI 축은 앞 절에서 다룬 대로 `CODESPACES=true`가 `GITHUB_ACTIONS`·`FORGEJO_ACTIONS` 어느 쪽과도 동시에 서지 않는다는 점에서, 세 축(터미널·에이전트·CI) 모두 Codespaces와 원칙적으로 독립적으로 병존할 수 있는 구조입니다.
 
 ## 실행 주체 감지에 관한 결론
 

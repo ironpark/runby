@@ -2,6 +2,7 @@ package proc_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/ironpark/runby/internal/proc"
@@ -68,6 +69,29 @@ func TestAncestorsAreStable(t *testing.T) {
 	for i := range first {
 		if first[i].PID != second[i].PID {
 			t.Fatalf("chain[%d].PID differs between calls: %d then %d", i, first[i].PID, second[i].PID)
+		}
+	}
+}
+
+func TestNamesAreNormalized(t *testing.T) {
+	if !proc.Supported() {
+		t.Skip("ancestor reading is unsupported")
+	}
+	// The contract Info.Name documents: lowercase, no .exe suffix. A matcher
+	// relies on it so one table can serve every platform.
+	for _, p := range proc.Ancestors() {
+		if p.Name != strings.ToLower(p.Name) {
+			t.Errorf("Name %q is not lowercase", p.Name)
+		}
+		if strings.HasSuffix(p.Name, ".exe") {
+			t.Errorf("Name %q kept its .exe suffix", p.Name)
+		}
+		if strings.ContainsAny(p.Name, `/\`) {
+			t.Errorf("Name %q is a path, not a base name", p.Name)
+		}
+		// Truncated is only meaningful when the name actually reached the cap.
+		if p.Truncated && len(p.Name) < proc.CommLimit {
+			t.Errorf("Name %q is flagged truncated but is shorter than the limit", p.Name)
 		}
 	}
 }

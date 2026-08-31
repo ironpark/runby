@@ -39,7 +39,7 @@ func newReader() reader {
 			PID:  pid,
 			PPID: int(entry.ParentProcessID),
 			// The snapshot carries the executable's name but not its path.
-			Name: filepath.Base(syscall.UTF16ToString(entry.ExeFile[:])),
+			Name: normalize(filepath.Base(syscall.UTF16ToString(entry.ExeFile[:]))),
 		}
 		if err := syscall.Process32Next(snapshot, &entry); err != nil {
 			return reader{table: table}

@@ -35,7 +35,7 @@ func RemotePlatforms() []RemotePlatform {
 }
 
 // RemoteKind separates a terminal multiplexer from a remote or isolated
-// execution environment. It mirrors the product_type recorded in docs/remote.
+// execution environment. It mirrors the product_type recorded in docs/research/remote.
 type RemoteKind string
 
 const (
@@ -49,23 +49,36 @@ const (
 	RemoteKindEnvironment RemoteKind = "environment"
 )
 
-// remoteKinds is the single source of truth for RemotePlatform classification.
-var remoteKinds = map[RemotePlatform]RemoteKind{
-	RemoteTmux:         RemoteKindMultiplexer,
-	RemoteScreen:       RemoteKindMultiplexer,
-	RemoteZellij:       RemoteKindMultiplexer,
-	RemoteSSH:          RemoteKindEnvironment,
-	RemoteWSL:          RemoteKindEnvironment,
-	RemoteCodespaces:   RemoteKindEnvironment,
-	RemoteGitpod:       RemoteKindEnvironment,
-	RemoteDevContainer: RemoteKindEnvironment,
+// remoteInfo is everything this package knows about a platform that is not
+// the environment rule for detecting it.
+type remoteInfo struct {
+	kind RemoteKind
+	// executables names the binaries this platform runs as, so a live
+	// ancestor process can corroborate an environment detection. It is empty
+	// for a platform that is not a process, such as WSL or a hosted
+	// workspace.
+	executables []string
+}
+
+// remotes is the single source of truth for what a RemotePlatform is.
+var remotes = map[RemotePlatform]remoteInfo{
+	RemoteTmux:   {kind: RemoteKindMultiplexer, executables: []string{"tmux"}},
+	RemoteScreen: {kind: RemoteKindMultiplexer, executables: []string{"screen"}},
+	RemoteZellij: {kind: RemoteKindMultiplexer, executables: []string{"zellij"}},
+	RemoteSSH:    {kind: RemoteKindEnvironment, executables: []string{"sshd", "sshd-session"}},
+	// These describe where the process runs rather than an ancestor process,
+	// so there is nothing in the chain to match.
+	RemoteWSL:          {kind: RemoteKindEnvironment},
+	RemoteCodespaces:   {kind: RemoteKindEnvironment},
+	RemoteGitpod:       {kind: RemoteKindEnvironment},
+	RemoteDevContainer: {kind: RemoteKindEnvironment},
 }
 
 // Kind reports what a detection of p proves. It returns RemoteKindUnknown for
-// platforms this package does not support.
+// platforms this package does not support, which is not the map's zero value.
 func (p RemotePlatform) Kind() RemoteKind {
-	if kind, ok := remoteKinds[p]; ok {
-		return kind
+	if info, ok := remotes[p]; ok {
+		return info.kind
 	}
 	return RemoteKindUnknown
 }
@@ -98,6 +111,12 @@ type Remote struct {
 	// SessionID identifies the multiplexer session, workspace, or distro,
 	// when the platform advertises one.
 	SessionID string `json:"session_id,omitempty"`
+
+	// AncestorPID is the PID of a running ancestor process whose executable
+	// belongs to this layer, or 0 when none was found. As with
+	// Detection.AncestorPID, a non-zero value confirms the environment
+	// evidence against a live process, and zero is not a denial.
+	AncestorPID int `json:"ancestor_pid,omitempty"`
 
 	// Extra holds values that only one platform advertises, keyed by
 	// "<platform-slug>.<name>".
@@ -133,6 +152,7 @@ type funcRemoteDetector struct {
 }
 
 func (d funcRemoteDetector) Platform() RemotePlatform      { return d.platform }
+func (d funcRemoteDetector) Executables() []string         { return remotes[d.platform].executables }
 func (d funcRemoteDetector) Detect(env Env) (Remote, bool) { return d.detect(env) }
 
 // IsRemote reports whether any layer was detected between the user and this

@@ -70,24 +70,13 @@ var orcaExtra = map[string]string{
 }
 
 // orcaNames is every variable detectOrca consults, so Evidence and the lookup
-// set cannot drift apart. The marker variables appear in orcaExtra too, so the
-// union is deduplicated: Evidence is a set of names.
+// set cannot drift apart. The marker variables appear in orcaExtra too;
+// PresentNames deduplicates the union.
 var orcaNames = func() []string {
-	seen := map[string]bool{}
-	var names []string
-	add := func(candidates ...string) {
-		for _, name := range candidates {
-			if !seen[name] {
-				seen[name] = true
-				names = append(names, name)
-			}
-		}
-	}
-	add("ORCA_USER_DATA_PATH")
-	add(orcaMarkers.owner...)
-	add(orcaMarkers.location...)
+	names := append([]string{"ORCA_USER_DATA_PATH"}, orcaMarkers.owner...)
+	names = append(names, orcaMarkers.location...)
 	for _, name := range orcaExtra {
-		add(name)
+		names = append(names, name)
 	}
 	return names
 }()

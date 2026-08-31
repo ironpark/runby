@@ -12,7 +12,7 @@ runtime_test_reason: 실제 Windows + WSL 환경에서 (1) 일반 대화형 셸,
 
 # WSL
 
-WSL(Windows Subsystem for Linux)은 `runby`가 다루는 다른 어떤 대상과도 성격이 다릅니다. 에이전트·CI·터미널은 모두 "이 프로세스를 무엇이 실행했는가"를 하나의 운영체제 안에서 묻지만, WSL은 **Linux 프로세스가 자신이 Windows 위의 가상화된 배포판 안에서 실행되고 있다는 사실 자체**를 환경변수로 알 수 있는지를 묻습니다. 게다가 [`docs/terminals/windows-terminal.md`](../terminals/windows-terminal.md)가 이미 지적했듯, WSL은 `WSLENV`라는 별도 메커니즘을 통해 **Windows 쪽 변수를 Linux 프로세스 환경에 그대로 복사**하므로, 이 라이브러리가 대상으로 하는 Linux용 Go 바이너리는 "터미널" 변수를 관측하더라도 그것이 같은 OS에서 온 값이라고 더 이상 가정할 수 없습니다. 이 문서는 그 경계 규칙을 정리합니다.
+WSL(Windows Subsystem for Linux)은 `runby`가 다루는 다른 어떤 대상과도 성격이 다릅니다. 에이전트·CI·터미널은 모두 "이 프로세스를 무엇이 실행했는가"를 하나의 운영체제 안에서 묻지만, WSL은 **Linux 프로세스가 자신이 Windows 위의 가상화된 배포판 안에서 실행되고 있다는 사실 자체**를 환경변수로 알 수 있는지를 묻습니다. 게다가 [`docs/research/terminals/windows-terminal.md`](../terminals/windows-terminal.md)가 이미 지적했듯, WSL은 `WSLENV`라는 별도 메커니즘을 통해 **Windows 쪽 변수를 Linux 프로세스 환경에 그대로 복사**하므로, 이 라이브러리가 대상으로 하는 Linux용 Go 바이너리는 "터미널" 변수를 관측하더라도 그것이 같은 OS에서 온 값이라고 더 이상 가정할 수 없습니다. 이 문서는 그 경계 규칙을 정리합니다.
 
 WSL의 핵심 구현은 [`microsoft/WSL`](https://github.com/microsoft/WSL) 저장소에서 2025년 5월 Build 컨퍼런스를 통해 오픈소스로 공개되었습니다([Windows Developer Blog: The Windows Subsystem for Linux is now open source](https://blogs.windows.com/windowsdeveloper/2025/05/19/the-windows-subsystem-for-linux-is-now-open-source/)). 다만 전부가 공개된 것은 아닙니다 — WSL 1의 커널 쪽 드라이버인 `Lxcore.sys`, 그리고 `\\wsl.localhost\` 경로 리다이렉션을 담당하는 `P9rdr.sys`/`p9np.dll`은 여전히 비공개입니다([Open Source WSL | Microsoft Learn](https://learn.microsoft.com/en-us/windows/wsl/opensource)). 이 문서에서 다루는 환경변수 관련 동작(interop, `WSLENV`)은 공개된 구성 요소에 속합니다.
 
@@ -60,7 +60,7 @@ WSLENV=GOPATH/l:USERPROFILE/w:SOMEVAR/wp
 - **`/u`** — *"This flag indicates the value should only be included when invoking WSL from Win32."* Windows → WSL 단방향.
 - **`/w`** — *"This flag indicates the value should only be included when invoking Win32 from WSL."* WSL → Windows 단방향.
 
-**플래그가 없는 경우**, 위 원문 어디에도 "플래그 없음 = 양방향, 변환 없음"이라고 명시적으로 정의한 문장은 없습니다. 다만 `/u`·`/w`가 각각 "이 방향에서만" 포함되도록 *제한하는* 플래그로 정의되어 있고, `/p`·`/l`은 값의 *변환 방식*만 지정할 뿐 방향을 제한하지 않는다는 점에서, 플래그가 전혀 없는 이름은 **양방향으로, 값 변환 없이 그대로** 복사되는 것으로 동작합니다. 실제로 [`docs/terminals/windows-terminal.md`](../terminals/windows-terminal.md)가 확인한 `microsoft/terminal` 소스에서 Windows Terminal은 `WT_SESSION`/`WT_PROFILE_ID`를 `WSLENV`에 **플래그 없이** 추가하며, 그 결과 이 GUID 문자열이 변환 없이 Linux 프로세스 환경에 그대로 나타납니다.
+**플래그가 없는 경우**, 위 원문 어디에도 "플래그 없음 = 양방향, 변환 없음"이라고 명시적으로 정의한 문장은 없습니다. 다만 `/u`·`/w`가 각각 "이 방향에서만" 포함되도록 *제한하는* 플래그로 정의되어 있고, `/p`·`/l`은 값의 *변환 방식*만 지정할 뿐 방향을 제한하지 않는다는 점에서, 플래그가 전혀 없는 이름은 **양방향으로, 값 변환 없이 그대로** 복사되는 것으로 동작합니다. 실제로 [`docs/research/terminals/windows-terminal.md`](../terminals/windows-terminal.md)가 확인한 `microsoft/terminal` 소스에서 Windows Terminal은 `WT_SESSION`/`WT_PROFILE_ID`를 `WSLENV`에 **플래그 없이** 추가하며, 그 결과 이 GUID 문자열이 변환 없이 Linux 프로세스 환경에 그대로 나타납니다.
 
 ### 방향 규칙
 
@@ -70,15 +70,15 @@ WSLENV=GOPATH/l:USERPROFILE/w:SOMEVAR/wp
 
 Windows 쪽에서 `WSLENV`에 이름이 올라간 변수는, 그 값이 경로가 아니라면 **변환 없이 그대로** Linux 프로세스 환경 블록에 나타납니다. Windows Terminal이 `WT_SESSION`/`WT_PROFILE_ID`를 플래그 없이 등록하는 것이 정확히 이 경우이며, 그래서 Linux용으로 컴파일된 Go 바이너리가 Windows 터미널의 세션 GUID를 자신의 환경변수로 관측하게 됩니다. **이것은 버그가 아니라 WSL이 설계한 정상적인 경계 넘기**입니다. 그러나 `runby`의 관점에서는 중요한 함의가 있습니다 — "터미널을 가리키는 변수가 있다"는 사실이 더 이상 "이 프로세스가 그 터미널과 같은 OS에서 실행 중이다"를 의미하지 않습니다. `WT_SESSION`이 있다고 해서 이 프로세스가 Windows 프로세스라는 뜻이 아니라, 오히려 WSL 안에서 실행되는 Linux 프로세스일 가능성까지 포함하게 됩니다.
 
-이 경계 넘기는 **`wsl.exe`가 시작한 프로세스 트리 안에서만** 일어납니다. `WSLENV`는 Win32 프로세스가 `wsl.exe`(또는 그에 준하는 interop 경로)를 통해 WSL 프로세스를 생성하거나, WSL 프로세스가 interop을 통해 Win32 실행 파일을 호출하는 그 생성 순간에 적용되는 규칙입니다. WSL을 다른 방식으로 시작한 경우 — 예약된 작업, 서비스, 원격 SSH로 배포판에 직접 접속한 세션 등 — 이 생성 경로를 타지 않으므로 `WSLENV`에 나열된 값이 실려 오지 않고, 해당 변수들은 나타나지 않습니다. [`docs/terminals/windows-terminal.md`](../terminals/windows-terminal.md)가 확인한 것과 동일한 구조입니다.
+이 경계 넘기는 **`wsl.exe`가 시작한 프로세스 트리 안에서만** 일어납니다. `WSLENV`는 Win32 프로세스가 `wsl.exe`(또는 그에 준하는 interop 경로)를 통해 WSL 프로세스를 생성하거나, WSL 프로세스가 interop을 통해 Win32 실행 파일을 호출하는 그 생성 순간에 적용되는 규칙입니다. WSL을 다른 방식으로 시작한 경우 — 예약된 작업, 서비스, 원격 SSH로 배포판에 직접 접속한 세션 등 — 이 생성 경로를 타지 않으므로 `WSLENV`에 나열된 값이 실려 오지 않고, 해당 변수들은 나타나지 않습니다. [`docs/research/terminals/windows-terminal.md`](../terminals/windows-terminal.md)가 확인한 것과 동일한 구조입니다.
 
 ## 다른 축에 미치는 영향
 
 `runby`는 에이전트·CI·터미널 세 축을 보고합니다. WSL은 이 셋에 서로 다른 방식으로 영향을 미칩니다.
 
-- **터미널 축** — 가장 직접적인 영향입니다. `WSLENV`를 통해 Windows 터미널 에뮬레이터의 마커(`WT_SESSION` 등)가 Linux 프로세스 환경에 그대로 나타날 수 있으므로, WSL 안에서 실행되는 Go 바이너리도 [`docs/terminals/windows-terminal.md`](../terminals/windows-terminal.md)의 감지 로직을 그대로 적용할 수 있습니다. 다만 이는 `WSLENV`에 그 변수가 명시적으로 등록되어 있고 `wsl.exe` 프로세스 트리 안에서 실행되었을 때만 성립합니다.
+- **터미널 축** — 가장 직접적인 영향입니다. `WSLENV`를 통해 Windows 터미널 에뮬레이터의 마커(`WT_SESSION` 등)가 Linux 프로세스 환경에 그대로 나타날 수 있으므로, WSL 안에서 실행되는 Go 바이너리도 [`docs/research/terminals/windows-terminal.md`](../terminals/windows-terminal.md)의 감지 로직을 그대로 적용할 수 있습니다. 다만 이는 `WSLENV`에 그 변수가 명시적으로 등록되어 있고 `wsl.exe` 프로세스 트리 안에서 실행되었을 때만 성립합니다.
 - **CI 축** — WSL 자체는 CI 플랫폼이 아니며 CI 마커를 주입하지 않습니다. WSL 안에서 CI 러너(예: 자체 호스팅 러너)가 동작한다면 그 CI 플랫폼의 마커가 정상적으로 설정되고, WSL은 그 과정에 개입하지 않습니다. 다만 그 CI 러너가 Windows 쪽 프로세스에 의해 `wsl.exe`로 감싸져 시작되었고 CI 플랫폼 특유의 변수가 `WSLENV`에 실려 있다면(일반적이지는 않지만 사용자가 직접 설정할 수 있음) 이론적으로는 여기서도 같은 경계 넘기가 일어날 수 있습니다.
-- **에이전트 축** — 질문의 핵심 사례입니다. **Windows 쪽에서 실행 중인 에이전트가 `wsl.exe`를 호출해 WSL 프로세스를 자식으로 띄우는 경우, 그 에이전트의 마커(예: 어떤 도구의 `AGENT_SESSION_ID`류 변수)가 WSL 쪽 프로세스에 나타나는가?** 답은 전적으로 `WSLENV`에 달려 있습니다 — **규칙**: 그 변수 이름이 Windows 쪽 프로세스의 `WSLENV`에 (플래그 없이 또는 `/u`를 붙여) 등록되어 있어야만 넘어옵니다. **실무적 답**: 이 저장소가 조사한 에이전트 하네스들(`docs/agents/` 아래 문서 참고, 예: Claude Code의 `CLAUDECODE=1`, Codex의 `CODEX_SESSION_ID` 등) 중 공식 문서·소스에서 자신의 마커를 `WSLENV`에 등록한다고 확인된 사례는 없습니다. 즉 이런 에이전트가 Windows에서 `wsl.exe`로 WSL 프로세스를 실행하더라도, 별도로 `WSLENV`를 조정하지 않는 한 그 에이전트 마커는 기본적으로 WSL 프로세스 환경에 나타나지 않습니다. Windows Terminal이 `WT_SESSION`/`WT_PROFILE_ID`에 대해 한 것처럼 에이전트 벤더가 스스로 `WSLENV`를 조정해야만 이 경계를 넘을 수 있습니다.
+- **에이전트 축** — 질문의 핵심 사례입니다. **Windows 쪽에서 실행 중인 에이전트가 `wsl.exe`를 호출해 WSL 프로세스를 자식으로 띄우는 경우, 그 에이전트의 마커(예: 어떤 도구의 `AGENT_SESSION_ID`류 변수)가 WSL 쪽 프로세스에 나타나는가?** 답은 전적으로 `WSLENV`에 달려 있습니다 — **규칙**: 그 변수 이름이 Windows 쪽 프로세스의 `WSLENV`에 (플래그 없이 또는 `/u`를 붙여) 등록되어 있어야만 넘어옵니다. **실무적 답**: 이 저장소가 조사한 에이전트 하네스들(`docs/research/agents/` 아래 문서 참고, 예: Claude Code의 `CLAUDECODE=1`, Codex의 `CODEX_SESSION_ID` 등) 중 공식 문서·소스에서 자신의 마커를 `WSLENV`에 등록한다고 확인된 사례는 없습니다. 즉 이런 에이전트가 Windows에서 `wsl.exe`로 WSL 프로세스를 실행하더라도, 별도로 `WSLENV`를 조정하지 않는 한 그 에이전트 마커는 기본적으로 WSL 프로세스 환경에 나타나지 않습니다. Windows Terminal이 `WT_SESSION`/`WT_PROFILE_ID`에 대해 한 것처럼 에이전트 벤더가 스스로 `WSLENV`를 조정해야만 이 경계를 넘을 수 있습니다.
 
 ## 범위 밖: `/proc` 기반 신호
 
@@ -105,4 +105,4 @@ WSL 여부를 가장 안정적으로 판별하는 방법은 사실 환경변수�
 - [`microsoft/WSL`: `interop.md` 기술 문서 (`WSL_INTEROP`, `/init`의 소켓 탐색 폴백)](https://github.com/microsoft/WSL/blob/master/doc/docs/technical-documentation/interop.md)
 - [`microsoft/WSL#9719` — `WSL_DISTRO_NAME`이 root/systemd 컨텍스트에서 관측되지 않는 사례](https://github.com/microsoft/WSL/issues/9719)
 - [`microsoft/WSL#11920` — `interop.enabled = false` 설정에도 `WSLInterop`이 남아있는 사례 보고](https://github.com/microsoft/WSL/issues/11920)
-- [`docs/terminals/windows-terminal.md` — `WT_SESSION`/`WT_PROFILE_ID`가 `WSLENV`를 통해 WSL로 넘어가는 근거 소스](../terminals/windows-terminal.md)
+- [`docs/research/terminals/windows-terminal.md` — `WT_SESSION`/`WT_PROFILE_ID`가 `WSLENV`를 통해 WSL로 넘어가는 근거 소스](../terminals/windows-terminal.md)

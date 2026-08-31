@@ -54,7 +54,7 @@ var terminalSpecs = []terminalSpec{
 		// LC_TERMINAL is deliberately excluded. iTerm2 puts it in the LC_*
 		// namespace because the ssh_config most distributions ship enables
 		// SendEnv LC_*, so it crosses SSH on a typical host and can name a
-		// terminal on another machine entirely. See docs/remote/openssh.md.
+		// terminal on another machine entirely. See docs/research/remote/openssh.md.
 	},
 	{
 		program:     TerminalAppleTerminal,

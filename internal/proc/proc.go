@@ -11,15 +11,35 @@
 // It is also the least portable. See Supported.
 package proc
 
+import "strings"
+
 // Info describes one process in the ancestor chain.
 type Info struct {
 	PID  int
 	PPID int
-	// Name is the executable's base name. It is the value to match on: Path
-	// is often unavailable for processes owned by another user.
+	// Name is the executable's base name, lowercased with any .exe suffix
+	// removed, so one match table serves every platform. It is the value to
+	// match on: Path is often unavailable for a process owned by another user.
 	Name string
+	// Truncated reports that the source of Name imposes a length limit and
+	// Name reached it, so it may be a prefix of the real name. Linux falls
+	// back to /proc/<pid>/comm when the exe link is unreadable, and comm is
+	// capped at CommLimit bytes. A matcher should treat a truncated name as a
+	// prefix rather than an exact value.
+	Truncated bool
 	// Path is the executable's full path, empty when it could not be read.
 	Path string
+}
+
+// CommLimit is the byte length Linux truncates /proc/<pid>/comm to. It is
+// exported so a matcher can reason about Truncated names without repeating
+// the constant.
+const CommLimit = 15
+
+// normalize puts a base name into the form Info.Name documents.
+func normalize(name string) string {
+	name = strings.ToLower(name)
+	return strings.TrimSuffix(name, ".exe")
 }
 
 // maxDepth bounds the walk. Ancestor chains are short in practice, and a

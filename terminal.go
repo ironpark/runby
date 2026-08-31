@@ -29,6 +29,24 @@ const (
 	TerminalVTE TerminalProgram = "vte"
 )
 
+// terminalExecutables names the binaries each terminal runs as, so a live
+// ancestor process can corroborate an environment detection. A terminal is
+// absent when no name is specific enough to match safely: Apple Terminal's
+// binary is called Terminal, and VTE is a widget library rather than a
+// process.
+var terminalExecutables = map[TerminalProgram][]string{
+	TerminalITerm2:          {"iterm2"},
+	TerminalWezTerm:         {"wezterm", "wezterm-gui"},
+	TerminalGhostty:         {"ghostty"},
+	TerminalWarp:            {"warp"},
+	TerminalZed:             {"zed"},
+	TerminalKitty:           {"kitty"},
+	TerminalWindowsTerminal: {"windowsterminal"},
+	TerminalAlacritty:       {"alacritty"},
+	TerminalKonsole:         {"konsole"},
+	TerminalGNOMETerminal:   {"gnome-terminal-server"},
+}
+
 // String returns the stable slug used across this package, its documentation,
 // and its serialized output.
 func (p TerminalProgram) String() string {
@@ -86,7 +104,7 @@ type Terminal struct {
 	// SessionID identifies the window, tab, or pane, when the emulator
 	// advertises one. Several terminals advertise none, and some advertise a
 	// reusable index rather than a stable identifier; see the per-terminal
-	// notes in docs/terminals.
+	// notes in docs/research/terminals.
 	SessionID string `json:"session_id,omitempty"`
 	// PID is the emulator's process ID, or 0 when it is not advertised. Only
 	// kitty advertises one. It is the single signal in this struct that
@@ -97,6 +115,12 @@ type Terminal struct {
 	// identity, users override it, and multiplexers replace it, so it is
 	// reported for context but never used as a sole detection signal.
 	Term string `json:"term,omitempty"`
+
+	// AncestorPID is the PID of a running ancestor process whose executable
+	// belongs to this terminal, or 0 when none was found. As with
+	// Detection.AncestorPID, a non-zero value confirms the environment
+	// evidence against a live process, and zero is not a denial.
+	AncestorPID int `json:"ancestor_pid,omitempty"`
 
 	// Extra holds values that only one terminal advertises, keyed by
 	// "<terminal-slug>.<name>".
@@ -129,6 +153,7 @@ type funcTerminalDetector struct {
 }
 
 func (d funcTerminalDetector) Program() TerminalProgram        { return d.program }
+func (d funcTerminalDetector) Executables() []string           { return terminalExecutables[d.program] }
 func (d funcTerminalDetector) Detect(env Env) (Terminal, bool) { return d.detect(env) }
 
 // parsePID reads an emulator process ID. Non-numeric and non-positive values

@@ -34,12 +34,16 @@ func (reader) lookup(pid int) (Info, bool) {
 	// own processes, so a failure here is expected rather than exceptional.
 	if path, err := os.Readlink(dir + "/exe"); err == nil {
 		info.Path = path
-		info.Name = filepath.Base(path)
+		info.Name = normalize(filepath.Base(path))
 	}
 	if info.Name == "" {
-		// comm is world readable, but is truncated to 15 bytes.
+		// comm is world readable, which is why it is the fallback, but the
+		// kernel caps it at CommLimit bytes. A name at exactly that length
+		// may be a prefix, so it is flagged rather than trusted whole.
 		if raw, err := os.ReadFile(dir + "/comm"); err == nil {
-			info.Name = strings.TrimSpace(string(raw))
+			name := strings.TrimSpace(string(raw))
+			info.Name = normalize(name)
+			info.Truncated = len(name) >= CommLimit
 		}
 	}
 	return info, true

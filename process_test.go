@@ -142,3 +142,100 @@ func TestProcessTreeSurvivesJSON(t *testing.T) {
 	}
 	assertJSONRoundTrip(t, result)
 }
+
+func TestCustomDetectorGetsAncestorCorroboration(t *testing.T) {
+	// A detector supplied through WithDetectors can name its executables, and
+	// then gets the same live-ancestor confirmation the built-in ones do.
+	// Before the labels were derived from the configured detectors this was
+	// impossible: the name table was closed.
+	const acme runby.Agent = "acme-orchestrator"
+	detector := acmeDetector{}
+
+	result := runby.Detect(
+		runby.WithEnviron([]string{"ACME_RUN_ID=run-7"}),
+		runby.WithDetectors(detector),
+		runby.WithProcessTree(runby.ProcessTree{
+			Inspected: true,
+			Supported: true,
+			Ancestors: []runby.Process{
+				{PID: 10, PPID: 20, Name: "sh"},
+				{PID: 20, PPID: 1, Name: "acme-run"},
+			},
+		}),
+	)
+
+	layer, ok := result.Get(acme)
+	if !ok {
+		t.Fatalf("custom agent not detected: %#v", result.Layers)
+	}
+	if layer.AncestorPID != 20 {
+		t.Fatalf("AncestorPID = %d, want 20", layer.AncestorPID)
+	}
+	// The injected tree carried no labels; Detect applied them.
+	if got := result.Process.Ancestors[1].Agent; got != acme {
+		t.Fatalf("ancestor label = %q, want %q", got, acme)
+	}
+}
+
+// acmeDetector implements the optional ExecutableNamer interface.
+type acmeDetector struct{}
+
+func (acmeDetector) Agent() runby.Agent    { return "acme-orchestrator" }
+func (acmeDetector) Executables() []string { return []string{"acme-run"} }
+func (acmeDetector) Detect(env runby.Env) (runby.Detection, bool) {
+	id, ok := runby.Value(env, "ACME_RUN_ID")
+	if !ok {
+		return runby.Detection{}, false
+	}
+	return runby.Detection{Kind: runby.KindOrchestrator, AgentID: id}, true
+}
+
+func TestTerminalAndRemoteAreCorroboratedToo(t *testing.T) {
+	result := runby.Detect(
+		runby.WithEnviron([]string{"KITTY_WINDOW_ID=3", "TMUX=/tmp/t,1,0"}),
+		runby.WithProcessTree(runby.ProcessTree{
+			Inspected: true,
+			Supported: true,
+			Ancestors: []runby.Process{
+				{PID: 10, PPID: 20, Name: "kitty"},
+				{PID: 20, PPID: 1, Name: "tmux"},
+			},
+		}),
+	)
+
+	if result.Terminal.AncestorPID != 10 {
+		t.Fatalf("Terminal.AncestorPID = %d, want 10", result.Terminal.AncestorPID)
+	}
+	tmux, ok := result.GetRemote(runby.RemoteTmux)
+	if !ok || tmux.AncestorPID != 20 {
+		t.Fatalf("tmux layer = %#v, want AncestorPID 20", tmux)
+	}
+}
+
+func TestLiveTerminalAncestorOutranksTheMultiplexerDowngrade(t *testing.T) {
+	// A multiplexer server daemonizes and is reparented away from the terminal
+	// that started it, so the terminal cannot appear in a pane's ancestor
+	// chain. Measured with tmux 3.7c: inside a pane the chain ends at the tmux
+	// server, never at the launching terminal. Finding the terminal alive
+	// therefore means this process is not behind a stale pane.
+	tree := runby.ProcessTree{
+		Inspected: true,
+		Supported: true,
+		Ancestors: []runby.Process{{PID: 10, PPID: 1, Name: "kitty"}},
+	}
+	environ := []string{"KITTY_WINDOW_ID=3", "TMUX=/tmp/t,1,0"}
+
+	withAncestor := runby.Detect(runby.WithEnviron(environ), runby.WithProcessTree(tree))
+	if withAncestor.Terminal.Confidence != runby.ConfidenceDefinite {
+		t.Fatalf("Confidence = %q, want definite when the terminal is a live ancestor",
+			withAncestor.Terminal.Confidence)
+	}
+
+	// Without the ancestor the downgrade still applies, because the evidence
+	// really could have been left by a terminal that has since closed.
+	withoutAncestor := runby.Detect(runby.WithEnviron(environ))
+	if withoutAncestor.Terminal.Confidence != runby.ConfidenceProbable {
+		t.Fatalf("Confidence = %q, want probable without a live ancestor",
+			withoutAncestor.Terminal.Confidence)
+	}
+}

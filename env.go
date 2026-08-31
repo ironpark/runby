@@ -108,13 +108,22 @@ func collectExtra(env Env, keys map[string]string) map[string]string {
 	return extra
 }
 
-// PresentNames returns the sorted subset of names that are set to a non-empty
-// value. Detectors use it to build Detection.Evidence, which holds variable
-// names only; values may be sensitive and are never copied into it.
+// PresentNames returns the sorted, deduplicated subset of names that are set
+// to a non-empty value. Detectors use it to build Evidence, which holds
+// variable names only; values may be sensitive and are never copied into it.
+//
+// Duplicates are dropped because Evidence is a set: a caller often assembles
+// the candidate list from several overlapping sources, such as a marker that
+// is also read as the session identifier.
 func PresentNames(env Env, names ...string) []string {
 	present := make([]string, 0, len(names))
+	seen := make(map[string]bool, len(names))
 	for _, name := range names {
+		if seen[name] {
+			continue
+		}
 		if _, ok := Value(env, name); ok {
+			seen[name] = true
 			present = append(present, name)
 		}
 	}

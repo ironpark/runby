@@ -47,7 +47,7 @@ func TestSlugsMatchDocs(t *testing.T) {
 	}{
 		{
 			name: "agents",
-			dir:  "docs/agents",
+			dir:  "docs/research/agents",
 			slugs: func() (s []string) {
 				for _, a := range runby.Agents() {
 					s = append(s, string(a))
@@ -57,7 +57,7 @@ func TestSlugsMatchDocs(t *testing.T) {
 		},
 		{
 			name: "ci",
-			dir:  "docs/ci",
+			dir:  "docs/research/ci",
 			slugs: func() (s []string) {
 				for _, p := range runby.CIProviders() {
 					s = append(s, string(p))
@@ -70,7 +70,7 @@ func TestSlugsMatchDocs(t *testing.T) {
 		},
 		{
 			name: "remote",
-			dir:  "docs/remote",
+			dir:  "docs/research/remote",
 			slugs: func() (s []string) {
 				for _, p := range runby.RemotePlatforms() {
 					s = append(s, string(p))
@@ -80,7 +80,7 @@ func TestSlugsMatchDocs(t *testing.T) {
 		},
 		{
 			name: "terminals",
-			dir:  "docs/terminals",
+			dir:  "docs/research/terminals",
 			slugs: func() (s []string) {
 				for _, p := range runby.TerminalPrograms() {
 					s = append(s, string(p))
@@ -89,7 +89,7 @@ func TestSlugsMatchDocs(t *testing.T) {
 			}(),
 			exempt: map[string]string{
 				string(runby.TerminalVTE): "VTE names a family, not a product",
-				string(runby.TerminalZed): "researched in docs/agents/zed-agent.md",
+				string(runby.TerminalZed): "researched in docs/research/agents/zed-agent.md",
 			},
 		},
 	} {

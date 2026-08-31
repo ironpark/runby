@@ -114,13 +114,13 @@ pub fn set_vars(&self) {
 
 ### 다른 터미널에서 attach해도 기존 pane은 바뀌지 않습니다
 
-위 사실들을 종합하면 답은 명확합니다. 세션 안 기존 pane이 물려받은 환경은 서버 프로세스가 시작될 때의 스냅샷이고, 이를 갱신할 `update-environment` 대응 기능도 없으므로, **터미널 A에서 시작한 Zellij 세션을 터미널 B에서 나중에 attach해도 이미 열려 있던 pane들의 환경변수는 바뀌지 않습니다.** 오직 그 이후 attach된 클라이언트 쪽에서 **새로** 여는 pane만 attach 시점 클라이언트의 조건(예: 클라이언트가 보낸 초기 터미널 크기 등 IPC로 별도 전달되는 정보)의 영향을 받을 수 있고, 환경변수 자체의 상속 경로는 여전히 서버 프로세스 스냅샷입니다. 이는 `docs/terminals/README.md`가 이미 tmux/screen에 대해 정리한 "멀티플렉서 잔존" 문제가 Zellij에도 그대로, 오히려 완화 수단 없이 적용됨을 의미합니다.
+위 사실들을 종합하면 답은 명확합니다. 세션 안 기존 pane이 물려받은 환경은 서버 프로세스가 시작될 때의 스냅샷이고, 이를 갱신할 `update-environment` 대응 기능도 없으므로, **터미널 A에서 시작한 Zellij 세션을 터미널 B에서 나중에 attach해도 이미 열려 있던 pane들의 환경변수는 바뀌지 않습니다.** 오직 그 이후 attach된 클라이언트 쪽에서 **새로** 여는 pane만 attach 시점 클라이언트의 조건(예: 클라이언트가 보낸 초기 터미널 크기 등 IPC로 별도 전달되는 정보)의 영향을 받을 수 있고, 환경변수 자체의 상속 경로는 여전히 서버 프로세스 스냅샷입니다. 이는 `docs/research/terminals/README.md`가 이미 tmux/screen에 대해 정리한 "멀티플렉서 잔존" 문제가 Zellij에도 그대로, 오히려 완화 수단 없이 적용됨을 의미합니다.
 
 ## 다른 축에 미치는 영향
 
 `runby`는 세 축(agent/CI/terminal)을 보고합니다. Zellij는 이 중 **터미널(terminal) 축을 구조적으로 오염시키는 멀티플렉서**이며, 나머지 두 축에는 직접적인 신호를 제공하지 않습니다.
 
-- **터미널 축(`Result.Terminal`)** — 오염 방향은 명확합니다. `docs/terminals/README.md`가 정리한 "멀티플렉서 잔존" 문제와 동일하게, Zellij 세션 안 프로세스가 보고하는 `TERM_PROGRAM`/`KITTY_WINDOW_ID` 등 터미널 식별 변수는 **세션을 최초로 만든 클라이언트가 실행되던 터미널**을 가리킵니다. 지금 실제로 화면을 보고 있는 터미널 에뮬레이터와 무관할 수 있고, 앞 절에서 확인했듯 Zellij에는 이를 갱신할 tmux식 `update-environment`조차 없어 tmux보다 더 오래 낡은 값을 들고 있을 수 있습니다. 다만 `TERM` 자체는 Zellij가 재작성하지 않으므로, 적어도 `TERM`이 가리키는 terminfo 능력 정보는 원본 터미널의 것이 그대로 유지됩니다(tmux/screen처럼 `tmux-256color`/`screen`으로 뭉개지지 않음).
+- **터미널 축(`Result.Terminal`)** — 오염 방향은 명확합니다. `docs/research/terminals/README.md`가 정리한 "멀티플렉서 잔존" 문제와 동일하게, Zellij 세션 안 프로세스가 보고하는 `TERM_PROGRAM`/`KITTY_WINDOW_ID` 등 터미널 식별 변수는 **세션을 최초로 만든 클라이언트가 실행되던 터미널**을 가리킵니다. 지금 실제로 화면을 보고 있는 터미널 에뮬레이터와 무관할 수 있고, 앞 절에서 확인했듯 Zellij에는 이를 갱신할 tmux식 `update-environment`조차 없어 tmux보다 더 오래 낡은 값을 들고 있을 수 있습니다. 다만 `TERM` 자체는 Zellij가 재작성하지 않으므로, 적어도 `TERM`이 가리키는 terminfo 능력 정보는 원본 터미널의 것이 그대로 유지됩니다(tmux/screen처럼 `tmux-256color`/`screen`으로 뭉개지지 않음).
 - **에이전트 축(`Kind`)** — Zellij 공식 변수 중 "누가(사람 또는 어떤 agent 하네스가) 이 명령을 요청했는가"를 나타내는 것은 없습니다. `ZELLIJ`/`ZELLIJ_SESSION_NAME`/`ZELLIJ_PANE_ID`는 모두 실행 공간(멀티플렉서 세션·pane)을 가리킬 뿐 요청 주체를 가리키지 않으므로, `runby`가 이미 다른 문서에서 확인한 원칙("터미널을 소유한다는 사실은 에이전트 실행의 증거가 아니다")이 그대로 적용됩니다. Zellij는 agent 관련 축에 어떤 신호도 제공하지 않습니다.
 - **CI 축(`Result.CI`)** — Zellij는 대화형 터미널 멀티플렉서이며 CI 실행기가 아니므로 CI 축과 무관합니다. CI 파이프라인 안에서 우연히 Zellij가 실행될 이유도, 공식적으로 그런 사용 사례를 문서화한 근거도 없습니다.
 

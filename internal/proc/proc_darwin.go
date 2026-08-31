@@ -71,7 +71,7 @@ func (reader) lookup(pid int) (Info, bool) {
 	}
 	if path, ok := execPath(pid); ok {
 		info.Path = path
-		info.Name = filepath.Base(path)
+		info.Name = normalize(filepath.Base(path))
 	}
 	return info, true
 }

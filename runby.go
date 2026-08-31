@@ -44,6 +44,7 @@ type funcDetector struct {
 }
 
 func (d funcDetector) Agent() Agent                     { return d.agent }
+func (d funcDetector) Executables() []string            { return agents[d.agent].executables }
 func (d funcDetector) Detect(env Env) (Detection, bool) { return d.detect(env) }
 
 type options struct {
@@ -210,13 +211,47 @@ func Detect(opts ...Option) Result {
 		opt(&config)
 	}
 
-	result := Result{TTY: config.tty, Process: config.process}
+	result := Result{TTY: config.tty}
 	if config.inspectTTY {
 		result.TTY = InspectTTY()
 	}
+
+	// The ancestor chain is labelled from the detectors this call was
+	// configured with, so a detector added through WithDetectors is
+	// corroborated exactly like a built-in one.
+	labels := config.executableLabels()
 	if config.inspectProcess {
-		result.Process = inspectProcessTree()
+		result.Process = inspectProcessTree(labels)
+	} else {
+		result.Process = labelProcessTree(config.process, labels)
 	}
+
+	result.Layers = detectAgents(config, result.Process)
+	result.CI = detectCI(config)
+	result.Remote = detectRemote(config, result.Process)
+	result.Terminal = detectTerminal(config, result)
+	return result
+}
+
+// executableLabels gathers the name-to-product mapping from every configured
+// detector that names its executables.
+func (config options) executableLabels() executableLabels {
+	labels := make(executableLabels)
+	for _, detector := range config.detectors {
+		labels.add(detector, Process{Agent: detector.Agent()})
+	}
+	for _, detector := range config.terminalDetectors {
+		labels.add(detector, Process{Terminal: detector.Program()})
+	}
+	for _, detector := range config.remoteDetectors {
+		labels.add(detector, Process{Remote: detector.Platform()})
+	}
+	return labels
+}
+
+// detectAgents reports every agent layer, most specific orchestrator first.
+func detectAgents(config options, tree ProcessTree) []Detection {
+	var layers []Detection
 	for _, detector := range config.detectors {
 		detection, ok := detector.Detect(config.env)
 		if !ok {
@@ -238,18 +273,23 @@ func Detect(opts ...Option) Result {
 		}
 		// An ancestor running this agent's executable proves it is still
 		// alive, which no environment variable can.
-		if ancestor, ok := result.Process.FindAgent(detection.Agent); ok {
+		if ancestor, ok := tree.FindAgent(detection.Agent); ok {
 			detection.AncestorPID = ancestor.PID
 		}
-		result.Layers = append(result.Layers, detection)
+		layers = append(layers, detection)
 	}
+	return layers
+}
+
+// detectCI reports the CI platform. Only the first, most specific match is
+// reported; every platform also sets the generic CI variable, so later matches
+// are redundant.
+func detectCI(config options) CI {
 	for _, detector := range config.ciDetectors {
 		ci, ok := detector.Detect(config.env)
 		if !ok {
 			continue
 		}
-		// Only the first, most specific platform is reported; every platform
-		// also sets the generic CI variable, so later matches are redundant.
 		if ci.Provider == "" {
 			ci.Provider = detector.Provider()
 		}
@@ -257,21 +297,21 @@ func Detect(opts ...Option) Result {
 			ci.Confidence = ConfidenceDefinite
 		}
 		ci.Detected = true
-		result.CI = ci
-		break
+		return ci
 	}
-	if !result.CI.Detected {
-		result.CI.Provider = CIProviderUnknown
-		result.CI.Confidence = ConfidenceUnknown
-	}
+	return CI{Provider: CIProviderUnknown, Confidence: ConfidenceUnknown}
+}
 
+// detectRemote reports every layer between the user and this process. Unlike
+// the other axes it does not stop at the first match: an SSH session into a
+// Codespace running tmux is three concurrent layers, not a precedence contest.
+func detectRemote(config options, tree ProcessTree) []Remote {
+	var layers []Remote
 	for _, detector := range config.remoteDetectors {
 		remote, ok := detector.Detect(config.env)
 		if !ok {
 			continue
 		}
-		// Every match is reported: an SSH session into a Codespace running
-		// tmux is three concurrent layers, not a precedence contest.
 		if remote.Platform == "" {
 			remote.Platform = detector.Platform()
 		}
@@ -281,14 +321,25 @@ func Detect(opts ...Option) Result {
 		if remote.Confidence == "" {
 			remote.Confidence = ConfidenceDefinite
 		}
-		result.Remote = append(result.Remote, remote)
+		if ancestor, ok := tree.Find(func(p Process) bool { return p.Remote == remote.Platform }); ok {
+			remote.AncestorPID = ancestor.PID
+		}
+		layers = append(layers, remote)
 	}
+	return layers
+}
 
+// detectTerminal reports the terminal emulator. It runs last because its
+// confidence depends on the remote layers and the ancestor chain that the
+// earlier steps produced.
+func detectTerminal(config options, result Result) Terminal {
+	var terminal Terminal
 	for _, detector := range config.terminalDetectors {
-		terminal, ok := detector.Detect(config.env)
+		found, ok := detector.Detect(config.env)
 		if !ok {
 			continue
 		}
+		terminal = found
 		if terminal.Program == "" {
 			terminal.Program = detector.Program()
 		}
@@ -296,21 +347,32 @@ func Detect(opts ...Option) Result {
 			terminal.Confidence = ConfidenceDefinite
 		}
 		terminal.Detected = true
-		result.Terminal = terminal
 		break
 	}
-	if !result.Terminal.Detected {
-		result.Terminal.Program = TerminalUnknown
-		result.Terminal.Confidence = ConfidenceUnknown
-		result.Terminal.Term, _ = Value(config.env, "TERM")
+	if !terminal.Detected {
+		terminal.Program = TerminalUnknown
+		terminal.Confidence = ConfidenceUnknown
+		terminal.Term, _ = Value(config.env, "TERM")
+		return terminal
 	}
-	if _, ok := result.Multiplexer(); ok && result.Terminal.Confidence == ConfidenceDefinite {
-		// The multiplexer server keeps the environment of whichever client
-		// started it, so any terminal identity here may name a terminal that
-		// is not the one displaying this pane.
-		result.Terminal.Confidence = ConfidenceProbable
+
+	if ancestor, ok := result.Process.Find(func(p Process) bool { return p.Terminal == terminal.Program }); ok {
+		terminal.AncestorPID = ancestor.PID
 	}
-	return result
+
+	// A multiplexer server keeps the environment of whichever client started
+	// it and cannot refresh a running pane, so the identity here may name a
+	// terminal that is not the one displaying it.
+	//
+	// A live ancestor settles the question the other way. A multiplexer server
+	// daemonizes and is reparented away from the terminal that started it, so
+	// the terminal cannot appear in a pane's ancestor chain; finding it there
+	// means this process is not behind a stale pane.
+	if _, muxed := result.Multiplexer(); muxed && terminal.AncestorPID == 0 &&
+		terminal.Confidence == ConfidenceDefinite {
+		terminal.Confidence = ConfidenceProbable
+	}
+	return terminal
 }
 
 var (
