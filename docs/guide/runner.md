@@ -2,6 +2,8 @@
 
 **무엇이 이 프로세스를 직접 실행했는가** — 패키지 매니저 스크립트인가, 빌드 레시피인가, 서비스 관리자인가.
 
+단순히 도구 실행 여부만 필요하면 `HasRunner()`를 사용하세요. 프롬프트나 출력 형식을 정하려면 도구 이름보다 `Runner.Kind`의 `script`, `hook`, `service` 구분이 더 유용합니다.
+
 ```go
 result := runby.Detect()
 result.HasRunner()                          // 도구가 실행했는가

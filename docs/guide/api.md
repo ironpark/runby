@@ -1,5 +1,7 @@
 # API
 
+처음 사용하는 경우에는 이 레퍼런스보다 [시작하기](getting-started.md)를 먼저 읽는 편이 빠릅니다. 여기서는 공개 옵션과 결과 구조 전체를 설명합니다.
+
 진입점은 `Detect(opts ...Option) Result` 하나입니다.
 
 ```go

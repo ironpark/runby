@@ -2,6 +2,8 @@
 
 사용자와 이 프로세스 사이에 낀 계층입니다. 이 축이 따로 있는 이유는 여기 있는 것들이 **자기 변수를 추가하는 데 그치지 않고 다른 축의 변수가 살아남을지를 결정**하기 때문입니다 — tmux는 `update-environment`로, OpenSSH는 `SendEnv`/`AcceptEnv`로, WSL은 `WSLENV`로, Dev Containers는 `containerEnv`/`remoteEnv`로 거릅니다. 따라서 이 축의 감지 결과는 독립된 사실이 아니라 **다른 축을 얼마나 믿을 수 있는지에 대한 단서**입니다.
 
+원격 계층 존재 여부만 필요하면 `IsRemote()`, 오래된 환경 가능성을 확인하려면 `Multiplexer()`를 사용하세요.
+
 **여러 계층이 동시에 존재할 수 있으므로 슬라이스입니다.** Codespace에 SSH로 붙어 tmux를 쓰면 세 계층이 함께 잡힙니다.
 
 ```go

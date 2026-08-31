@@ -1,6 +1,6 @@
 # CLI
 
-`runby`는 라이브러리가 먼저입니다. CLI는 두 가지 목적으로만 있습니다 — 셸 스크립트가 Go 프로그램 없이 같은 질문을 하기 위해, 그리고 버그 리포트에 설명 대신 붙여넣을 것 하나를 만들기 위해.
+Go 코드에 연결하려면 [시작하기](getting-started.md)를 참고하세요. CLI는 셸 스크립트에서 같은 질문을 하거나, 버그 리포트에 실행 환경 요약을 첨부할 때 사용합니다.
 
 ```
 go install github.com/ironpark/runby/cmd/runby@latest
@@ -10,7 +10,7 @@ go install github.com/ironpark/runby/cmd/runby@latest
 
 ```
 runby [-json] [-v]     사람이 읽는 요약, 또는 Result 전체 JSON
-runby is <축>          종료 코드로만 답. 축: agent ci terminal remote tty
+runby is <축>          종료 코드로만 답. 축: agent ci terminal remote runner tty
 runby chain            "paseo>codex" 한 줄. 감지 실패 시 "unknown"
 ```
 
@@ -45,8 +45,7 @@ process   조상 7개
 
 ```sh
 if runby is agent; then
-	export NO_COLOR=1        # 에이전트가 실행했으면 색과 프롬프트를 끕니다
-	export CI=1
+	export NO_COLOR=1        # 에이전트가 실행했으면 색을 끕니다
 fi
 
 if runby is ci; then
@@ -89,7 +88,7 @@ runby -json | jq '{chain: [.layers[].agent] | join(">"), ci: .ci.provider, tty: 
 
 ## 라이브러리와의 관계
 
-`is`가 답하는 다섯 질문은 라이브러리의 캐시된 진입점과 정확히 같습니다.
+`is`의 각 축은 라이브러리의 같은 판정 결과를 사용합니다.
 
 | CLI | 라이브러리 |
 |---|---|

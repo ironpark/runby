@@ -2,6 +2,8 @@
 
 **CI는 `Layers`가 아니라 별도 축입니다.** Claude Code가 GitHub Actions 워크플로에서 실행되면 `KindHarness` 레이어와 CI 결과가 **동시에** 채워집니다. `Kind`는 "누가 명령을 요청했는가"를, `CI`는 "어디서 실행되는가"를 답합니다. 그래서 `Chain()`에는 CI가 들어가지 않습니다.
 
+CI 여부만 필요하면 `IsCI()`, 플랫폼이나 재시도 회차가 필요할 때 `CI`의 상세 필드를 사용하세요.
+
 ```go
 result := runby.Detect()
 result.IsAgent()            // Claude Code가 실행했는가
