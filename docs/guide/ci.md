@@ -32,7 +32,7 @@ result.CI.Trigger         // GITHUB_EVENT_NAME ("push", "pull_request", ...)
 
 Forgejo Actions는 Runner v7+에서 모든 `FORGEJO_*`를 `GITHUB_*` 별칭으로도 제공하므로 GitHub Actions보다 **먼저** 검사합니다. v7 미만 Runner는 `GITHUB_*`만 제공해 환경변수로는 구별할 수 없어 GitHub Actions로 보고됩니다.
 
-플랫폼별 조사 근거는 [`docs/research/ci/`](../research/ci/)에 있습니다. 지원하지 않는 플랫폼은 `WithCIDrivers`로 추가할 수 있습니다.
+플랫폼별 조사 근거는 [`docs/research/ci/`](../research/ci/)에 있습니다. 지원하지 않는 플랫폼은 [드라이버](drivers.md)를 만들어 추가할 수 있습니다.
 
 ```go
 acme := runby.CIDriver{
@@ -46,5 +46,6 @@ acme := runby.CIDriver{
 	},
 }
 
-result := runby.Detect(runby.WithCIDrivers(acme))
+runby.Register(acme) // 또는 이 호출에만:
+result := runby.Detect(runby.WithOnlyDrivers(append([]runby.Driver{acme}, runby.BuiltinDrivers()...)...))
 ```

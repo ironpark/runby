@@ -264,7 +264,7 @@ func TestTerminalDetectionUsesEnvironNotTTY(t *testing.T) {
 	}
 }
 
-func TestWithTerminalDrivers(t *testing.T) {
+func TestCustomTerminalDriverOutranksTheBuiltins(t *testing.T) {
 	driver := runby.TerminalDriver{
 		Program: "acme-term",
 		Detect: func(env runby.Env) (runby.Terminal, bool) {
@@ -278,7 +278,9 @@ func TestWithTerminalDrivers(t *testing.T) {
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_TERM_SESSION=s-1", "TERM_PROGRAM=ghostty"}),
-		runby.WithTerminalDrivers(driver),
+		// First match wins on this axis, so precedence is the caller's to
+		// state by ordering the slice.
+		runby.WithOnlyDrivers(append([]runby.Driver{driver}, runby.BuiltinDrivers()...)...),
 	)
 	if result.Terminal.Program != "acme-term" || result.Terminal.SessionID != "s-1" {
 		t.Fatalf("Terminal = %#v", result.Terminal)

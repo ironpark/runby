@@ -76,7 +76,7 @@ func (t ProcessTree) pidOf(match func(Process) bool) int {
 
 // executableLabels collects the name-to-product mapping from a set of drivers.
 // Building it per Detect call rather than once at init is what lets a driver
-// supplied through WithAgentDrivers and its siblings be corroborated exactly
+// supplied through Register or WithOnlyDrivers be corroborated exactly
 // like a built-in one.
 type executableLabels map[string]Process
 

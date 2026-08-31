@@ -13,12 +13,6 @@ func cloneSlice[T any](s []T) []T {
 	return out
 }
 
-// prependDrivers puts add ahead of the drivers already configured, so a custom
-// product is tried before the built-in ones.
-func prependDrivers[T any](dst *[]T, add []T) {
-	*dst = append(cloneSlice(add), *dst...)
-}
-
 // replaceDrivers discards the drivers already configured. Passing none
 // disables the axis.
 func replaceDrivers[T any](dst *[]T, add []T) {

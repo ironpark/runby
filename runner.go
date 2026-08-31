@@ -51,7 +51,7 @@ var runnerKinds = indexBy(builtinRunnerDrivers, func(d RunnerDriver) (RunnerTool
 })
 
 // Kind reports what kind of thing t is. It returns RunnerKindUnknown for tools
-// this package does not support; a driver supplied through WithRunnerDrivers
+// this package does not support; a driver supplied through Register
 // carries its own Kind onto the Runner instead.
 func (t RunnerTool) Kind() RunnerKind {
 	if kind, ok := runnerKinds[t]; ok {
@@ -103,7 +103,7 @@ type Runner struct {
 // RunnerDriver detects one tool that runs other programs. It is the unit of
 // extension for this axis: the built-in tools are declared as drivers, and a
 // tool this package does not support is added by passing another to Detect
-// with WithRunnerDrivers.
+// through Register or WithOnlyDrivers.
 type RunnerDriver struct {
 	// Tool identifies the tool this driver reports. Detect fills it into every
 	// Runner the driver returns, so Detect need not repeat it.

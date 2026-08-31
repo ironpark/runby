@@ -303,7 +303,7 @@ func TestCustomRunnerDriver(t *testing.T) {
 			}, true
 		},
 	}
-	result := runby.Detect(runby.WithEnviron([]string{"ACME_TASK=build"}), runby.WithRunnerDrivers(acme))
+	result := runby.Detect(runby.WithEnviron([]string{"ACME_TASK=build"}), runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), acme)...))
 	runner, ok := result.RunnerBy("acme-task")
 	if !ok {
 		t.Fatal("the custom driver did not match")

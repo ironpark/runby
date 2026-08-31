@@ -49,7 +49,7 @@ var remoteKinds = indexBy(builtinRemoteDrivers, func(d RemoteDriver) (RemotePlat
 
 // Kind reports what a detection of p proves. It returns RemoteKindUnknown for
 // platforms this package does not support; a driver supplied through
-// WithRemoteDrivers carries its own Kind onto the Remote instead.
+// A registered driver carries its own Kind onto the Remote instead.
 func (p RemotePlatform) Kind() RemoteKind {
 	if kind, ok := remoteKinds[p]; ok {
 		return kind
@@ -99,7 +99,7 @@ func (r Remote) IsMultiplexer() bool { return r.Kind == RemoteKindMultiplexer }
 // RemoteDriver detects one layer between the user and this process. It is the
 // unit of extension for this axis: the built-in platforms are declared as
 // drivers, and a platform this package does not support is added by passing
-// another to Detect with WithRemoteDrivers.
+// another through Register or WithOnlyDrivers.
 type RemoteDriver struct {
 	// Platform identifies the layer this driver reports. Detect fills it into
 	// every Remote the driver returns, so Detect need not repeat it.

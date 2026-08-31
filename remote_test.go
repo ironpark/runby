@@ -231,7 +231,7 @@ func TestRemoteEvidenceIsNamesOnly(t *testing.T) {
 	}
 }
 
-func TestWithRemoteDrivers(t *testing.T) {
+func TestCustomRemoteDriverIsReported(t *testing.T) {
 	driver := runby.RemoteDriver{
 		Platform: "acme-vpn",
 		Detect: func(env runby.Env) (runby.Remote, bool) {
@@ -245,7 +245,7 @@ func TestWithRemoteDrivers(t *testing.T) {
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_VPN_SESSION=v-1", "TMUX=/tmp/t,1,0"}),
-		runby.WithRemoteDrivers(driver),
+		runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), driver)...),
 	)
 	layer, ok := result.RemoteLayer("acme-vpn")
 	if !ok || layer.SessionID != "v-1" || layer.Confidence != runby.ConfidenceDefinite {

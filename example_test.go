@@ -47,11 +47,11 @@ func ExampleResult_Layer() {
 	// Output: thread-123 workspace-write disabled
 }
 
-// A driver for an agent this package does not support is added ahead of the
-// built-in ones. It carries the agent's identity, what a detection of it
-// proves, and the binaries it runs as, so nothing has to be registered
-// elsewhere.
-func ExampleWithAgentDrivers() {
+// A driver for an agent this package does not support runs beside the
+// built-in ones for a single call. It carries the agent's identity, what a
+// detection of it proves, and the binaries it runs as. Register the same value
+// instead to have every caller in the program see it.
+func ExampleWithOnlyDrivers() {
 	acme := runby.AgentDriver{
 		Agent:       "acme-orchestrator",
 		Kind:        runby.KindOrchestrator,
@@ -67,7 +67,7 @@ func ExampleWithAgentDrivers() {
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_RUN_ID=run-7", "CLAUDECODE=1"}),
-		runby.WithAgentDrivers(acme),
+		runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), acme)...),
 	)
 
 	fmt.Println(result.Chain())

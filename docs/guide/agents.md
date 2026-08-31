@@ -88,7 +88,7 @@ acme := runby.AgentDriver{
 	},
 }
 
-result := runby.Detect(runby.WithAgentDrivers(acme))
+result := runby.Detect(runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), acme)...))
 ```
 
 자세한 규칙은 [`api.md`](api.md#드라이버-확장)에 있습니다.

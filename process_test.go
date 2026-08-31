@@ -144,7 +144,7 @@ func TestProcessTreeSurvivesJSON(t *testing.T) {
 }
 
 func TestCustomDriverGetsAncestorCorroboration(t *testing.T) {
-	// A driver supplied through WithAgentDrivers names its executables like a
+	// A driver supplied through WithOnlyDrivers names its executables like a
 	// built-in one, and gets the same live-ancestor confirmation. Before the
 	// labels were derived from the configured drivers this was impossible: the
 	// name table was closed.
@@ -152,7 +152,7 @@ func TestCustomDriverGetsAncestorCorroboration(t *testing.T) {
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_RUN_ID=run-7"}),
-		runby.WithAgentDrivers(acmeDriver),
+		runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), acmeDriver)...),
 		runby.WithProcessTree(runby.ProcessTree{
 			Inspected: true,
 			Supported: true,

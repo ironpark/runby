@@ -3,10 +3,9 @@ package runby
 import "testing"
 
 // The built-in driver tables are unexported, so the tests that hold them to
-// their contracts live inside the package. They used to reach the tables
-// through exported accessors, which existed only to be filtered and handed
-// back to a per-axis WithOnly option; WithOnlyDrivers took that job, and the
-// accessors went with it.
+// their contracts live inside the package. Callers outside reach the same
+// drivers through BuiltinDrivers, which flattens all five tables into the one
+// type WithOnlyDrivers takes.
 
 // TestDriverTablesMatchTheirIdentityLists holds the tables to the exported
 // lists derived from them: a table is the single place a product is
@@ -67,34 +66,6 @@ func TestDriverTablesAreCopied(t *testing.T) {
 	drivers[0] = AgentDriver{Agent: "tampered"}
 	if again := agentDrivers(); again[0].Agent == "tampered" {
 		t.Fatal("agentDrivers() returned the built-in table itself")
-	}
-}
-
-// TestOnlyDriversCanDropABuiltin covers the capability the removed per-axis
-// WithOnly options provided: running the built-in set minus one product. It is
-// how a caller silences a driver rather than replacing it, which Register
-// cannot express.
-func TestOnlyDriversCanDropABuiltin(t *testing.T) {
-	var withoutCodex []Driver
-	for _, driver := range agentDrivers() {
-		if driver.Agent != AgentCodex {
-			withoutCodex = append(withoutCodex, driver)
-		}
-	}
-
-	result := Detect(
-		WithEnviron([]string{"CODEX_THREAD_ID=t-1", "CLAUDECODE=1"}),
-		WithOnlyDrivers(withoutCodex...),
-	)
-	if result.HasLayer(AgentCodex) {
-		t.Error("codex was detected after its driver was dropped")
-	}
-	if !result.HasLayer(AgentClaudeCode) {
-		t.Error("dropping codex also silenced claude-code")
-	}
-	// Only agent drivers were passed, so every other axis is off.
-	if result.IsCI() || result.HasTerminal() || result.IsRemote() || result.HasRunner() {
-		t.Error("WithOnlyDrivers left an axis on that was given no drivers")
 	}
 }
 

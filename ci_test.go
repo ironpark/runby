@@ -259,7 +259,7 @@ func TestCIEvidenceIsNamesOnly(t *testing.T) {
 	}
 }
 
-func TestWithCIDrivers(t *testing.T) {
+func TestCustomCIDriverOutranksTheGenericConvention(t *testing.T) {
 	driver := runby.CIDriver{
 		Provider: "acme-ci",
 		Detect: func(env runby.Env) (runby.CI, bool) {
@@ -273,7 +273,9 @@ func TestWithCIDrivers(t *testing.T) {
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"CI=true", "ACME_CI_BUILD=b-9"}),
-		runby.WithCIDrivers(driver),
+		// The CI axis takes the first match, so a driver that should outrank
+		// the built-ins goes ahead of them rather than after.
+		runby.WithOnlyDrivers(append([]runby.Driver{driver}, runby.BuiltinDrivers()...)...),
 	)
 	if result.CI.Provider != "acme-ci" || result.CI.PipelineID != "b-9" {
 		t.Fatalf("CI = %#v", result.CI)

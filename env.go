@@ -51,7 +51,7 @@ func EnvironEnv(environ []string) Env {
 }
 
 // The helpers below are exported so that a driver supplied through
-// WithAgentDrivers and its siblings parses the environment exactly like the
+// Register or WithOnlyDrivers parses the environment exactly like the
 // built-in ones.
 
 // Value returns the space-trimmed value of name, and whether it is set to a

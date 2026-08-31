@@ -97,7 +97,7 @@ const (
 func (l Level) String() string { return slug(l, LevelUnknown) }
 
 // level derives the ladder position from the pair. It is one function so that
-// a driver supplied through WithAgentDrivers is placed by the same rule as a
+// a driver supplied through Register or WithOnlyDrivers is placed by the same rule as a
 // built-in one, and so the rule exists in exactly one place.
 func level(kind Kind, models ModelSource) Level {
 	switch {
@@ -116,7 +116,7 @@ func level(kind Kind, models ModelSource) Level {
 
 // AgentDriver detects one agent. It is the unit of extension for this axis:
 // the built-in agents are declared as drivers, and an agent this package does
-// not support is added by passing another to Detect with WithAgentDrivers.
+// not support is added through Register or WithOnlyDrivers.
 //
 // A driver carries both the rule for detecting the agent and the facts about
 // it that no environment can supply, so registering an agent is one step and
@@ -158,7 +158,7 @@ var agentModels = indexBy(builtinAgentDrivers, func(d AgentDriver) (Agent, Model
 // Kind reports how much a detection of a proves. It answers for the built-in
 // agents and for those added through Register, and returns KindUnknown for
 // anything else — including a driver passed to a single Detect call through
-// WithAgentDrivers, which is not visible outside that call. Detection.Kind
+// WithOnlyDrivers, which is not visible outside that call. Detection.Kind
 // always carries the driver's own answer.
 func (a Agent) Kind() Kind {
 	if kind, ok := agentKinds[a]; ok {
@@ -185,7 +185,7 @@ func (a Agent) Level() Level { return level(a.Kind(), a.Models()) }
 func (a Agent) String() string { return slug(a, AgentUnknown) }
 
 // Agents returns every built-in agent in detection precedence order. Drivers
-// added through Register or WithAgentDrivers are deliberately not included:
+// added through Register or WithOnlyDrivers are deliberately not included:
 // every name returned here has a research document in this repository
 // justifying it, and TestSlugsMatchDocs enforces that.
 func Agents() []Agent {

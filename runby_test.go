@@ -279,7 +279,7 @@ func TestWithLookupAndLastValueWins(t *testing.T) {
 	}
 }
 
-func TestWithAgentDriversTakePrecedence(t *testing.T) {
+func TestCustomAgentDriverReplacesABuiltin(t *testing.T) {
 	const inHouse runby.Agent = "acme-orchestrator"
 	driver := runby.AgentDriver{
 		Agent: inHouse,
@@ -295,7 +295,7 @@ func TestWithAgentDriversTakePrecedence(t *testing.T) {
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_RUN_ID=run-7", "CODEX_THREAD_ID=t-1"}),
-		runby.WithAgentDrivers(driver),
+		runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), driver)...),
 	)
 
 	if got, want := result.Chain(), "acme-orchestrator>codex"; got != want {
@@ -365,7 +365,7 @@ func TestResultJSONShape(t *testing.T) {
 }
 
 // TestLevelDerivedForCustomDrivers checks that a driver supplied through
-// WithAgentDrivers is placed on the ladder by the same rule as a built-in one,
+// WithOnlyDrivers is placed on the ladder by the same rule as a built-in one,
 // and that an unclassified driver reports unknown rather than guessing.
 func TestLevelDerivedForCustomDrivers(t *testing.T) {
 	for _, test := range []struct {

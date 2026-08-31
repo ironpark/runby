@@ -53,7 +53,7 @@ runby.AgentDriver{
 }
 ```
 
-라벨은 `Detect` 호출에 설정된 드라이버들로부터 만들어지므로, `WithAgentDrivers`·`WithTerminalDrivers`·`WithRemoteDrivers`로 추가한 드라이버의 실행 파일 이름도 조상 체인 라벨링에 참여합니다.
+라벨은 `Detect` 호출에 설정된 드라이버들로부터 만들어지므로, `Register`나 `WithOnlyDrivers`로 넘긴 드라이버의 실행 파일 이름도 조상 체인 라벨링에 참여합니다.
 
 이름은 소문자 base name에 `.exe`를 뗀 형태로 맞춰야 합니다(`internal/proc`가 그렇게 정규화합니다). Linux `/proc/<pid>/comm`은 15바이트에서 잘리므로, 잘린 이름은 접두사로 대조하되 후보가 둘 이상이면 아무것도 라벨링하지 않습니다.
 

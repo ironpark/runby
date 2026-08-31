@@ -110,7 +110,7 @@ type Terminal struct {
 // TerminalDriver detects one terminal emulator. It is the unit of extension
 // for this axis: the built-in terminals are declared as drivers, and a
 // terminal this package does not support is added by passing another to Detect
-// with WithTerminalDrivers.
+// through Register or WithOnlyDrivers.
 type TerminalDriver struct {
 	// Program identifies the terminal this driver reports. Detect fills it
 	// into every Terminal the driver returns, so Detect need not repeat it.

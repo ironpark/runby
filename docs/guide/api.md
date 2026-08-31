@@ -6,7 +6,7 @@
 result := runby.Detect()                                   // 현재 프로세스
 result := runby.Detect(runby.WithEnviron(environ))         // 명시적 환경
 result := runby.Detect(runby.WithoutTTY())                 // TTY 시스템콜 생략
-result := runby.Detect(runby.WithAgentDrivers(myDriver))   // 사내 오케스트레이터 추가
+runby.Register(myDriver)                                   // 사내 드라이버, 프로세스 전체
 ```
 
 ## 옵션
@@ -19,12 +19,19 @@ result := runby.Detect(runby.WithAgentDrivers(myDriver))   // 사내 오케스�
 | `WithTTY(TTY)` | 표준 스트림 상태를 직접 주입 |
 | `WithoutProcessTree()` | 상위 프로세스 체인 읽기 생략 |
 | `WithProcessTree(ProcessTree)` | 상위 프로세스 체인을 직접 주입 |
-| `WithAgentDrivers(...AgentDriver)` | 내장·등록된 것에 **더함** |
-| `WithCIDrivers(...CIDriver)` | 〃 |
-| `WithTerminalDrivers(...TerminalDriver)` | 〃 |
-| `WithRemoteDrivers(...RemoteDriver)` | 〃 |
-| `WithRunnerDrivers(...RunnerDriver)` | 〃 |
 | `WithOnlyDrivers(...Driver)` | **딱 이것만** 실행. 내장도 등록된 것도 무시. 인자가 없으면 전부 비활성화 |
+
+드라이버를 넘기는 옵션은 `WithOnlyDrivers` 하나입니다. 축별 `With*Drivers` 다섯 개는 제거되었고, 그 자리는 `BuiltinDrivers()`와의 조합이 대신합니다 — 순서가 숨지 않고 슬라이스에 드러납니다.
+
+| 하고 싶은 일 | 방법 |
+|---|---|
+| 프로그램 전체에 드라이버 추가 | `Register(d)` (`init`에서) |
+| 이 호출에만 내장 + 커스텀 | `WithOnlyDrivers(append(BuiltinDrivers(), d)...)` |
+| 커스텀을 내장보다 **앞**에 | `WithOnlyDrivers(append([]Driver{d}, BuiltinDrivers()...)...)` |
+| 내장 하나 끄기 | `BuiltinDrivers()`를 필터해서 `WithOnlyDrivers` |
+| 드라이버 격리 테스트 | `WithOnlyDrivers(d)` |
+
+CI·터미널 축은 **첫 매치가 이깁니다.** 커스텀 드라이버가 내장보다 우선해야 한다면 슬라이스 앞에 두십시오. 에이전트 축은 순서와 무관하게 항상 사다리(`l3`→`l2`→`l1`)로 정렬되고, remote·runner 축은 매치 전부를 보고하므로 순서가 결과 순서일 뿐입니다.
 
 `WithEnviron`·`WithEnv`·`WithLookup`은 **이 프로세스의 것이 아닐 수도 있는** 환경을 넘기는 것이므로, 같은 프로세스를 설명해야만 의미가 있는 `TTY`와 `Process` 축은 자동으로 꺼집니다.
 
@@ -150,7 +157,7 @@ acme := runby.AgentDriver{
 	},
 }
 
-result := runby.Detect(runby.WithAgentDrivers(acme))
+result := runby.Detect(runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), acme)...))
 
 // 프로세스 전체에 한 번만 등록하려면 (init에서):
 runby.Register(acme)

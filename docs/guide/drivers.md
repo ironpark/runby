@@ -2,17 +2,27 @@
 
 `runby`가 모르는 제품을 감지하려면 **드라이버**를 만듭니다. 내장 제품과 사내 제품이 완전히 같은 타입을 쓰므로, 특별 취급이나 포크가 필요 없습니다.
 
-드라이버를 쓰는 방법은 두 가지입니다.
+드라이버를 쓰는 방법은 **두 가지뿐**입니다.
 
-| | `Register` | `With*Drivers` | `WithOnlyDrivers` |
-|---|---|---|---|
-| 범위 | 프로세스 전체 | 그 `Detect` 호출 하나 | 〃 |
-| 내장 드라이버 | 같이 실행 (같은 식별자는 교체) | 같이 실행 | **무시** |
-| 등록된 드라이버 | — | 같이 실행 | **무시** |
-| `IsAgent()`·`Current()`·CLI | ✅ | ❌ | ❌ |
-| 쓰는 곳 | 드라이버 모듈의 `init` | 호출부 | 테스트 |
+| | `Register(...Driver)` | `WithOnlyDrivers(...Driver)` |
+|---|---|---|
+| 범위 | 프로세스 전체 | 그 `Detect` 호출 하나 |
+| 내장 드라이버 | 같이 실행 (같은 식별자는 교체) | **무시** — 준 것만 실행 |
+| 등록된 드라이버 | — | **무시** |
+| `IsAgent()`·`Current()`·CLI | ✅ | ❌ |
+| 쓰는 곳 | 드라이버 모듈의 `init` | 테스트 |
 
 **대표 API(`IsAgent()`, `Current()`)는 옵션을 받지 않습니다.** 그래서 라이브러리로 배포할 드라이버는 `Register`가 유일한 길입니다.
+
+축별 옵션(`WithAgentDrivers` 등 다섯 개)은 제거되었습니다. 그 조합은 전부 `BuiltinDrivers()`로 표현되고, 이쪽은 순서가 숨지 않습니다.
+
+```go
+// 내장 + 커스텀
+runby.Detect(runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), acme)...))
+
+// 커스텀이 내장보다 앞 — CI·터미널 축은 첫 매치가 이깁니다
+runby.Detect(runby.WithOnlyDrivers(append([]runby.Driver{acme}, runby.BuiltinDrivers()...)...))
+```
 
 ## 1. 드라이버 모듈 만들기
 
@@ -82,8 +92,25 @@ func main() {
 
 다른 축의 순서:
 
-- **CI·터미널** — 첫 매치가 이깁니다. 등록된 드라이버가 앞이므로 내장보다 우선합니다. 등록된 드라이버끼리의 순서는 임포트 순서이며 **보장되지 않습니다.** 정확한 순서가 필요하면 `WithCIDrivers`로 직접 넘기십시오.
+- **CI·터미널** — 첫 매치가 이깁니다. 등록된 드라이버가 앞이므로 내장보다 우선합니다. 등록된 드라이버끼리의 순서는 임포트 순서이며 **보장되지 않습니다.** 정확한 순서가 필요하면 `WithOnlyDrivers`에 원하는 순서로 직접 넘기십시오.
 - **remote·runner** — 매치되는 전부가 보고되므로 순서는 결과 슬라이스의 순서일 뿐입니다.
+
+### 내장 드라이버를 끄려면 걸러 내십시오
+
+`Register`는 **교체**만 표현합니다 — "아무것도 보고하지 않는 드라이버"라는 값은 없습니다. 특정 내장 제품을 침묵시키려면 `BuiltinDrivers()`를 걸러서 넘기십시오.
+
+```go
+var drivers []runby.Driver
+for _, driver := range runby.BuiltinDrivers() {
+	if agent, ok := driver.(runby.AgentDriver); ok && agent.Agent == runby.AgentCodex {
+		continue
+	}
+	drivers = append(drivers, driver)
+}
+result := runby.Detect(runby.WithOnlyDrivers(drivers...))
+```
+
+이것은 그 `Detect` 호출에만 적용됩니다. `Current()`가 보는 것은 바꿀 수 없습니다 — 옵션을 받지 않기 때문입니다.
 
 ### 실패는 시끄럽게
 

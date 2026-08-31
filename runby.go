@@ -111,59 +111,23 @@ func WithProcessTree(tree ProcessTree) Option {
 	}
 }
 
-// WithAgentDrivers adds agent drivers to the built-in ones for this call.
-// Every match is reported, and the agent axis is always ordered by the ladder
-// — Level3 orchestrators, then Level2, then Level1 — so a custom orchestrator
-// is reported as the primary layer over the runtime it drives no matter where
-// it was added. Set Kind and Models so the driver lands on the right rung; a
-// driver that declares neither sorts last.
-//
-// Use Register instead to add a driver once for the whole program, including
-// for Current and the cached entry points, which take no options.
-func WithAgentDrivers(drivers ...AgentDriver) Option {
-	return func(o *options) { prependDrivers(&o.agentDrivers, drivers) }
-}
-
-// WithCIDrivers adds CI drivers ahead of the built-in ones, so a platform this
-// package does not support is reported over the generic CI convention. Drivers
-// are tried in the order given, and the first match wins.
-func WithCIDrivers(drivers ...CIDriver) Option {
-	return func(o *options) { prependDrivers(&o.ciDrivers, drivers) }
-}
-
-// WithTerminalDrivers adds terminal drivers ahead of the built-in ones.
-// Drivers are tried in the order given, and the first match wins.
-func WithTerminalDrivers(drivers ...TerminalDriver) Option {
-	return func(o *options) { prependDrivers(&o.terminalDrivers, drivers) }
-}
-
-// WithRemoteDrivers adds remote-layer drivers ahead of the built-in ones.
-// Unlike the agent axis, every matching driver is reported, so ordering
-// affects only the order of Result.Remote.
-func WithRemoteDrivers(drivers ...RemoteDriver) Option {
-	return func(o *options) { prependDrivers(&o.remoteDrivers, drivers) }
-}
-
-// WithRunnerDrivers adds runner drivers ahead of the built-in ones, so an
-// in-house task runner is reported alongside them. As with the remote axis
-// every matching driver is reported, so ordering affects only the order of
-// Result.Runner.
-func WithRunnerDrivers(drivers ...RunnerDriver) Option {
-	return func(o *options) { prependDrivers(&o.runnerDrivers, drivers) }
-}
-
 // WithOnlyDrivers runs exactly the drivers given and nothing else: no built-in
 // driver and nothing added through Register participates in this call. With no
 // drivers at all, no axis derived from the environment is detected.
 //
-// It replaces a per-axis option for each of the five axes, because the two
-// things it is actually for do not divide by axis:
+// It is the only per-call driver option, and the two things it is for do not
+// divide by axis:
 //
 //   - Testing a driver in isolation, so a fixture cannot be answered by a
 //     built-in that happens to match it too.
 //   - Pinning a test in a program where something has registered a driver. The
 //     registry is process-wide, so without this a blank import anywhere in the
 //     build could change what a test observes.
+//
+// Pair it with BuiltinDrivers to run the built-in set plus a custom driver, or
+// minus one of its own:
+//
+//	Detect(WithOnlyDrivers(append(BuiltinDrivers(), acme)...))
 //
 // Drivers are sorted onto their own axis, so one call covers as many axes as
 // the drivers span. The agent axis is still ordered by the ladder rather than
@@ -205,7 +169,7 @@ func Detect(opts ...Option) Result {
 	}
 
 	// The ancestor chain is labelled from the drivers this call was configured
-	// with, so a driver added through WithAgentDrivers is corroborated exactly
+	// with, so a driver added through Register is corroborated exactly
 	// like a built-in one.
 	labels := config.executableLabels()
 	if config.inspectProcess {

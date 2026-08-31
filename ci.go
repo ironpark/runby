@@ -69,7 +69,7 @@ type CI struct {
 // CIDriver detects one CI platform. It is the unit of extension for this
 // axis: the built-in platforms are declared as drivers, and a platform this
 // package does not support is added by passing another to Detect with
-// WithCIDrivers.
+// Register or WithOnlyDrivers.
 //
 // Unlike the other axes a CI driver names no executables. A CI run is a job on
 // a runner rather than a process this one descends from, so there is nothing

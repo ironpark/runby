@@ -245,3 +245,43 @@ func sortByLadder(drivers []AgentDriver) []AgentDriver {
 	})
 	return sorted
 }
+
+// BuiltinDrivers returns every driver this package ships, as a fresh slice
+// that the caller may filter or extend. It is the raw material for
+// WithOnlyDrivers, which otherwise runs nothing but the drivers given:
+//
+//	Detect(WithOnlyDrivers(append(BuiltinDrivers(), acme)...))
+//
+// Filtering it is also the only way to silence a built-in, which Register
+// cannot express — registering the same identity replaces a built-in, but
+// there is no driver value meaning "report nothing":
+//
+//	var drivers []Driver
+//	for _, driver := range BuiltinDrivers() {
+//		if agent, ok := driver.(AgentDriver); ok && agent.Agent == AgentCodex {
+//			continue
+//		}
+//		drivers = append(drivers, driver)
+//	}
+//
+// The order is each axis's own: the agent axis is in ladder order, and the CI
+// and terminal axes are in the order their first match is decided.
+func BuiltinDrivers() []Driver {
+	var drivers []Driver
+	for _, driver := range builtinAgentDrivers {
+		drivers = append(drivers, driver)
+	}
+	for _, driver := range builtinCIDrivers {
+		drivers = append(drivers, driver)
+	}
+	for _, driver := range builtinTerminalDrivers {
+		drivers = append(drivers, driver)
+	}
+	for _, driver := range builtinRemoteDrivers {
+		drivers = append(drivers, driver)
+	}
+	for _, driver := range builtinRunnerDrivers {
+		drivers = append(drivers, driver)
+	}
+	return drivers
+}

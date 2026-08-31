@@ -27,7 +27,7 @@ func TestCustomMultiplexerCapsTerminalConfidence(t *testing.T) {
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_MUX=s-1", "TERM_PROGRAM=ghostty"}),
-		runby.WithRemoteDrivers(acme),
+		runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), acme)...),
 	)
 
 	mux, ok := result.Multiplexer()
@@ -66,8 +66,7 @@ func TestCustomTerminalAndRemoteDriversAreCorroborated(t *testing.T) {
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_TERM=1", "ACME_VPN=1"}),
-		runby.WithTerminalDrivers(term),
-		runby.WithRemoteDrivers(vpn),
+		runby.WithOnlyDrivers(append(runby.BuiltinDrivers(), term, vpn)...),
 		runby.WithProcessTree(runby.ProcessTree{
 			Inspected: true,
 			Supported: true,
@@ -150,5 +149,54 @@ func TestCollectExtra(t *testing.T) {
 	// Nothing present carries no map, so a detection without context has none.
 	if got := runby.CollectExtra(env, map[string]string{"acme.missing": "MISSING"}); got != nil {
 		t.Fatalf("CollectExtra = %#v, want nil", got)
+	}
+}
+
+// BuiltinDrivers is the raw material WithOnlyDrivers needs to mean anything
+// other than "these drivers and nothing else". Filtering it is the only way to
+// silence a built-in: Register replaces one identity with another, and there
+// is no driver value that means "report nothing".
+func TestBuiltinDriversCanDropOneProduct(t *testing.T) {
+	var drivers []runby.Driver
+	for _, driver := range runby.BuiltinDrivers() {
+		if agent, ok := driver.(runby.AgentDriver); ok && agent.Agent == runby.AgentCodex {
+			continue
+		}
+		drivers = append(drivers, driver)
+	}
+
+	env := runby.WithEnviron([]string{"CODEX_THREAD_ID=t-1", "CLAUDECODE=1", "GITHUB_ACTIONS=true"})
+	result := runby.Detect(env, runby.WithOnlyDrivers(drivers...))
+	if result.HasLayer(runby.AgentCodex) {
+		t.Error("codex was detected after its driver was filtered out")
+	}
+	if !result.HasLayer(runby.AgentClaudeCode) {
+		t.Error("dropping codex also silenced claude-code")
+	}
+	// Filtering the agent axis leaves the other four intact, which passing a
+	// hand-built slice per axis would not.
+	if !result.IsCI() {
+		t.Error("filtering an agent driver disabled the CI axis")
+	}
+}
+
+// The returned slice is the caller's, so appending to it or reordering it
+// cannot reach the next call.
+func TestBuiltinDriversAreCopied(t *testing.T) {
+	first := runby.BuiltinDrivers()
+	if len(first) == 0 {
+		t.Fatal("BuiltinDrivers returned nothing")
+	}
+	first[0] = runby.AgentDriver{Agent: "tampered"}
+	// Drivers hold func fields, so they are compared by the identity they
+	// carry rather than with ==.
+	if agent, ok := runby.BuiltinDrivers()[0].(runby.AgentDriver); !ok || agent.Agent == "tampered" {
+		t.Fatal("BuiltinDrivers handed out a shared slice")
+	}
+	// Every built-in product is present, on every axis.
+	want := len(runby.Agents()) + len(runby.CIProviders()) + len(runby.TerminalPrograms()) +
+		len(runby.RemotePlatforms()) + len(runby.RunnerTools())
+	if got := len(runby.BuiltinDrivers()); got != want {
+		t.Fatalf("BuiltinDrivers has %d drivers, the identity lists name %d products", got, want)
 	}
 }
