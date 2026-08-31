@@ -98,11 +98,33 @@ func ExampleTerminal() {
 		"TMUX=/tmp/tmux-501/default,123,0",
 	}))
 
-	fmt.Println(result.Terminal.Program, result.Terminal.Multiplexer)
+	mux, _ := result.Multiplexer()
+	fmt.Println(result.Terminal.Program, mux.Platform)
 	// Confidence drops because the tmux server keeps the environment of
-	// whichever client started it.
+	// whichever client started it and cannot refresh a running pane.
 	fmt.Println(result.Terminal.Confidence)
 	// Output:
 	// ghostty tmux
 	// probable
+}
+
+// Remote layers coexist. An SSH session into a Codespace running tmux is
+// three concurrent facts, and only the multiplexer weakens the terminal.
+func ExampleResult_Remote() {
+	result := runby.Detect(runby.WithEnviron([]string{
+		"SSH_CONNECTION=203.0.113.5 54321 198.51.100.9 22",
+		"CODESPACES=true",
+		"TMUX=/tmp/tmux-1000/default,9,0",
+		"KITTY_WINDOW_ID=4",
+	}))
+
+	for _, layer := range result.Remote {
+		fmt.Println(layer.Platform, layer.Kind)
+	}
+	fmt.Println(result.Terminal.Program, result.Terminal.Confidence)
+	// Output:
+	// tmux multiplexer
+	// openssh environment
+	// github-codespaces environment
+	// kitty probable
 }

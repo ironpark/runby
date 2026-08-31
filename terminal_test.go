@@ -1,7 +1,6 @@
 package runby_test
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/ironpark/runby"
@@ -177,9 +176,10 @@ func TestTerminalKonsole(t *testing.T) {
 }
 
 func TestTerminalLCTerminalIsNeverEvidence(t *testing.T) {
-	// iTerm2 puts LC_TERMINAL in the LC_* namespace precisely so OpenSSH's
-	// default SendEnv LC_* forwards it. A remote process therefore sees it
-	// while the terminal is on another machine, so it must not identify one.
+	// iTerm2 puts LC_TERMINAL in the LC_* namespace because the ssh_config
+	// most distributions ship enables SendEnv LC_*. A remote process
+	// therefore sees it while the terminal is on another machine, so it must
+	// not identify one.
 	result := runby.Detect(runby.WithEnviron([]string{
 		"LC_TERMINAL=iTerm2", "LC_TERMINAL_VERSION=3.5.0", "TERM=xterm-256color",
 	}))
@@ -190,22 +190,31 @@ func TestTerminalLCTerminalIsNeverEvidence(t *testing.T) {
 
 func TestTerminalMultiplexerDowngradesConfidence(t *testing.T) {
 	plain := runby.Detect(runby.WithEnviron([]string{"TERM_PROGRAM=ghostty"}))
-	if plain.Terminal.Multiplexer != runby.MultiplexerNone || plain.Terminal.Confidence != runby.ConfidenceDefinite {
-		t.Fatalf("Terminal = %#v", plain.Terminal)
+	if _, ok := plain.Multiplexer(); ok {
+		t.Fatalf("Multiplexer() = true, want false")
+	}
+	if plain.Terminal.Confidence != runby.ConfidenceDefinite {
+		t.Fatalf("Confidence = %q", plain.Terminal.Confidence)
 	}
 
-	// Inside tmux the identity describes whichever client started the server,
-	// which may not be the terminal displaying this pane.
+	// Inside a multiplexer the identity describes whichever client started
+	// the server, which may not be the terminal displaying this pane.
 	for _, test := range []struct {
 		entry string
-		want  runby.Multiplexer
+		want  runby.RemotePlatform
 	}{
-		{"TMUX=/tmp/tmux-501/default,123,0", runby.MultiplexerTmux},
-		{"STY=1234.pts-0.host", runby.MultiplexerScreen},
+		{"TMUX=/tmp/tmux-501/default,123,0", runby.RemoteTmux},
+		{"STY=1234.pts-0.host", runby.RemoteScreen},
+		// ZELLIJ holds the literal "0"; parsing it as a boolean would lose it.
+		{"ZELLIJ=0", runby.RemoteZellij},
 	} {
 		result := runby.Detect(runby.WithEnviron([]string{"TERM_PROGRAM=ghostty", test.entry}))
-		if result.Terminal.Multiplexer != test.want {
-			t.Fatalf("%s gave Multiplexer = %q, want %q", test.entry, result.Terminal.Multiplexer, test.want)
+		mux, ok := result.Multiplexer()
+		if !ok || mux.Platform != test.want {
+			t.Fatalf("%s gave Multiplexer = %#v, want %q", test.entry, mux, test.want)
+		}
+		if !mux.IsMultiplexer() || mux.Kind != runby.RemoteKindMultiplexer {
+			t.Fatalf("%s gave Kind = %q", test.entry, mux.Kind)
 		}
 		if result.Terminal.Confidence != runby.ConfidenceProbable {
 			t.Fatalf("%s gave Confidence = %q, want %q", test.entry, result.Terminal.Confidence, runby.ConfidenceProbable)
@@ -223,18 +232,8 @@ func TestTerminalMultiplexerWithoutEmulatorIdentity(t *testing.T) {
 	if result.IsTerminal() {
 		t.Fatalf("Terminal = %#v, want undetected", result.Terminal)
 	}
-	if result.Terminal.Multiplexer != runby.MultiplexerTmux {
-		t.Fatalf("Multiplexer = %q", result.Terminal.Multiplexer)
-	}
-}
-
-func TestTerminalMultiplexerIsInEvidence(t *testing.T) {
-	result := runby.Detect(runby.WithEnviron([]string{
-		"TERM_PROGRAM=WezTerm", "WEZTERM_PANE=0", "TMUX=/tmp/tmux-501/default,1,0",
-	}))
-	want := []string{"TERM_PROGRAM", "TMUX", "WEZTERM_PANE"}
-	if !reflect.DeepEqual(result.Terminal.Evidence, want) {
-		t.Fatalf("Evidence = %#v, want %#v", result.Terminal.Evidence, want)
+	if !result.HasRemote(runby.RemoteTmux) {
+		t.Fatalf("Remote = %#v", result.Remote)
 	}
 }
 

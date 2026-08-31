@@ -69,6 +69,16 @@ func TestSlugsMatchDocs(t *testing.T) {
 			},
 		},
 		{
+			name: "remote",
+			dir:  "docs/remote",
+			slugs: func() (s []string) {
+				for _, p := range runby.RemotePlatforms() {
+					s = append(s, string(p))
+				}
+				return
+			}(),
+		},
+		{
 			name: "terminals",
 			dir:  "docs/terminals",
 			slugs: func() (s []string) {

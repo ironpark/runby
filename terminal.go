@@ -48,16 +48,6 @@ func TerminalPrograms() []TerminalProgram {
 	return programs
 }
 
-// Multiplexer identifies a terminal multiplexer between this process and the
-// emulator.
-type Multiplexer string
-
-const (
-	MultiplexerNone   Multiplexer = ""
-	MultiplexerTmux   Multiplexer = "tmux"
-	MultiplexerScreen Multiplexer = "screen"
-)
-
 // Terminal identifies the terminal emulator that produced this environment.
 //
 // Terminal is weaker evidence than the other axes, and deliberately so. Every
@@ -66,12 +56,21 @@ const (
 // this process's TTY*. Four things break the correspondence:
 //
 //   - A multiplexer server keeps the environment of whichever client started
-//     it, so a pane can report a terminal that closed long ago. See
-//     Multiplexer, which downgrades Confidence when it is set.
+//     it and cannot refresh an already running pane. tmux overwrites
+//     TERM_PROGRAM with its own name, erasing the identity of the terminals
+//     that use it, while markers it does not touch, such as KITTY_WINDOW_ID,
+//     pass through and can name a terminal that closed long ago. GNU Screen
+//     and Zellij do not overwrite TERM_PROGRAM and have no refresh mechanism
+//     at all, so every marker can go stale there. Result.Multiplexer reports
+//     this, and Confidence is capped at ConfidenceProbable when it is set.
 //   - Some terminals deliberately forward their identity across SSH, so a
 //     process on a remote host can report a terminal that is not on that
-//     machine. iTerm2's LC_TERMINAL is forwarded by OpenSSH's default
-//     SendEnv LC_*, which is why this package never uses it for detection.
+//     machine. iTerm2 puts LC_TERMINAL in the LC_* namespace because the
+//     ssh_config and sshd_config that mainstream distributions ship enable
+//     SendEnv LC_* and AcceptEnv LC_*, so it crosses on a typical host. That
+//     is a shipped-configuration convention, not an OpenSSH default: OpenSSH
+//     itself documents sending and accepting nothing. Either way the variable
+//     can name a terminal on another machine, so it is never used here.
 //   - A daemonized process outlives the terminal that started it.
 //   - Any script can export these variables.
 //
@@ -98,12 +97,6 @@ type Terminal struct {
 	// identity, users override it, and multiplexers replace it, so it is
 	// reported for context but never used as a sole detection signal.
 	Term string `json:"term,omitempty"`
-
-	// Multiplexer names the multiplexer between this process and the
-	// emulator. When it is set, Program describes the terminal that started
-	// the multiplexer server, which may not be the one displaying this pane,
-	// so Confidence is capped at ConfidenceProbable.
-	Multiplexer Multiplexer `json:"multiplexer,omitempty"`
 
 	// Extra holds values that only one terminal advertises, keyed by
 	// "<terminal-slug>.<name>".
@@ -137,20 +130,6 @@ type funcTerminalDetector struct {
 
 func (d funcTerminalDetector) Program() TerminalProgram        { return d.program }
 func (d funcTerminalDetector) Detect(env Env) (Terminal, bool) { return d.detect(env) }
-
-// detectMultiplexer reports the multiplexer between this process and the
-// emulator. TMUX and STY hold the server socket path and session name, so
-// their presence is the signal; TERM is not consulted because a multiplexer
-// overwrites it with a value that names no product.
-func detectMultiplexer(env Env) (Multiplexer, []string) {
-	if _, ok := Value(env, "TMUX"); ok {
-		return MultiplexerTmux, []string{"TMUX"}
-	}
-	if _, ok := Value(env, "STY"); ok {
-		return MultiplexerScreen, []string{"STY"}
-	}
-	return MultiplexerNone, nil
-}
 
 // parsePID reads an emulator process ID. Non-numeric and non-positive values
 // are reported as 0, meaning unknown.

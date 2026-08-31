@@ -13,7 +13,7 @@
 | `research_date` | 공식 문서와 소스를 마지막으로 확인한 날짜 (`YYYY-MM-DD`) |
 | `open_source` | 실행 제품의 핵심 구현이 오픈소스 라이선스로 공개되는지 여부. 공개 저장소나 issue tracker만 있는 경우는 `false` |
 | `repository` | `open_source: true`일 때의 공식 소스 저장소. 그 외에는 `null` |
-| `product_type` | `agent_harness`, 여러 하위 agent를 관리하는 `agent_orchestrator`, agent를 내장·연결하는 `agent_host`, CI 플랫폼인 `ci_platform`, 또는 터미널 에뮬레이터인 `terminal_emulator` |
+| `product_type` | `agent_harness`, 여러 하위 agent를 관리하는 `agent_orchestrator`, agent를 내장·연결하는 `agent_host`, CI 플랫폼인 `ci_platform`, 터미널 에뮬레이터인 `terminal_emulator`, 터미널 멀티플렉서인 `terminal_multiplexer`, 또는 원격·격리 실행 환경인 `remote_environment` |
 | `executes_agents` | 제품이 실행하거나 호스팅하는 별도 agent/harness 식별자. 자체 하네스만 실행하면 빈 배열 |
 | `runtime_test_required` | 공식 문서·소스 조사 외에 제품을 직접 실행하는 추가 검증이 필요한지 여부 |
 | `runtime_test_reason` | 직접 실행 검증이 필요하거나 불필요하다고 판정한 근거와 핵심 시험 범위 |
@@ -43,6 +43,10 @@
 CI 감지는 "누가 명령을 요청했는가"가 아니라 "어디서 실행되는가"를 답하므로 `Agent`가 아닌 `Result.CI`로 보고합니다. 문서는 [`ci/`](ci/)에 있습니다.
 
 - [Forgejo Actions (Forgejo Runner)](ci/forgejo-runner.md)
+
+## 멀티플렉서·원격 실행 계층 조사
+
+사용자와 프로세스 사이에 끼어 있는 계층입니다. 다른 범주와 달리 자기 변수를 추가하는 데 그치지 않고 **다른 축의 변수가 살아남을지, 어떻게 변형될지를 결정**하므로(`update-environment`, `SendEnv`, `WSLENV`), 나머지 문서의 신뢰도 해석에 전제가 됩니다. 문서는 [`remote/`](remote/)에 있습니다.
 
 ## 터미널 에뮬레이터별 조사
 

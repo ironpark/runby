@@ -8,20 +8,41 @@
 
 대응 관계를 깨뜨리는 네 가지가 모든 문서에서 확인됐습니다.
 
-1. **멀티플렉서 잔존** — tmux·screen 서버는 *처음 붙은 클라이언트*의 환경을 유지합니다. tmux 기본 `update-environment`(`DISPLAY KRB5CCNAME SSH_ASKPASS SSH_AUTH_SOCK SSH_AGENT_PID SSH_CONNECTION WINDOWID XAUTHORITY`)에 터미널 식별 변수가 하나도 없어, 이미 실행 중인 pane의 값은 재접속해도 갱신되지 않습니다. 이미 닫힌 터미널을 계속 보고할 수 있습니다.
+1. **멀티플렉서 잔존** — tmux·screen 서버는 *처음 붙은 클라이언트*의 환경을 유지하며, 이미 실행 중인 pane의 환경은 어떤 방법으로도 갱신되지 않습니다. 다만 tmux와 screen의 동작이 정반대라 결과가 다릅니다. 자세한 내용은 [`../remote/tmux.md`](../remote/tmux.md)와 [`../remote/gnu-screen.md`](../remote/gnu-screen.md)에 있습니다.
+
+   | | tmux | GNU Screen |
+   |---|---|---|
+   | `TERM_PROGRAM` | 매 pane마다 `tmux`로 **덮어씀** | **그대로 통과** |
+   | `TERM` | 덮어씀 | 덮어씀 (`screen`) |
+   | 그 외 터미널 마커 | 통과 | 통과 |
+   | 갱신 기제 | `update-environment` (attach 시점, 목록에 있는 변수만) | **없음** |
+
+   따라서 **tmux 안에서는** `TERM_PROGRAM` 기반 터미널 6종(iTerm2·Apple Terminal·WezTerm·Ghostty·Warp·Zed)의 정체성이 잔존하는 게 아니라 **지워집니다**(거짓 음성). 잔존하는 것은 `TERM_PROGRAM`을 쓰지 않는 5종(kitty·Windows Terminal·Alacritty·Konsole·GNOME Terminal)이며 이쪽이 낡았지만 그럴듯한 **거짓 양성**을 만듭니다. **Screen 안에서는** `TERM_PROGRAM`도 통과하므로 **12종 전부가 잔존 가능**하고, 게다가 `update-environment`에 해당하는 기제가 아예 없어 설정으로 완화할 수도 없습니다.
+
+   tmux 3.7 기준 `update-environment` 기본 목록은 다음과 같습니다. 터미널 식별 변수는 하나도 포함되지 않습니다.
+
+   ```
+   DISPLAY KRB5CCNAME MSYSTEM SSH_ASKPASS SSH_AUTH_SOCK SSH_AGENT_PID SSH_CONNECTION
+   WAYLAND_DISPLAY WINDOWID XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE
+   ```
+
 2. **SSH 정체성 전파** — 아래 별도 절 참고.
 3. **데몬화** — 터미널보다 오래 사는 프로세스는 낡은 스냅샷을 계속 들고 있습니다.
 4. **위조** — 누구나 `export TERM_PROGRAM=...` 할 수 있습니다.
 
-`runby`는 이 중 멀티플렉서만 감지할 수 있으므로, `TMUX`나 `STY`가 있으면 `Terminal.Multiplexer`를 채우고 `Confidence`를 `probable`로 낮춥니다.
+`runby`는 이 중 멀티플렉서만 감지할 수 있으므로, `TMUX`나 `STY`가 있으면 `Terminal.Multiplexer`를 채우고 `Confidence`를 `probable`로 낮춥니다. 상속된 환경변수만으로는 이보다 강한 판정이 불가능합니다 — 잔존 여부를 확인하려면 서버를 재시작하는 수밖에 없기 때문입니다.
+
+잔존 위험은 터미널 축에만 걸리는 것이 아닙니다. 오래 살아 있는 멀티플렉서 서버는 처음 시작될 때의 CI·에이전트 마커도 나중에 만들어진 pane에 그대로 물려줍니다. 다만 `runby`는 이를 신뢰도로 표현하지 않고 `Terminal.Multiplexer`라는 사실만 노출하며, 세 축 모두에 대한 해석은 소비자에게 맡깁니다.
 
 ## SSH가 더 이상 방벽이 아닙니다
 
-OpenSSH 기본값은 `TERM`(pty 요청으로 항상 전송)과 `LANG`/`LC_*` 외에는 전달하지 않습니다. 그런데 최신 터미널들이 이 전제를 의도적으로 깨고 있습니다.
+OpenSSH가 **문서화한** `SendEnv`·`AcceptEnv` 기본값은 둘 다 "아무 변수도 보내지·받지 않음"입니다. 실무에서 `LANG`/`LC_*`가 넘어가는 것은 Debian·Ubuntu 등이 배포하는 `/etc/ssh/ssh_config`와 `sshd_config`가 그렇게 설정해 두었기 때문이며, OpenSSH 소프트웨어의 기본 동작이 아닙니다. `TERM`만은 예외로 `SendEnv`와 무관하게 SSH 프로토콜의 pty 요청에 실려 항상 전달됩니다. 자세한 근거는 [`../remote/openssh.md`](../remote/openssh.md)에 있습니다.
+
+그런데 최신 터미널들이 이 전제를 의도적으로 깨고 있습니다.
 
 | 터미널 | 전파 수단 | 기본값 |
 |---|---|---|
-| iTerm2 | `LC_TERMINAL`·`LC_TERMINAL_VERSION` — `LC_*` 네임스페이스라 `SendEnv LC_*`로 자동 전송 | **켜짐** |
+| iTerm2 | `LC_TERMINAL`·`LC_TERMINAL_VERSION` — `LC_*` 네임스페이스라 배포판이 배포하는 `SendEnv LC_*` 설정에 걸려 전송 | **켜짐** |
 | kitty | `kitten ssh` — terminfo와 셸 통합을 원격에 부트스트랩 | 옵트인 |
 | Ghostty | `ssh-env` 셸 통합 — `TERM_PROGRAM`까지 원격에 전달 | 꺼짐 |
 

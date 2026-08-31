@@ -66,6 +66,12 @@ type Result struct {
 	// see Terminal for why it cannot describe the currently attached
 	// terminal.
 	Terminal Terminal `json:"terminal"`
+	// Remote holds every layer detected between the user and this process:
+	// multiplexers, SSH, and remote or isolated environments. More than one
+	// can be present at once, and the order is a detection order rather than
+	// a nesting order. See Remote for what a layer here implies about the
+	// other axes.
+	Remote []Remote `json:"remote"`
 }
 
 // Found reports whether any supported agent was detected. Terminal ownership
@@ -108,6 +114,38 @@ func (r Result) IsCI() bool { return r.CI.Detected }
 
 // IsTerminal reports whether a terminal emulator was identified.
 func (r Result) IsTerminal() bool { return r.Terminal.Detected }
+
+// IsRemote reports whether any layer sits between the user and this process.
+func (r Result) IsRemote() bool { return len(r.Remote) > 0 }
+
+// GetRemote returns the detected layer for platform.
+func (r Result) GetRemote(platform RemotePlatform) (Remote, bool) {
+	for _, layer := range r.Remote {
+		if layer.Platform == platform {
+			return layer, true
+		}
+	}
+	return Remote{}, false
+}
+
+// HasRemote reports whether platform is one of the detected layers.
+func (r Result) HasRemote(platform RemotePlatform) bool {
+	_, ok := r.GetRemote(platform)
+	return ok
+}
+
+// Multiplexer returns the detected terminal multiplexer. A multiplexer server
+// keeps the environment of whichever client started it and cannot refresh an
+// already running pane, so its presence means every other axis may be
+// reporting evidence left by a session that has since ended.
+func (r Result) Multiplexer() (Remote, bool) {
+	for _, layer := range r.Remote {
+		if layer.IsMultiplexer() {
+			return layer, true
+		}
+	}
+	return Remote{}, false
+}
 
 // Chain renders the detected layers as "paseo>codex", most specific first, for
 // use as a single log or telemetry field. It returns "unknown" when nothing was

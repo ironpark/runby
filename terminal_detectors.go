@@ -52,8 +52,9 @@ var terminalSpecs = []terminalSpec{
 		sessionID: "ITERM_SESSION_ID",
 		extra:     map[string]string{"iterm2.profile": "ITERM_PROFILE"},
 		// LC_TERMINAL is deliberately excluded. iTerm2 puts it in the LC_*
-		// namespace so OpenSSH's default SendEnv LC_* forwards it, which
-		// makes it name a terminal that may be on another machine entirely.
+		// namespace because the ssh_config most distributions ship enables
+		// SendEnv LC_*, so it crosses SSH on a typical host and can name a
+		// terminal on another machine entirely. See docs/remote/openssh.md.
 	},
 	{
 		program:     TerminalAppleTerminal,

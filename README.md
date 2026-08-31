@@ -19,8 +19,9 @@ if runby.IsCI() {
 | 축 | 질문 | 필드 |
 |---|---|---|
 | 에이전트 | 누가 명령을 요청했는가 | `Layers` |
-| CI | 어디서 실행되는가 | `CI` |
+| CI | 어떤 CI 잡에서 실행되는가 | `CI` |
 | 터미널 | 어떤 에뮬레이터가 이 환경을 만들었는가 | `Terminal` |
+| 원격·멀티플렉서 | 사용자와 이 프로세스 사이에 무엇이 끼어 있는가 | `Remote` |
 
 여기에 환경변수가 아니라 시스템콜에서 오는 `TTY`(표준 스트림이 터미널인가)가 더해집니다.
 
@@ -142,7 +143,7 @@ term.Multiplexer  // "tmux", "screen", 또는 ""
 
 ### 이 축을 신뢰 경계로 쓰면 안 되는 이유
 
-- **멀티플렉서 잔존** — tmux·screen 서버는 처음 붙은 클라이언트의 환경을 유지하고, tmux 기본 `update-environment`에 터미널 변수가 하나도 없습니다. 이미 닫힌 터미널을 계속 보고할 수 있습니다. `runby`는 `TMUX`/`STY`를 감지해 `Multiplexer`를 채우고 `Confidence`를 `probable`로 낮춥니다.
+- **멀티플렉서 잔존** — 위 [Remote](#remote) 절을 참고하십시오. `runby`는 멀티플렉서를 감지하면 `Confidence`를 `probable`로 낮춥니다.
 - **SSH 정체성 전파** — iTerm2의 `LC_TERMINAL`(기본 켜짐), kitty의 `kitten ssh`, Ghostty의 `ssh-env`가 터미널 정체성을 원격 호스트에 의도적으로 전달합니다. 그래서 `runby`는 `LC_TERMINAL`을 **감지에 전혀 쓰지 않습니다**.
 - **데몬화**와 **위조** — 낡은 스냅샷이 남거나 누구나 `export TERM_PROGRAM=...` 할 수 있습니다.
 
@@ -154,7 +155,55 @@ term.Multiplexer  // "tmux", "screen", 또는 ""
 - **`Terminal.PID`는 kitty만 제공합니다.** 다른 모든 신호와 달리 프로세스 조회로 낡은 마커와 살아 있는 터미널을 구분할 수 있습니다.
 - **Konsole은 항상 `probable`입니다.** `konsolepart`(Dolphin, Kate, KDevelop, Krusader)가 같은 라이브러리를 써서 동일한 변수를 주입하므로, 이 증거는 "Konsole 엔진"을 증명할 뿐 사용자가 Konsole 창을 보고 있다는 뜻은 아닙니다.
 
-플랫폼별 조사 근거는 [`docs/terminals/`](docs/terminals/)에 있습니다.
+터미널별 조사 근거는 [`docs/terminals/`](docs/terminals/)에, 멀티플렉서와 원격 실행 계층은 [`docs/remote/`](docs/remote/)에 있습니다.
+
+## Remote
+
+사용자와 이 프로세스 사이에 낀 계층입니다. 이 축이 따로 있는 이유는 여기 있는 것들이 **자기 변수를 추가하는 데 그치지 않고 다른 축의 변수가 살아남을지를 결정**하기 때문입니다 — tmux는 `update-environment`로, OpenSSH는 `SendEnv`/`AcceptEnv`로, WSL은 `WSLENV`로, Dev Containers는 `containerEnv`/`remoteEnv`로 거릅니다. 따라서 이 축의 감지 결과는 독립된 사실이 아니라 **다른 축을 얼마나 믿을 수 있는지에 대한 단서**입니다.
+
+**여러 계층이 동시에 존재할 수 있으므로 슬라이스입니다.** Codespace에 SSH로 붙어 tmux를 쓰면 세 계층이 함께 잡힙니다.
+
+```go
+result := runby.Detect()
+result.IsRemote()                      // 낀 계층이 있는가
+result.HasRemote(runby.RemoteSSH)      // 특정 계층
+result.GetRemote(runby.RemoteTmux)     // (Remote, bool)
+result.Multiplexer()                   // (Remote, bool) — 잔존 위험의 주 원인
+```
+
+| 계층 | `RemotePlatform` | `Kind` | 마커 |
+|---|---|---|---|
+| tmux | `RemoteTmux` | `multiplexer` | `TMUX` |
+| GNU Screen | `RemoteScreen` | `multiplexer` | `STY` |
+| Zellij | `RemoteZellij` | `multiplexer` | `ZELLIJ` (값은 리터럴 `"0"`) |
+| OpenSSH | `RemoteSSH` | `environment` | `SSH_CONNECTION` |
+| WSL | `RemoteWSL` | `environment` | `WSL_DISTRO_NAME` 또는 `WSL_INTEROP` |
+| GitHub Codespaces | `RemoteCodespaces` | `environment` | `CODESPACES=true` |
+| Gitpod | `RemoteGitpod` | `environment` | `GITPOD_WORKSPACE_ID` |
+| Dev Containers | `RemoteDevContainer` | `environment` | `REMOTE_CONTAINERS` 또는 `DEVCONTAINER` |
+
+`Remote`의 순서는 **감지 순서일 뿐 중첩 순서가 아닙니다.** 환경변수로는 어느 계층이 바깥인지 증명할 수 없습니다.
+
+### 멀티플렉서만 신뢰도를 낮춥니다
+
+멀티플렉서 서버는 처음 붙은 클라이언트의 환경을 유지하고 **이미 실행 중인 pane의 환경은 갱신할 수 없습니다.** 그래서 `Multiplexer()`가 잡히면 `Terminal.Confidence`를 `probable`로 낮춥니다. SSH는 다릅니다 — 터미널이 다른 머신에 있을 수 있다는 뜻이지만 값이 낡은 것은 아니므로, 신뢰도를 낮추는 대신 `RemoteSSH` 계층의 존재로 그 사실을 표현합니다.
+
+tmux와 Screen은 실패 방향이 정반대입니다. tmux는 `TERM_PROGRAM`을 `tmux`로 덮어써 그 계열 터미널 6종의 정체성을 **지우고**(거짓 음성), 건드리지 않는 마커만 통과시켜 **잔존**시킵니다(거짓 양성). Screen과 Zellij는 `TERM_PROGRAM`을 덮어쓰지 않고 갱신 기제도 없어 **모든 마커가 잔존 가능**합니다.
+
+잔존 위험은 터미널 축에만 걸리지 않습니다. 오래 사는 서버는 처음 시작될 때의 CI·에이전트 마커도 나중 pane에 물려줍니다. `runby`는 이를 신뢰도로 자동 반영하지 않고 `Multiplexer()`라는 사실만 노출하며, 세 축에 대한 해석은 소비자에게 맡깁니다.
+
+### 감지할 수 없는 것
+
+- **Mosh** — 원리적으로 불가능합니다. `MOSH_KEY`는 제거되는 게 아니라 애초에 원격 셸 환경에 들어간 적이 없고, 나머지 `MOSH_*`는 전부 클라이언트 전용입니다. 정상 세션에는 `MOSH_*`가 하나도 없습니다. `MOSH_KEY`는 **자격증명**이므로 어떤 경우에도 읽거나 기록하면 안 됩니다.
+- **컨테이너 일반** — Docker·Podman은 식별 환경변수를 설정하지 않습니다. 관례적 감지는 `/.dockerenv`, `/run/.containerenv`, cgroup 같은 **파일시스템 경로**를 쓰므로 환경변수만 읽는 이 라이브러리의 범위 밖입니다. Dev Containers나 Codespaces처럼 도구가 스스로 광고한 경우만 보입니다. `HOSTNAME`이 짧은 16진 문자열인 것은 근거가 아니라 추측이라 쓰지 않습니다.
+
+### 오탐을 피하려고 일부러 쓰지 않는 변수
+
+- **`SSH_AUTH_SOCK`** — `ssh-agent`가 로컬 데스크톱에서도 설정하므로 SSH 세션 마커가 아닙니다.
+- **`WINDOW`** (Screen) — 무조건 설정되지만 다른 소프트웨어와 이름이 겹치기 쉬워 `STY`와 함께일 때만 컨텍스트로 씁니다.
+- **`LC_TERMINAL`** — 배포판이 배포하는 `SendEnv LC_*` 설정에 걸려 SSH를 건너가므로 다른 머신의 터미널을 가리킬 수 있습니다.
+
+조사 근거는 [`docs/remote/`](docs/remote/)에 있습니다.
 
 ## API
 
@@ -179,6 +228,8 @@ result := runby.Detect(runby.WithDetectors(myDetector))    // 사내 오케스�
 | `WithOnlyCIDetectors(...CIDetector)` | 내장 CI detector를 대체. 인자가 없으면 CI 감지 비활성화 |
 | `WithTerminalDetectors(...TerminalDetector)` | 내장 터미널 detector 앞에 추가 |
 | `WithOnlyTerminalDetectors(...)` | 내장 터미널 detector를 대체. 인자가 없으면 비활성화 |
+| `WithRemoteDetectors(...RemoteDetector)` | 내장 remote detector 앞에 추가 |
+| `WithOnlyRemoteDetectors(...)` | 내장 remote detector를 대체. 인자가 없으면 비활성화 |
 
 ### Result
 
@@ -190,6 +241,7 @@ type Result struct {
 	TTY      TTY         // 표준 스트림 상태 (유일하게 시스템콜 기반)
 	CI       CI          // Layers와 독립된 축
 	Terminal Terminal    // Layers와 독립된 축
+	Remote   []Remote    // 동시에 여러 계층이 존재할 수 있음
 }
 
 result.Found()                  // AI 에이전트가 실행했는가
@@ -200,6 +252,8 @@ result.Has(runby.AgentCodex)    // bool
 result.Chain()                  // "paseo>codex", 감지 실패 시 "unknown"
 result.IsCI()                   // CI 잡에서 도는가
 result.IsTerminal()             // 터미널 에뮬레이터를 식별했는가
+result.IsRemote()               // 낀 계층이 있는가
+result.Multiplexer()            // (Remote, bool)
 ```
 
 여러 계층이 함께 존재할 수 있습니다. Paseo가 Codex를 구동했다면 `Layers`에 둘 다 들어가고, 명시적인 에이전트 ID를 가진 Paseo가 `Primary()`가 됩니다.
@@ -263,6 +317,7 @@ runby.Current()  // Detect()를 1회만 계산해 캐시
 runby.IsAgent()  // Current().Found()
 runby.IsCI()       // Current().CI.Detected
 runby.IsTerminal() // Current().Terminal.Detected
+runby.IsRemote()   // len(Current().Remote) > 0
 ```
 
 첫 호출 이후의 `os.Setenv`를 반영하려면 `Detect()`를 직접 부르십시오.

@@ -51,6 +51,7 @@ type options struct {
 	detectors         []Detector
 	ciDetectors       []CIDetector
 	terminalDetectors []TerminalDetector
+	remoteDetectors   []RemoteDetector
 	tty               TTY
 	// inspectTTY is only true when the environment being inspected is this
 	// process's own, so that the standard streams describe the same process
@@ -120,6 +121,23 @@ func WithOnlyTerminalDetectors(detectors ...TerminalDetector) Option {
 	}
 }
 
+// WithRemoteDetectors adds remote-layer detectors ahead of the built-in ones.
+// Unlike the agent axis, every matching detector is reported, so ordering
+// affects only the order of Result.Remote.
+func WithRemoteDetectors(detectors ...RemoteDetector) Option {
+	return func(o *options) {
+		o.remoteDetectors = append(append([]RemoteDetector{}, detectors...), o.remoteDetectors...)
+	}
+}
+
+// WithOnlyRemoteDetectors replaces the built-in remote detectors entirely.
+// Passing no detectors disables remote detection.
+func WithOnlyRemoteDetectors(detectors ...RemoteDetector) Option {
+	return func(o *options) {
+		o.remoteDetectors = append([]RemoteDetector{}, detectors...)
+	}
+}
+
 // WithDetectors adds detectors ahead of the built-in ones, so a custom
 // orchestrator is reported as the primary layer over the runtime it drives.
 // Detectors are tried in the order given.
@@ -162,6 +180,7 @@ func Detect(opts ...Option) Result {
 		detectors:         builtinDetectors,
 		ciDetectors:       builtinCIDetectors,
 		terminalDetectors: builtinTerminalDetectors,
+		remoteDetectors:   builtinRemoteDetectors,
 		inspectTTY:        true,
 	}
 	for _, opt := range opts {
@@ -215,7 +234,25 @@ func Detect(opts ...Option) Result {
 		result.CI.Confidence = ConfidenceUnknown
 	}
 
-	multiplexer, multiplexerNames := detectMultiplexer(config.env)
+	for _, detector := range config.remoteDetectors {
+		remote, ok := detector.Detect(config.env)
+		if !ok {
+			continue
+		}
+		// Every match is reported: an SSH session into a Codespace running
+		// tmux is three concurrent layers, not a precedence contest.
+		if remote.Platform == "" {
+			remote.Platform = detector.Platform()
+		}
+		if remote.Kind == "" {
+			remote.Kind = remote.Platform.Kind()
+		}
+		if remote.Confidence == "" {
+			remote.Confidence = ConfidenceDefinite
+		}
+		result.Remote = append(result.Remote, remote)
+	}
+
 	for _, detector := range config.terminalDetectors {
 		terminal, ok := detector.Detect(config.env)
 		if !ok {
@@ -236,16 +273,11 @@ func Detect(opts ...Option) Result {
 		result.Terminal.Confidence = ConfidenceUnknown
 		result.Terminal.Term, _ = Value(config.env, "TERM")
 	}
-	result.Terminal.Multiplexer = multiplexer
-	if multiplexer != MultiplexerNone {
+	if _, ok := result.Multiplexer(); ok && result.Terminal.Confidence == ConfidenceDefinite {
 		// The multiplexer server keeps the environment of whichever client
 		// started it, so any terminal identity here may name a terminal that
 		// is not the one displaying this pane.
-		if result.Terminal.Confidence == ConfidenceDefinite {
-			result.Terminal.Confidence = ConfidenceProbable
-		}
-		result.Terminal.Evidence = PresentNames(config.env,
-			append(append([]string{}, result.Terminal.Evidence...), multiplexerNames...)...)
+		result.Terminal.Confidence = ConfidenceProbable
 	}
 	return result
 }
