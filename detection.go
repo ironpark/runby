@@ -127,8 +127,13 @@ func (r Result) Has(agent Agent) bool {
 // IsCI reports whether this process is running in a CI job.
 func (r Result) IsCI() bool { return r.CI.Detected }
 
-// IsTerminal reports whether a terminal emulator was identified.
-func (r Result) IsTerminal() bool { return r.Terminal.Detected }
+// HasTerminal reports whether a terminal emulator was identified.
+//
+// It is not IsTerminal on purpose. In Go that name answers "is this file
+// descriptor a terminal", which this package answers with TTY.Interactive and
+// its neighbours. This one answers a different question: whether the
+// environment named the emulator that produced it.
+func (r Result) HasTerminal() bool { return r.Terminal.Detected }
 
 // IsRemote reports whether any layer sits between the user and this process.
 func (r Result) IsRemote() bool { return len(r.Remote) > 0 }

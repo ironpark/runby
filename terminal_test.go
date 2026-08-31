@@ -8,7 +8,7 @@ import (
 
 func TestTerminalNotDetected(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron([]string{"PATH=/usr/bin", "TERM=xterm-256color"}))
-	if result.IsTerminal() || result.Terminal.Detected {
+	if result.HasTerminal() || result.Terminal.Detected {
 		t.Fatalf("Terminal = %#v, want undetected", result.Terminal)
 	}
 	if result.Terminal.Program != runby.TerminalUnknown || result.Terminal.Confidence != runby.ConfidenceUnknown {
@@ -183,7 +183,7 @@ func TestTerminalLCTerminalIsNeverEvidence(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron([]string{
 		"LC_TERMINAL=iTerm2", "LC_TERMINAL_VERSION=3.5.0", "TERM=xterm-256color",
 	}))
-	if result.IsTerminal() {
+	if result.HasTerminal() {
 		t.Fatalf("Terminal = %#v, want undetected", result.Terminal)
 	}
 }
@@ -229,7 +229,7 @@ func TestTerminalMultiplexerWithoutEmulatorIdentity(t *testing.T) {
 	// A multiplexer with no surviving terminal identity is still worth
 	// reporting, because it explains why the identity is missing.
 	result := runby.Detect(runby.WithEnviron([]string{"TMUX=/tmp/tmux-501/default,123,0", "TERM=tmux-256color"}))
-	if result.IsTerminal() {
+	if result.HasTerminal() {
 		t.Fatalf("Terminal = %#v, want undetected", result.Terminal)
 	}
 	if !result.HasRemote(runby.RemoteTmux) {
@@ -244,7 +244,7 @@ func TestTerminalIsIndependentOfAgentAndCI(t *testing.T) {
 		"GITHUB_ACTIONS=true", "GITHUB_RUN_ID=1",
 		"TERM_PROGRAM=ghostty",
 	}))
-	if !result.Found() || !result.IsCI() || !result.IsTerminal() {
+	if !result.Found() || !result.IsCI() || !result.HasTerminal() {
 		t.Fatalf("result = %#v", result)
 	}
 	if result.Chain() != "claude-code" {
@@ -256,7 +256,7 @@ func TestTerminalDetectionUsesEnvironNotTTY(t *testing.T) {
 	// Terminal comes from the environment, so WithEnviron still yields it,
 	// unlike TTY which needs this process's own file descriptors.
 	result := runby.Detect(runby.WithEnviron([]string{"TERM_PROGRAM=WezTerm"}))
-	if !result.IsTerminal() {
+	if !result.HasTerminal() {
 		t.Fatalf("Terminal = %#v", result.Terminal)
 	}
 	if result.TTY.Inspected {
@@ -288,7 +288,7 @@ func TestWithTerminalDrivers(t *testing.T) {
 		runby.WithEnviron([]string{"TERM_PROGRAM=ghostty"}),
 		runby.WithOnlyTerminalDrivers(),
 	)
-	if disabled.IsTerminal() {
+	if disabled.HasTerminal() {
 		t.Fatalf("Terminal = %#v, want detection disabled", disabled.Terminal)
 	}
 }

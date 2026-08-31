@@ -101,7 +101,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 var axes = map[string]func(runby.Result) bool{
 	"agent":    func(r runby.Result) bool { return r.Found() },
 	"ci":       func(r runby.Result) bool { return r.IsCI() },
-	"terminal": func(r runby.Result) bool { return r.IsTerminal() },
+	"terminal": func(r runby.Result) bool { return r.HasTerminal() },
 	"remote":   func(r runby.Result) bool { return r.IsRemote() },
 	"tty":      func(r runby.Result) bool { return r.TTY.Interactive },
 }
@@ -172,7 +172,7 @@ func report(w io.Writer, result runby.Result, verbose bool) {
 	}
 
 	// Terminal.
-	if !result.IsTerminal() {
+	if !result.HasTerminal() {
 		line("terminal", "-", nil)
 	} else {
 		value := fmt.Sprintf("%s (%s)", result.Terminal.Program, result.Terminal.Confidence)

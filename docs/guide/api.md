@@ -51,7 +51,7 @@ result.Get(runby.AgentCodex)    // (Detection, bool)
 result.Has(runby.AgentCodex)    // bool
 result.Chain()                  // "paseo>codex", 감지 실패 시 "unknown"
 result.IsCI()                   // CI 잡에서 도는가
-result.IsTerminal()             // 터미널 에뮬레이터를 식별했는가
+result.HasTerminal()            // 터미널 에뮬레이터를 식별했는가
 result.IsRemote()               // 낀 계층이 있는가
 result.HasRemote(runby.RemoteSSH)
 result.GetRemote(runby.RemoteTmux)
@@ -95,11 +95,11 @@ type Detection struct {
 프로세스 환경과 표준 스트림은 실무상 시작 시점에 고정되므로, 대부분의 호출자는 캐시된 진입점을 쓰면 됩니다.
 
 ```go
-runby.Current()    // Detect()를 1회만 계산해 캐시
-runby.IsAgent()    // Current().Found()
-runby.IsCI()       // Current().CI.Detected
-runby.IsTerminal() // Current().Terminal.Detected
-runby.IsRemote()   // len(Current().Remote) > 0
+runby.Current()     // Detect()를 1회만 계산해 캐시
+runby.IsAgent()     // Current().Found()
+runby.IsCI()        // Current().CI.Detected
+runby.HasTerminal() // Current().Terminal.Detected
+runby.IsRemote()    // len(Current().Remote) > 0
 ```
 
 첫 호출 이후의 `os.Setenv`를 반영하려면 `Detect()`를 직접 부르십시오.

@@ -59,7 +59,7 @@ func TestIsMatchesTheLibrary(t *testing.T) {
 	for axis, want := range map[string]bool{
 		"agent":    result.Found(),
 		"ci":       result.IsCI(),
-		"terminal": result.IsTerminal(),
+		"terminal": result.HasTerminal(),
 		"remote":   result.IsRemote(),
 		"tty":      result.TTY.Interactive,
 	} {

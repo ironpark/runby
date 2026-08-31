@@ -24,13 +24,13 @@ func Example() {
 
 // A Zed-owned terminal proves which application owns the terminal, not that an
 // agent rather than a person ran the command, so it lands on the Terminal axis.
-func ExampleResult_IsTerminal() {
+func ExampleResult_HasTerminal() {
 	result := runby.Detect(runby.WithEnviron([]string{
 		"ZED_TERM=true",
 		"TERM_PROGRAM=zed",
 	}))
 
-	fmt.Println(result.Found(), result.IsTerminal(), result.Terminal.Program)
+	fmt.Println(result.Found(), result.HasTerminal(), result.Terminal.Program)
 	// Output: false true zed
 }
 

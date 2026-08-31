@@ -43,6 +43,15 @@ term.Confidence   // 멀티플렉서가 감지되면 probable로 낮아짐
 
 터미널별 조사 근거는 [`docs/research/terminals/`](../research/terminals/)에, 멀티플렉서와 원격 실행 계층은 [`docs/research/remote/`](../research/remote/)에 있습니다.
 
+## `HasTerminal()`이지 `IsTerminal()`이 아닙니다
+
+Go에서 `IsTerminal`은 관례적으로 "이 파일 디스크립터가 tty인가"를 뜻합니다(`x/term.IsTerminal(fd)`). 이 패키지에서 그 질문에 답하는 것은 `TTY.Interactive` 쪽이고, 터미널 축은 전혀 다른 질문 — "환경을 만든 에뮬레이터를 식별했는가" — 에 답합니다. 두 뜻이 정면으로 충돌해서, 축 쪽은 `HasTerminal()`로 부릅니다.
+
+```go
+result.HasTerminal()     // 에뮬레이터를 식별했는가 (환경변수 기반, 약함)
+result.TTY.Interactive   // 내 스트림이 지금 터미널에 붙어 있는가 (시스템콜, 확실함)
+```
+
 ## TTY: 터미널 축과 무엇이 다른가
 
 두 가지는 이름이 비슷하지만 전혀 다른 질문에 답합니다.

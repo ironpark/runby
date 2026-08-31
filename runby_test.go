@@ -200,7 +200,7 @@ func TestZedIsATerminalNotAnAgent(t *testing.T) {
 	if result.Found() {
 		t.Fatalf("Found() = true, want false: %#v", result.Layers)
 	}
-	if !result.IsTerminal() || result.Terminal.Program != runby.TerminalZed {
+	if !result.HasTerminal() || result.Terminal.Program != runby.TerminalZed {
 		t.Fatalf("Terminal = %#v", result.Terminal)
 	}
 	if result.Terminal.Version != "0.100.0" {

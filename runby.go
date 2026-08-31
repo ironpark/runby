@@ -371,10 +371,10 @@ func Current() Result {
 // reported on the Terminal axis, so it never affects this.
 func IsAgent() bool { return Current().Found() }
 
-// IsTerminal reports whether a terminal emulator was identified, using the
+// HasTerminal reports whether a terminal emulator was identified, using the
 // cached Current result. See Terminal for why this is weaker evidence than the
-// other axes.
-func IsTerminal() bool { return Current().Terminal.Detected }
+// other axes, and Result.HasTerminal for why it is not called IsTerminal.
+func HasTerminal() bool { return Current().Terminal.Detected }
 
 // Environ returns the current process environment as an Env. It is a
 // convenience for callers that build their own driver pipelines.

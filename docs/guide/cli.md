@@ -94,7 +94,7 @@ runby -json | jq '{chain: [.layers[].agent] | join(">"), ci: .ci.provider, tty: 
 |---|---|
 | `runby is agent` | `runby.IsAgent()` |
 | `runby is ci` | `runby.IsCI()` |
-| `runby is terminal` | `runby.IsTerminal()` |
+| `runby is terminal` | `runby.HasTerminal()` |
 | `runby is remote` | `runby.IsRemote()` |
 | `runby is tty` | `runby.Current().TTY.Interactive` |
 
