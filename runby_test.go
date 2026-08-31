@@ -338,6 +338,23 @@ func TestCurrentIsCached(t *testing.T) {
 	}
 }
 
+// assertJSONRoundTrip checks that a Result survives serialization unchanged,
+// which is what lets consumers log it and read it back.
+func assertJSONRoundTrip(t *testing.T, result runby.Result) {
+	t.Helper()
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	var round runby.Result
+	if err := json.Unmarshal(data, &round); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if !reflect.DeepEqual(round, result) {
+		t.Fatalf("round trip = %#v, want %#v", round, result)
+	}
+}
+
 func TestResultJSONShape(t *testing.T) {
 	result := runby.Detect(
 		runby.WithEnviron([]string{"CURSOR_AGENT=1"}),

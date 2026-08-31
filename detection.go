@@ -30,6 +30,17 @@ type Detection struct {
 	// Evidence lists the environment variable names that produced this
 	// detection, sorted. Their values may be sensitive and are never copied.
 	Evidence []string `json:"evidence"`
+
+	// AncestorPID is the PID of a running ancestor process whose executable
+	// belongs to this agent, or 0 when none was found.
+	//
+	// A non-zero value is the strongest confirmation this package can offer:
+	// the environment said this agent, and the agent is still running as an
+	// ancestor. Zero is not a denial. The chain is unreadable on some
+	// platforms and stops at the first process owned by another user, and an
+	// agent can legitimately launch a process it does not remain an ancestor
+	// of. Use it to strengthen a positive, never to reject one.
+	AncestorPID int `json:"ancestor_pid,omitempty"`
 }
 
 // Sandbox describes the isolation the agent advertised for this process.
@@ -66,6 +77,10 @@ type Result struct {
 	// see Terminal for why it cannot describe the currently attached
 	// terminal.
 	Terminal Terminal `json:"terminal"`
+	// Process is the ancestor chain of this process. It is the only axis not
+	// derived from the environment, and the only one that can distinguish a
+	// live ancestor from a marker left behind by one that has exited.
+	Process ProcessTree `json:"process"`
 	// Remote holds every layer detected between the user and this process:
 	// multiplexers, SSH, and remote or isolated environments. More than one
 	// can be present at once, and the order is a detection order rather than

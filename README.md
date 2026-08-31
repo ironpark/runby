@@ -23,7 +23,7 @@ if runby.IsCI() {
 | 터미널 | 어떤 에뮬레이터가 이 환경을 만들었는가 | `Terminal` |
 | 원격·멀티플렉서 | 사용자와 이 프로세스 사이에 무엇이 끼어 있는가 | `Remote` |
 
-여기에 환경변수가 아니라 시스템콜에서 오는 `TTY`(표준 스트림이 터미널인가)가 더해집니다.
+여기에 환경변수가 아닌 두 가지가 더해집니다 — 시스템콜에서 오는 `TTY`(표준 스트림이 터미널인가)와, 커널에서 읽는 `Process`(상위 프로세스 체인).
 
 API 키와 일반 설정 변수는 에이전트가 프로세스를 실행했다는 증거가 아니므로 감지에 사용하지 않습니다.
 
@@ -157,6 +157,56 @@ term.Multiplexer  // "tmux", "screen", 또는 ""
 
 터미널별 조사 근거는 [`docs/terminals/`](docs/terminals/)에, 멀티플렉서와 원격 실행 계층은 [`docs/remote/`](docs/remote/)에 있습니다.
 
+## Process
+
+**환경변수가 아닌 유일한 증거이며, 가장 강한 증거입니다.**
+
+환경변수는 자손이 모두 상속하고, 멀티플렉서가 몇 시간 전 값을 물려주며, 누구나 `export`로 위조할 수 있습니다. 상위 프로세스는 다릅니다 — `export`로 만들 수 없고, 상속되지 않으며, **보인다는 것 자체가 지금 살아 있다는 뜻**입니다. 환경변수가 "이 프로세스가 시작될 때 참이었던 것"만 말할 수 있는 반면, 조상 프로세스는 **지금** 참인 것을 말합니다.
+
+```go
+tree := runby.Detect().Process
+tree.Supported            // Linux·macOS·Windows에서만 true
+tree.Ancestors            // 가까운 부모부터
+tree.FindAgent(runby.AgentCodex)
+```
+
+```
+env chain : paseo>claude-code
+  pid=3066    zsh
+  pid=11904   claude           -> agent=claude-code
+  pid=2540    paseo            -> agent=paseo
+corroboration:
+  paseo          CONFIRMED by live ancestor pid=2540
+  claude-code    CONFIRMED by live ancestor pid=11904
+```
+
+### 교차 검증
+
+에이전트가 감지되고 그 실행 파일이 조상으로 살아 있으면 `Detection.AncestorPID`가 채워집니다.
+
+```go
+for _, layer := range runby.Current().Layers {
+	if layer.AncestorPID != 0 {
+		// 환경변수가 이 에이전트를 말했고, 그 에이전트가 지금도 조상으로 살아 있음
+	}
+}
+```
+
+**`AncestorPID == 0`은 부정이 아닙니다.** 체인은 다른 사용자 소유 프로세스에서 멈추고, 일부 플랫폼에서는 아예 읽을 수 없으며, 에이전트가 조상으로 남지 않는 방식으로 프로세스를 띄울 수도 있습니다. **긍정을 강화하는 데만 쓰고, 부정의 근거로 쓰면 안 됩니다.** 이 규칙을 테스트로 고정해 두었습니다.
+
+### 플랫폼
+
+| 플랫폼 | 방법 |
+|---|---|
+| Linux | `/proc/<pid>/stat`(ppid), `/proc/<pid>/exe`, `/proc/<pid>/comm` |
+| macOS | `sysctl(KERN_PROC_PID)` + `KERN_PROCARGS2` |
+| Windows | `CreateToolhelp32Snapshot` 스냅샷 1회 |
+| 그 외 | `Supported == false`, 빈 체인 |
+
+macOS에는 `kinfo_proc` 헤더가 없어 ppid 오프셋을 상수로 두어야 합니다. 그래서 **시작 시 `os.Getppid()`와 대조해 검증**하고, 어긋나면 잘못된 필드를 읽는 대신 기능을 끕니다.
+
+`TTY`와 마찬가지로 이 축은 **이 프로세스**를 설명하므로 `WithEnviron` 계열에서는 읽지 않습니다. 비용이 다른 축보다 크므로 `WithoutProcessTree()`로 끌 수 있습니다.
+
 ## Remote
 
 사용자와 이 프로세스 사이에 낀 계층입니다. 이 축이 따로 있는 이유는 여기 있는 것들이 **자기 변수를 추가하는 데 그치지 않고 다른 축의 변수가 살아남을지를 결정**하기 때문입니다 — tmux는 `update-environment`로, OpenSSH는 `SendEnv`/`AcceptEnv`로, WSL은 `WSLENV`로, Dev Containers는 `containerEnv`/`remoteEnv`로 거릅니다. 따라서 이 축의 감지 결과는 독립된 사실이 아니라 **다른 축을 얼마나 믿을 수 있는지에 대한 단서**입니다.
@@ -222,6 +272,8 @@ result := runby.Detect(runby.WithDetectors(myDetector))    // 사내 오케스�
 | `WithEnv(Env)` / `WithLookup(func)` | 임의의 조회 함수로 환경 지정 |
 | `WithoutTTY()` | 표준 스트림 검사 생략 |
 | `WithTTY(TTY)` | 표준 스트림 상태를 직접 주입 |
+| `WithoutProcessTree()` | 상위 프로세스 체인 읽기 생략 |
+| `WithProcessTree(ProcessTree)` | 상위 프로세스 체인을 직접 주입 |
 | `WithDetectors(...Detector)` | 내장 agent detector 앞에 추가 |
 | `WithOnlyDetectors(...Detector)` | 내장 agent detector를 완전히 대체 |
 | `WithCIDetectors(...CIDetector)` | 내장 CI detector 앞에 추가 |
@@ -238,7 +290,8 @@ result := runby.Detect(runby.WithDetectors(myDetector))    // 사내 오케스�
 ```go
 type Result struct {
 	Layers   []Detection // 가장 구체적인 오케스트레이터 → 하위 런타임 순
-	TTY      TTY         // 표준 스트림 상태 (유일하게 시스템콜 기반)
+	TTY      TTY         // 표준 스트림 상태 (시스템콜 기반)
+	Process  ProcessTree // 상위 프로세스 체인 (커널에서 읽음)
 	CI       CI          // Layers와 독립된 축
 	Terminal Terminal    // Layers와 독립된 축
 	Remote   []Remote    // 동시에 여러 계층이 존재할 수 있음
@@ -341,6 +394,14 @@ result := runby.Detect(runby.WithDetectors(detector))
 ```
 
 `WithDetectors`로 추가한 detector는 내장 detector보다 앞서므로, 사내 오케스트레이터가 그것이 구동한 런타임보다 우선해 보고됩니다. `Value`, `Bool`, `IsTrue`, `EqualsFold`, `PresentNames`는 내장 detector와 동일한 파싱 규칙을 재사용하도록 공개되어 있습니다. `Agent`, `Kind`, `Confidence`, `Sandbox.Network`를 비워두면 `Detect`가 기본값을 채웁니다.
+
+## 의존성
+
+**표준 라이브러리만 사용합니다.** `go.mod`에 외부 모듈이 없고 `go.sum`도 없습니다.
+
+TTY 검사는 [`internal/term`](internal/term/)에, 프로세스 체인 읽기는 [`internal/proc`](internal/proc/)에 있습니다. `golang.org/x/term`의 `IsTerminal` 하나만 옮겨와 `golang.org/x/sys` 대신 표준 `syscall`로 다시 작성했으며, 원본의 BSD-3-Clause 라이선스를 함께 보관합니다.
+
+그 대가로 **AIX·Solaris·z/OS에서는 `TTY.Attached`와 `TTY.Interactive`가 항상 `false`**입니다. 표준 `syscall` 패키지가 이 플랫폼들에 `TCGETS`·`SYS_IOCTL`을 노출하지 않기 때문입니다. 환경변수만 읽는 나머지 네 축은 모든 플랫폼에서 동일하게 동작합니다.
 
 ## 상태의 의미
 

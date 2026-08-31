@@ -53,10 +53,12 @@ type options struct {
 	terminalDetectors []TerminalDetector
 	remoteDetectors   []RemoteDetector
 	tty               TTY
-	// inspectTTY is only true when the environment being inspected is this
-	// process's own, so that the standard streams describe the same process
-	// as the detected layers.
-	inspectTTY bool
+	process           ProcessTree
+	// inspectTTY and inspectProcess are only true when the environment being
+	// inspected is this process's own, so that the standard streams and the
+	// ancestor chain describe the same process as the detected layers.
+	inspectTTY     bool
+	inspectProcess bool
 }
 
 // Option configures Detect.
@@ -76,6 +78,7 @@ func WithEnv(env Env) Option {
 	return func(o *options) {
 		o.env = env
 		o.inspectTTY = false
+		o.inspectProcess = false
 	}
 }
 
@@ -102,6 +105,25 @@ func WithTTY(tty TTY) Option {
 	return func(o *options) {
 		o.inspectTTY = false
 		o.tty = tty
+	}
+}
+
+// WithoutProcessTree skips reading the ancestor process chain. The walk costs
+// a few file reads or system calls per ancestor, which is more than the other
+// axes cost; skip it when only the environment matters.
+func WithoutProcessTree() Option {
+	return func(o *options) {
+		o.inspectProcess = false
+		o.process = ProcessTree{}
+	}
+}
+
+// WithProcessTree sets the ancestor chain explicitly instead of reading it.
+// It is intended for wrappers describing another process, and for tests.
+func WithProcessTree(tree ProcessTree) Option {
+	return func(o *options) {
+		o.inspectProcess = false
+		o.process = tree
 	}
 }
 
@@ -182,14 +204,18 @@ func Detect(opts ...Option) Result {
 		terminalDetectors: builtinTerminalDetectors,
 		remoteDetectors:   builtinRemoteDetectors,
 		inspectTTY:        true,
+		inspectProcess:    true,
 	}
 	for _, opt := range opts {
 		opt(&config)
 	}
 
-	result := Result{TTY: config.tty}
+	result := Result{TTY: config.tty, Process: config.process}
 	if config.inspectTTY {
 		result.TTY = InspectTTY()
+	}
+	if config.inspectProcess {
+		result.Process = inspectProcessTree()
 	}
 	for _, detector := range config.detectors {
 		detection, ok := detector.Detect(config.env)
@@ -209,6 +235,11 @@ func Detect(opts ...Option) Result {
 		}
 		if detection.Sandbox.Network == "" {
 			detection.Sandbox.Network = NetworkUnknown
+		}
+		// An ancestor running this agent's executable proves it is still
+		// alive, which no environment variable can.
+		if ancestor, ok := result.Process.FindAgent(detection.Agent); ok {
+			detection.AncestorPID = ancestor.PID
 		}
 		result.Layers = append(result.Layers, detection)
 	}

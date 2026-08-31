@@ -1,0 +1,72 @@
+//go:build linux
+
+package proc
+
+import (
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+)
+
+// Supported reports whether this platform can read the ancestor chain.
+func Supported() bool { return true }
+
+func selfPID() int { return os.Getpid() }
+
+// reader is stateless here: this platform can look up one process directly.
+type reader struct{}
+
+func newReader() reader                    { return reader{} }
+func (reader) close()                      {}
+func (reader) lookup(pid int) (Info, bool) { return lookup(pid) }
+
+func lookup(pid int) (Info, bool) {
+	dir := "/proc/" + strconv.Itoa(pid)
+
+	ppid, ok := readPPID(dir + "/stat")
+	if !ok {
+		return Info{}, false
+	}
+	info := Info{PID: pid, PPID: ppid}
+
+	// The exe symlink is the authoritative path but is readable only for our
+	// own processes, so a failure here is expected rather than exceptional.
+	if path, err := os.Readlink(dir + "/exe"); err == nil {
+		info.Path = path
+		info.Name = filepath.Base(path)
+	}
+	if info.Name == "" {
+		// comm is world readable, but is truncated to 15 bytes.
+		if raw, err := os.ReadFile(dir + "/comm"); err == nil {
+			info.Name = strings.TrimSpace(string(raw))
+		}
+	}
+	return info, true
+}
+
+// readPPID parses the fourth field of /proc/<pid>/stat. The second field is
+// the executable name in parentheses and may itself contain spaces and
+// parentheses, so the scan starts after the last ')' rather than splitting the
+// whole line.
+func readPPID(path string) (int, bool) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0, false
+	}
+	line := string(raw)
+	close := strings.LastIndexByte(line, ')')
+	if close < 0 || close+2 >= len(line) {
+		return 0, false
+	}
+	fields := strings.Fields(line[close+2:])
+	// After the name, the fields are state then ppid.
+	if len(fields) < 2 {
+		return 0, false
+	}
+	ppid, err := strconv.Atoi(fields[1])
+	if err != nil {
+		return 0, false
+	}
+	return ppid, true
+}

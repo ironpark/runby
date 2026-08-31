@@ -3,7 +3,7 @@ package runby
 import (
 	"os"
 
-	"golang.org/x/term"
+	"github.com/ironpark/runby/internal/term"
 )
 
 // TTY describes terminal attachment for the process standard streams. It is
@@ -31,6 +31,10 @@ type TTY struct {
 
 // InspectTTY checks the current process standard streams using the operating
 // system's terminal API.
+//
+// On AIX, Solaris, z/OS, and WebAssembly the standard library exposes no way
+// to ask, so every field except Inspected is false there. See
+// internal/term.
 func InspectTTY() TTY {
 	return ttyStatus(
 		term.IsTerminal(int(os.Stdin.Fd())),

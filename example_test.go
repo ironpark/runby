@@ -128,3 +128,27 @@ func ExampleResult_Remote() {
 	// github-codespaces environment
 	// kitty probable
 }
+
+// The process tree is the one axis that cannot be forged by an export and
+// that proves the agent is still running.
+func ExampleProcessTree() {
+	result := runby.Detect(
+		runby.WithEnviron([]string{"CLAUDECODE=1", "PASEO_AGENT_ID=reviewer"}),
+		runby.WithProcessTree(runby.ProcessTree{
+			Inspected: true,
+			Supported: true,
+			Ancestors: []runby.Process{
+				{PID: 100, PPID: 200, Name: "zsh"},
+				{PID: 200, PPID: 300, Name: "claude", Agent: runby.AgentClaudeCode},
+				{PID: 300, PPID: 1, Name: "paseo", Agent: runby.AgentPaseo},
+			},
+		}),
+	)
+
+	for _, layer := range result.Layers {
+		fmt.Println(layer.Agent, layer.AncestorPID)
+	}
+	// Output:
+	// paseo 300
+	// claude-code 200
+}
