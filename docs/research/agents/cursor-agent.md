@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: false
 repository: null
 product_type: agent_harness
+model_source: multi-vendor
 executes_agents: []
 runtime_test_required: false
 runtime_test_reason: 공식 문서가 terminal command에 CURSOR_AGENT를 주입한다고 명시함

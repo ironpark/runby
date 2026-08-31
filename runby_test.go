@@ -363,3 +363,76 @@ func TestResultJSONShape(t *testing.T) {
 		runby.WithTTY(runby.TTY{Inspected: true}),
 	))
 }
+
+// TestLevelDerivedForCustomDrivers checks that a driver supplied through
+// WithAgentDrivers is placed on the ladder by the same rule as a built-in one,
+// and that an unclassified driver reports unknown rather than guessing.
+func TestLevelDerivedForCustomDrivers(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		kind   runby.Kind
+		models runby.ModelSource
+		want   runby.Level
+	}{
+		{"orchestrator delegating", runby.KindOrchestrator, runby.ModelsDelegated, runby.Level3},
+		// The case a single ladder cannot hold: an orchestrator over its own
+		// vendor's harness, as Antigravity 2.0 is.
+		{"orchestrator first party", runby.KindOrchestrator, runby.ModelsFirstParty, runby.Level3},
+		{"first party harness", runby.KindHarness, runby.ModelsFirstParty, runby.Level1},
+		{"multi vendor harness", runby.KindHarness, runby.ModelsMultiVendor, runby.Level2},
+		{"harness with no models declared", runby.KindHarness, "", runby.LevelUnknown},
+		{"nothing declared", "", "", runby.LevelUnknown},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			driver := runby.AgentDriver{
+				Agent:  "acme",
+				Kind:   test.kind,
+				Models: test.models,
+				Detect: func(env runby.Env) (runby.Detection, bool) {
+					if _, ok := runby.Value(env, "ACME"); !ok {
+						return runby.Detection{}, false
+					}
+					return runby.Detection{Axis: runby.Axis{Evidence: []string{"ACME"}}}, true
+				},
+			}
+			result := runby.Detect(
+				runby.WithEnviron([]string{"ACME=1"}),
+				runby.WithOnlyAgentDrivers(driver),
+			)
+			layer, ok := result.Primary()
+			if !ok {
+				t.Fatal("the custom driver did not match")
+			}
+			if layer.Level != test.want {
+				t.Errorf("Level = %s, want %s", layer.Level, test.want)
+			}
+			// An undeclared axis must read as unknown rather than empty, so a
+			// serialized Detection never carries a blank classification.
+			if test.kind == "" && layer.Kind != runby.KindUnknown {
+				t.Errorf("Kind = %q, want %s", layer.Kind, runby.KindUnknown)
+			}
+			if test.models == "" && layer.Models != runby.ModelsUnknown {
+				t.Errorf("Models = %q, want %s", layer.Models, runby.ModelsUnknown)
+			}
+		})
+	}
+}
+
+// TestBuiltinDriversOrderedByLevel holds the precedence contract: the table is
+// ordered from the outermost layer inward, so Primary reports the outermost
+// match when several fire at once.
+func TestBuiltinDriversOrderedByLevel(t *testing.T) {
+	rank := map[runby.Level]int{runby.Level3: 0, runby.Level2: 1, runby.Level1: 2}
+	previous := -1
+	for _, driver := range runby.AgentDrivers() {
+		current, ok := rank[driver.Agent.Level()]
+		if !ok {
+			t.Errorf("%s has no ladder position", driver.Agent)
+			continue
+		}
+		if current < previous {
+			t.Errorf("%s (%s) is registered after a deeper layer", driver.Agent, driver.Agent.Level())
+		}
+		previous = current
+	}
+}

@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: false
 repository: null
 product_type: agent_harness
+model_source: first-party
 executes_agents: []
 runtime_test_required: true
 runtime_test_reason: 공식적인 범용 자식 프로세스 마커가 없어 실제 shell command 환경 확인이 필요함

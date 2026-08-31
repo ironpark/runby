@@ -228,9 +228,14 @@ func detectAgents(config options, tree ProcessTree) []Detection {
 		// the defaults shared by every detection are applied once, here.
 		detection.Agent = driver.Agent
 		detection.Kind = driver.Kind
+		detection.Models = driver.Models
 		if detection.Kind == "" {
 			detection.Kind = KindUnknown
 		}
+		if detection.Models == "" {
+			detection.Models = ModelsUnknown
+		}
+		detection.Level = level(detection.Kind, detection.Models)
 		if detection.Sandbox.Network == "" {
 			detection.Sandbox.Network = NetworkUnknown
 		}

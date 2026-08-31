@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: true
 repository: https://github.com/zed-industries/zed
 product_type: agent_host
+model_source: multi-vendor
 executes_agents:
   - zed-agent
   - acp-agents

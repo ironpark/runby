@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: true
 repository: https://github.com/openai/codex
 product_type: agent_harness
+model_source: first-party
 executes_agents: []
 runtime_test_required: false
 runtime_test_reason: 2026-08-30 실제 Paseo 내부 Codex와 서브에이전트에서 환경 상속 및 rollout 메타데이터를 확인함

@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: false
 repository: null
 product_type: agent_orchestrator
+model_source: first-party
 executes_agents:
   - antigravity-agent
 runtime_test_required: true

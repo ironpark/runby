@@ -5,25 +5,36 @@ import (
 	"strings"
 )
 
-// builtinAgentDrivers is ordered from the most specific orchestrator to the
-// underlying runtime. Result.Primary reports the first match, so this order is
-// the precedence contract.
+// builtinAgentDrivers is ordered from the outermost layer to the innermost:
+// Level3 orchestrators, then Level2 harnesses, then Level1. Result.Primary
+// reports the first match, so this order is the precedence contract, and it
+// follows the ladder because an outer layer is the more specific answer to
+// "what launched this".
 //
 // This table is the single source of truth for what an Agent is: a product is
-// registered here and nowhere else.
+// registered here and nowhere else, with the facts no environment can supply —
+// what it drives, whose models are behind it, and which binaries it runs as.
+// TestKindsMatchDocs holds Kind and Models to the research documents.
 var builtinAgentDrivers = []AgentDriver{
-	{Agent: AgentPaseo, Kind: KindOrchestrator, Executables: []string{"paseo"}, Detect: detectPaseo},
+	// Level 3 — drives other agent harnesses.
+	{Agent: AgentPaseo, Kind: KindOrchestrator, Models: ModelsDelegated, Executables: []string{"paseo"}, Detect: detectPaseo},
 	// Orca's binary shares its name with the GNOME screen reader, so an
 	// ancestor running it is not evidence of this orchestrator.
-	{Agent: AgentOrca, Kind: KindOrchestrator, Detect: detectOrca},
-	{Agent: AgentCodex, Kind: KindHarness, Executables: []string{"codex"}, Detect: detectCodex},
-	{Agent: AgentClaudeCode, Kind: KindHarness, Executables: []string{"claude"}, Detect: detectClaudeCode},
-	{Agent: AgentCursor, Kind: KindHarness, Executables: []string{"cursor-agent"}, Detect: detectCursor},
-	{Agent: AgentOpenCode, Kind: KindHarness, Executables: []string{"opencode"}, Detect: detectOpenCode},
-	{Agent: AgentAmp, Kind: KindHarness, Executables: []string{"amp"}, Detect: detectAmp},
-	// No Antigravity executable name has been verified against an official
-	// source, so there is nothing safe to match in the ancestor chain.
-	{Agent: AgentAntigravity2, Kind: KindHarness, Detect: detectAntigravity2},
+	{Agent: AgentOrca, Kind: KindOrchestrator, Models: ModelsDelegated, Detect: detectOrca},
+	// Antigravity 2.0 orchestrates its own harness over its own vendor's
+	// models, so unlike Paseo and Orca its models are not delegated. No
+	// executable name has been verified against an official source, so there
+	// is nothing safe to match in the ancestor chain.
+	{Agent: AgentAntigravity2, Kind: KindOrchestrator, Models: ModelsFirstParty, Detect: detectAntigravity2},
+
+	// Level 2 — a harness of their own, reaching other vendors' models.
+	{Agent: AgentCursor, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"cursor-agent"}, Detect: detectCursor},
+	{Agent: AgentOpenCode, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"opencode"}, Detect: detectOpenCode},
+	{Agent: AgentAmp, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"amp"}, Detect: detectAmp},
+
+	// Level 1 — a harness built around its own vendor's model.
+	{Agent: AgentCodex, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"codex"}, Detect: detectCodex},
+	{Agent: AgentClaudeCode, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"claude"}, Detect: detectClaudeCode},
 }
 
 // AgentDrivers returns the built-in agent drivers in precedence order. The

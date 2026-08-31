@@ -149,8 +149,8 @@ func report(w io.Writer, result runby.Result, verbose bool) {
 			if layer.AncestorPID != 0 {
 				live = fmt.Sprintf("  살아 있는 조상 pid=%d", layer.AncestorPID)
 			}
-			fmt.Fprintf(w, "%-9s   %-14s %-13s %s%s\n", "",
-				layer.Agent, layer.Kind, layer.Confidence, live)
+			fmt.Fprintf(w, "%-9s   %-14s %-3s %-13s %-13s %s%s\n", "",
+				layer.Agent, layer.Level, layer.Kind, layer.Models, layer.Confidence, live)
 			if verbose && len(layer.Evidence) > 0 {
 				fmt.Fprintf(w, "%-9s     ← %s\n", "", strings.Join(layer.Evidence, " "))
 			}

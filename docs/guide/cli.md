@@ -24,8 +24,8 @@ runby chain            "paseo>codex" 한 줄. 감지 실패 시 "unknown"
 ```
 $ runby
 agent     paseo>claude-code
-            paseo          orchestrator  definite  살아 있는 조상 pid=2540
-            claude-code    harness       definite  살아 있는 조상 pid=4344
+            paseo          l3  orchestrator  delegated     definite  살아 있는 조상 pid=2540
+            claude-code    l1  harness       first-party   definite  살아 있는 조상 pid=4344
 ci        -
 terminal  ghostty (definite)
 remote    tmux (multiplexer), openssh (environment)

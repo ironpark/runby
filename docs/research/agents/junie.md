@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: false
 repository: null
 product_type: agent_harness
+model_source: multi-vendor
 executes_agents: []
 runtime_test_required: true
 runtime_test_reason: 공개 변수는 실행 입력이며 자식 프로세스 주입 계약이 없어 실제 환경 검증이 필요함

@@ -3,7 +3,12 @@ package runby
 // Detection is one agent layer detected in an environment.
 type Detection struct {
 	Agent Agent `json:"agent"`
-	Kind  Kind  `json:"kind"`
+	// Kind, Models, and Level classify the product rather than this run. Kind
+	// is what it drives, Models is whose intelligence is behind it, and Level
+	// is the ladder position read off the two. See the commentary above Kind.
+	Kind   Kind        `json:"kind"`
+	Models ModelSource `json:"models"`
+	Level  Level       `json:"level"`
 	Axis
 
 	// SessionID is the agent's identifier for the conversation or thread that

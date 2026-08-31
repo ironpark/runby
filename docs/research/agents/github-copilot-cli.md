@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: false
 repository: null
 product_type: agent_harness
+model_source: multi-vendor
 executes_agents: []
 runtime_test_required: true
 runtime_test_reason: 공식 문서에서 자식 프로세스 실행 마커를 확인하지 못해 실제 환경 검증이 필요함

@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: false
 repository: null
 product_type: agent_harness
+model_source: first-party
 executes_agents: []
 runtime_test_required: false
 runtime_test_reason: 공식 문서가 직접 자식과 넓은 실행 컨텍스트의 주입 변수를 명시함

@@ -74,8 +74,10 @@ type Axis struct {
 }
 
 type Detection struct {
-	Agent Agent
-	Kind  Kind
+	Agent  Agent
+	Kind   Kind        // orchestrator | harness — 무엇을 구동하는가
+	Models ModelSource // first-party | multi-vendor | delegated — 지능의 출처
+	Level  Level       // l1 | l2 | l3 — 위 둘에서 파생된 사다리
 	Axis
 
 	SessionID  string // 대화/스레드 식별자
@@ -124,6 +126,7 @@ runby.IsRemote()    // Current().IsRemote()
 acme := runby.AgentDriver{
 	Agent:       "acme-orchestrator",
 	Kind:        runby.KindOrchestrator,
+	Models:      runby.ModelsDelegated,
 	Executables: []string{"acme-run"}, // 살아 있는 조상 프로세스로 확증
 	Detect: func(env runby.Env) (runby.Detection, bool) {
 		id, ok := runby.Value(env, "ACME_RUN_ID")
@@ -139,11 +142,11 @@ result := runby.Detect(runby.WithAgentDrivers(acme))
 
 `WithAgentDrivers`로 추가한 드라이버는 내장 드라이버보다 앞서므로, 사내 오케스트레이터가 그것이 구동한 런타임보다 우선해 보고됩니다.
 
-`Agent`·`Kind`는 드라이버가 제공하므로 `Detect` 안에서 다시 쓸 필요가 없고, `Confidence`와 `Sandbox.Network`는 비워두면 기본값이 채워집니다.
+`Agent`·`Kind`·`Models`는 드라이버가 제공하므로 `Detect` 안에서 다시 쓸 필요가 없고, `Level`은 그 둘에서 내장 에이전트와 **같은 규칙으로** 파생됩니다. `Confidence`와 `Sandbox.Network`는 비워두면 기본값이 채워집니다.
 
 | 축 | 드라이버 | 식별자 | 축위 | 실행 파일 |
 |---|---|---|---|---|
-| agent | `AgentDriver` | `Agent` | `Kind` | `Executables` |
+| agent | `AgentDriver` | `Agent` | `Kind` + `Models` | `Executables` |
 | CI | `CIDriver` | `Provider` | — | — |
 | terminal | `TerminalDriver` | `Program` | — | `Executables` |
 | remote | `RemoteDriver` | `Platform` | `Kind` | `Executables` |

@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: false
 repository: null
 product_type: agent_orchestrator
+model_source: delegated
 executes_agents:
   - claude-code
   - codex

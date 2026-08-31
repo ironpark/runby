@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: true
 repository: https://github.com/anomalyco/opencode
 product_type: agent_harness
+model_source: multi-vendor
 executes_agents: []
 runtime_test_required: true
 runtime_test_reason: ACP 경로의 소스 기반 신호와 일반 CLI 자식 환경을 각각 확인해야 함

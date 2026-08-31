@@ -10,8 +10,11 @@ import (
 	"github.com/ironpark/runby"
 )
 
-// docSlug reads the slug recorded in a research document's YAML front matter.
-func docSlug(t *testing.T, path string) string {
+// docFields reads the YAML front matter of a research document as a flat map.
+// The front matter is a fixed set of scalar keys, so it is read line by line
+// rather than by pulling in a YAML parser for one test. Nested list items are
+// skipped, so executes_agents does not become a field of its own.
+func docFields(t *testing.T, path string) map[string]string {
 	t.Helper()
 	file, err := os.Open(path)
 	if err != nil {
@@ -19,18 +22,30 @@ func docSlug(t *testing.T, path string) string {
 	}
 	defer file.Close()
 
+	fields := make(map[string]string)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if slug, ok := strings.CutPrefix(line, "slug:"); ok {
-			return strings.TrimSpace(slug)
+		if line == "---" && len(fields) > 0 {
+			break
 		}
-		if line == "---" && scanner.Text() == "---" {
+		key, value, ok := strings.Cut(line, ":")
+		if !ok || strings.HasPrefix(key, " ") || strings.HasPrefix(key, "-") {
 			continue
 		}
+		fields[strings.TrimSpace(key)] = strings.TrimSpace(value)
 	}
-	t.Fatalf("%s has no slug in its front matter", path)
-	return ""
+	return fields
+}
+
+// docSlug reads the slug recorded in a research document's front matter.
+func docSlug(t *testing.T, path string) string {
+	t.Helper()
+	slug := docFields(t, path)["slug"]
+	if slug == "" {
+		t.Fatalf("%s has no slug in its front matter", path)
+	}
+	return slug
 }
 
 // TestSlugsMatchDocs keeps every identifier this package reports tied to the
@@ -113,4 +128,71 @@ func TestSlugsMatchDocs(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestKindsMatchDocs holds every registered agent's classification to the
+// research document that justifies it.
+//
+// Kind and ModelSource are facts about a product that no environment can
+// supply, so they are asserted in the driver table by hand and recorded in the
+// research front matter by hand, in two files that nothing otherwise connects.
+// They did drift: Antigravity 2.0 was documented as an orchestrator and
+// registered as a harness. This test is what makes that a failure rather than
+// a silent misreport, and it is why Kind's documentation can claim to mirror
+// product_type.
+func TestKindsMatchDocs(t *testing.T) {
+	productTypes := map[string]runby.Kind{
+		"agent_orchestrator": runby.KindOrchestrator,
+		"agent_harness":      runby.KindHarness,
+	}
+	modelSources := map[string]runby.ModelSource{
+		"first-party":  runby.ModelsFirstParty,
+		"multi-vendor": runby.ModelsMultiVendor,
+		"delegated":    runby.ModelsDelegated,
+	}
+
+	for _, driver := range runby.AgentDrivers() {
+		t.Run(string(driver.Agent), func(t *testing.T) {
+			path := filepath.Join("docs/research/agents", string(driver.Agent)+".md")
+			fields := docFields(t, path)
+
+			kind, ok := productTypes[fields["product_type"]]
+			if !ok {
+				t.Fatalf("%s records product_type %q, which maps to no Kind", path, fields["product_type"])
+			}
+			if kind != driver.Kind {
+				t.Errorf("%s records product_type %q (%s), but the driver says %s",
+					path, fields["product_type"], kind, driver.Kind)
+			}
+
+			models, ok := modelSources[fields["model_source"]]
+			if !ok {
+				t.Fatalf("%s records model_source %q, which maps to no ModelSource", path, fields["model_source"])
+			}
+			if models != driver.Models {
+				t.Errorf("%s records model_source %q, but the driver says %s",
+					path, fields["model_source"], driver.Models)
+			}
+
+			// Level is derived, so it cannot drift on its own; this checks the
+			// derivation against the pair the documents actually record.
+			if got, want := driver.Agent.Level(), levelFor(kind, models); got != want {
+				t.Errorf("%s is Level %s, want %s for (%s, %s)", driver.Agent, got, want, kind, models)
+			}
+		})
+	}
+}
+
+// levelFor restates the ladder rule independently of the package, so the test
+// fails if the derivation changes rather than agreeing with it by construction.
+func levelFor(kind runby.Kind, models runby.ModelSource) runby.Level {
+	switch {
+	case kind == runby.KindOrchestrator:
+		return runby.Level3
+	case kind == runby.KindHarness && models == runby.ModelsFirstParty:
+		return runby.Level1
+	case kind == runby.KindHarness && models == runby.ModelsMultiVendor:
+		return runby.Level2
+	}
+	return runby.LevelUnknown
 }

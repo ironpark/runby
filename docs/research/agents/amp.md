@@ -5,6 +5,7 @@ research_date: 2026-08-30
 open_source: false
 repository: null
 product_type: agent_harness
+model_source: multi-vendor
 executes_agents: []
 runtime_test_required: true
 runtime_test_reason: 로컬 CLI와 Orb 및 Orb 관리형 서비스의 환경 주입 범위를 각각 확인해야 함

@@ -5,6 +5,7 @@ research_date: 2026-08-31
 open_source: true
 repository: https://github.com/stablyai/orca
 product_type: agent_orchestrator
+model_source: delegated
 executes_agents:
   - claude-code
   - codex
