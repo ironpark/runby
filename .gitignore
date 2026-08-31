@@ -14,3 +14,6 @@ coverage/
 .DS_Store
 .vscode/
 .idea/
+
+# Local runtime-injection experiment lab (github.com/ironpark/runby/injectlab)
+injectlab/

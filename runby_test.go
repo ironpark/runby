@@ -472,3 +472,52 @@ func TestConfigurationLookalikesAreNotEvidence(t *testing.T) {
 		}
 	}
 }
+
+// OpenCode sets OPENCODE on every invocation, before the subcommand runs, so
+// an ordinary `opencode run` session is proof and not merely a hint. The lab
+// found this by measuring a container; the driver changed only once the CLI
+// source confirmed it.
+func TestOpenCodeGeneralMarker(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		environ    []string
+		detected   bool
+		confidence runby.Confidence
+		entrypoint string
+	}{
+		{"run", []string{"OPENCODE=1", "OPENCODE_PID=17", "AGENT=1"}, true, runby.ConfidenceDefinite, ""},
+		{"acp", []string{"OPENCODE=1", "OPENCODE_CLIENT=acp"}, true, runby.ConfidenceDefinite, "acp"},
+		// The ACP marker on its own still counts, but only as a hint: an
+		// embedding host sets it on the way in.
+		{"acp without the launch marker", []string{"OPENCODE_CLIENT=acp"}, true, runby.ConfidenceProbable, "acp"},
+		// OPENCODE_CLIENT is read with a default of "cli", so any other value
+		// is a user-settable input rather than evidence.
+		{"client name alone", []string{"OPENCODE_CLIENT=cli"}, false, "", ""},
+		{"zed as host", []string{"OPENCODE_CLIENT=zed"}, false, "", ""},
+		// AGENT is not vendor-specific; Goose sets it too.
+		{"agent alone", []string{"AGENT=1"}, false, "", ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := runby.Detect(runby.WithEnviron(test.environ))
+			layer, ok := result.Layer(runby.AgentOpenCode)
+			if ok != test.detected {
+				t.Fatalf("detected = %v, want %v (%#v)", ok, test.detected, result.Layers)
+			}
+			if !test.detected {
+				return
+			}
+			if layer.Confidence != test.confidence {
+				t.Errorf("Confidence = %q, want %q", layer.Confidence, test.confidence)
+			}
+			if layer.Entrypoint != test.entrypoint {
+				t.Errorf("Entrypoint = %q, want %q", layer.Entrypoint, test.entrypoint)
+			}
+			// OPENCODE_PID and AGENT must never become evidence.
+			for _, name := range layer.Evidence {
+				if name == "AGENT" || name == "OPENCODE_PID" {
+					t.Errorf("%s was used as evidence", name)
+				}
+			}
+		})
+	}
+}

@@ -24,7 +24,7 @@ API 키와 일반 설정 변수는 에이전트가 프로세스를 실행했다�
 | Orca (Stably AI) | `AgentOrca` | `l3` | `orchestrator` | `delegated` | `ORCA_PANE_KEY` 또는 `ORCA_TERMINAL_HANDLE` + `ORCA_TAB_ID` 또는 `ORCA_WORKTREE_ID` |
 | Antigravity 2.0 sidecar | `AgentAntigravity2` | `l3` | `orchestrator` | `first-party` | `ANTIGRAVITY_EXECUTABLE_DATA_DIR` |
 | Cursor Agent | `AgentCursor` | `l2` | `harness` | `multi-vendor` | `CURSOR_AGENT` |
-| OpenCode ACP | `AgentOpenCode` | `l2` | `harness` | `multi-vendor` | `OPENCODE_CLIENT=acp` |
+| OpenCode | `AgentOpenCode` | `l2` | `harness` | `multi-vendor` | `OPENCODE`, `OPENCODE_CLIENT=acp` |
 | Amp Orb / Orb 관리형 서비스 | `AgentAmp` | `l2` | `harness` | `multi-vendor` | `AMP_ORB`, `AMP_THREAD_ID` |
 | OpenClaw | `AgentOpenClaw` | `l2` | `harness` | `multi-vendor` | `OPENCLAW_SHELL` (값이 `Entrypoint`가 됨) |
 | Auggie (Augment Code) | `AgentAuggie` | `l2` | `harness` | `multi-vendor` | `AUGMENT_AGENT` |
@@ -36,7 +36,7 @@ API 키와 일반 설정 변수는 에이전트가 프로세스를 실행했다�
 
 **Cline은 `probable`입니다.** 마커가 프로세스가 아니라 Cline이 만든 **터미널**에 붙어 있어, 사람이 그 터미널에 직접 타이핑한 명령도 같은 값을 받기 때문입니다. **Grok Build는 플러그인 훅에만** 마커가 주어지므로, 훅을 실행하지 않은 세션은 감지되지 않습니다.
 
-Antigravity CLI, GitHub Copilot CLI, Junie, Goose, Kimi CLI, Claude Cowork, 일반 OpenCode CLI는 공식적으로 확인된 범용 자식 프로세스 실행 마커가 없어 감지하지 않습니다. 각 제품을 왜 감지하지 않기로 했는지는 [`docs/research/agents/`](../research/agents/)에 제품별로 기록되어 있습니다 — 설정 변수를 마커로 오인한 사례(Goose의 `GOOSE_PROVIDER`)와 공식 문서에 없는 내부 변수(Cowork의 `CLAUDE_CODE_IS_COWORK`)를 포함합니다.
+Antigravity CLI, GitHub Copilot CLI, Junie, Goose, Kimi CLI, Claude Cowork는 공식적으로 확인된 범용 자식 프로세스 실행 마커가 없어 감지하지 않습니다. 각 제품을 왜 감지하지 않기로 했는지는 [`docs/research/agents/`](../research/agents/)에 제품별로 기록되어 있습니다 — 설정 변수를 마커로 오인한 사례(Goose의 `GOOSE_PROVIDER`)와 공식 문서에 없는 내부 변수(Cowork의 `CLAUDE_CODE_IS_COWORK`)를 포함합니다.
 
 ## 분류: Kind, Models, Level
 

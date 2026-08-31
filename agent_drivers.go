@@ -205,21 +205,36 @@ func detectCursor(env Env) (Detection, bool) {
 	return Detection{Axis: Axis{Evidence: r.evidence()}}, true
 }
 
-// detectOpenCode identifies OpenCode running as an ACP client. OpenCode has no
-// general execution marker, so this covers ACP invocations only and is reported
-// as a supporting signal rather than proof.
+// detectOpenCode identifies a process OpenCode launched. OPENCODE is set on
+// the process environment during CLI startup, before the subcommand runs, so
+// every child of every invocation inherits it.
+//
+// OPENCODE_CLIENT is subtler and only counts when it says "acp". The ACP
+// command sets it to that, but everywhere else OpenCode READS it — with a
+// default of "cli" — as the name an embedding host gives itself. Treating any
+// value as proof would report the agent for a variable the user can export.
+//
+// AGENT is set alongside OPENCODE and is deliberately ignored: the name
+// belongs to no vendor, and Goose sets it too.
 func detectOpenCode(env Env) (Detection, bool) {
 	r := newReader(env)
-	if !r.equalsFold("OPENCODE_CLIENT", "acp") {
+	launched := r.isTrue("OPENCODE")
+	acp := r.equalsFold("OPENCODE_CLIENT", "acp")
+	if !launched && !acp {
 		return Detection{}, false
 	}
-	return Detection{
-		Entrypoint: "acp",
-		Axis: Axis{
-			Confidence: ConfidenceProbable,
-			Evidence:   r.evidence(),
-		},
-	}, true
+
+	detection := Detection{}
+	if acp {
+		detection.Entrypoint = "acp"
+	}
+	// Without OPENCODE this is the ACP marker alone, which an embedding host
+	// could also have set on its way in.
+	if !launched {
+		detection.Confidence = ConfidenceProbable
+	}
+	detection.Evidence = r.evidence()
+	return detection, true
 }
 
 func detectAmp(env Env) (Detection, bool) {
