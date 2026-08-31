@@ -49,6 +49,26 @@ result.TTY.Interactive         // 프롬프트를 띄울 수 있는가
 
 전체 API는 [`docs/guide/api.md`](docs/guide/api.md)에 있습니다.
 
+## 드라이버 확장
+
+지원하지 않는 제품은 드라이버로 추가합니다. 내장 제품과 **같은 타입**을 쓰고, `init`에서 등록하면 `_` 임포트만으로 프로그램 전체에 적용됩니다.
+
+```go
+// example.com/runby-acme
+func init() {
+	runby.Register(runby.AgentDriver{
+		Agent: "acme", Kind: runby.KindOrchestrator, Models: runby.ModelsDelegated,
+		Detect: func(env runby.Env) (runby.Detection, bool) { … },
+	})
+}
+```
+
+```go
+import _ "example.com/runby-acme"  // 이것만으로 runby.IsAgent()가 acme를 압니다
+```
+
+자세한 내용과 주의점은 [`docs/guide/drivers.md`](docs/guide/drivers.md)에 있습니다.
+
 ## CLI
 
 라이브러리가 먼저지만, 셸에서 바로 쓸 수 있는 명령도 있습니다.

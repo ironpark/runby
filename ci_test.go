@@ -282,7 +282,7 @@ func TestWithCIDrivers(t *testing.T) {
 		t.Fatalf("CI = %#v", result.CI)
 	}
 
-	disabled := runby.Detect(runby.WithEnviron([]string{"CI=true"}), runby.WithOnlyCIDrivers())
+	disabled := runby.Detect(runby.WithEnviron([]string{"CI=true"}), runby.WithOnlyDrivers())
 	if disabled.IsCI() {
 		t.Fatalf("CI = %#v, want detection disabled", disabled.CI)
 	}

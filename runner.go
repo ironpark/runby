@@ -20,7 +20,8 @@ const (
 // and its serialized output.
 func (t RunnerTool) String() string { return slug(t, RunnerUnknown) }
 
-// RunnerTools returns every supported tool in detection order.
+// RunnerTools returns every built-in tool in detection order. As with Agents,
+// registered drivers are not included.
 func RunnerTools() []RunnerTool {
 	return mapSlice(builtinRunnerDrivers, func(d RunnerDriver) RunnerTool { return d.Tool })
 }
@@ -52,7 +53,12 @@ var runnerKinds = indexBy(builtinRunnerDrivers, func(d RunnerDriver) (RunnerTool
 // Kind reports what kind of thing t is. It returns RunnerKindUnknown for tools
 // this package does not support; a driver supplied through WithRunnerDrivers
 // carries its own Kind onto the Runner instead.
-func (t RunnerTool) Kind() RunnerKind { return lookupOr(runnerKinds, t, RunnerKindUnknown) }
+func (t RunnerTool) Kind() RunnerKind {
+	if kind, ok := runnerKinds[t]; ok {
+		return kind
+	}
+	return registeredRunnerKind(t)
+}
 
 // Runner is one tool that ran this process.
 //

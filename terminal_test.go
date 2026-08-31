@@ -286,7 +286,7 @@ func TestWithTerminalDrivers(t *testing.T) {
 
 	disabled := runby.Detect(
 		runby.WithEnviron([]string{"TERM_PROGRAM=ghostty"}),
-		runby.WithOnlyTerminalDrivers(),
+		runby.WithOnlyDrivers(),
 	)
 	if disabled.HasTerminal() {
 		t.Fatalf("Terminal = %#v, want detection disabled", disabled.Terminal)

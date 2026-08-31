@@ -37,10 +37,11 @@ var builtinAgentDrivers = []AgentDriver{
 	{Agent: AgentClaudeCode, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"claude"}, Detect: detectClaudeCode},
 }
 
-// AgentDrivers returns the built-in agent drivers in precedence order. The
-// returned slice is a copy and may be reordered, filtered, or adjusted before
-// being passed back through WithOnlyAgentDrivers.
-func AgentDrivers() []AgentDriver { return cloneSlice(builtinAgentDrivers) }
+// agentDrivers returns the built-in agent drivers in detection order. It is
+// unexported: the only reason to hand out the built-in table was to filter it
+// and pass it back, and WithOnlyDrivers took that job. The copy keeps a caller
+// inside this package from reordering the table itself.
+func agentDrivers() []AgentDriver { return cloneSlice(builtinAgentDrivers) }
 
 // detectPaseo identifies a process launched by a Paseo agent. PASEO_AGENT_ID is
 // set per agent, so it names the logical agent rather than a single session.

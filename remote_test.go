@@ -259,7 +259,7 @@ func TestWithRemoteDrivers(t *testing.T) {
 		t.Fatalf("Multiplexer() = %#v", mux)
 	}
 
-	disabled := runby.Detect(runby.WithEnviron([]string{"TMUX=/tmp/t,1,0"}), runby.WithOnlyRemoteDrivers())
+	disabled := runby.Detect(runby.WithEnviron([]string{"TMUX=/tmp/t,1,0"}), runby.WithOnlyDrivers())
 	if disabled.IsRemote() {
 		t.Fatalf("Remote = %#v, want detection disabled", disabled.Remote)
 	}

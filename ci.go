@@ -26,8 +26,9 @@ const (
 // and its serialized output.
 func (p CIProvider) String() string { return slug(p, CIProviderUnknown) }
 
-// CIProviders returns every supported provider in detection precedence order.
-// CIProviderGeneric is last because it is the fallback.
+// CIProviders returns every built-in provider in detection precedence order.
+// CIProviderGeneric is last because it is the fallback. As with Agents,
+// registered drivers are not included.
 func CIProviders() []CIProvider {
 	return mapSlice(builtinCIDrivers, func(d CIDriver) CIProvider { return d.Provider })
 }

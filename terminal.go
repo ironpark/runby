@@ -44,8 +44,8 @@ const (
 // and its serialized output.
 func (p TerminalProgram) String() string { return slug(p, TerminalUnknown) }
 
-// TerminalPrograms returns every supported terminal in detection precedence
-// order.
+// TerminalPrograms returns every built-in terminal in detection precedence
+// order. As with Agents, registered drivers are not included.
 func TerminalPrograms() []TerminalProgram {
 	return mapSlice(builtinTerminalDrivers, func(d TerminalDriver) TerminalProgram { return d.Program })
 }

@@ -294,7 +294,8 @@ var builtinCIDrivers = mapSlice(ciSpecs, func(spec ciSpec) CIDriver {
 	return CIDriver{Provider: spec.provider, Detect: spec.detect}
 })
 
-// CIDrivers returns the built-in CI drivers in precedence order. The returned
-// slice is a copy and may be reordered, filtered, or adjusted before being
-// passed back through WithOnlyCIDrivers.
-func CIDrivers() []CIDriver { return cloneSlice(builtinCIDrivers) }
+// ciDrivers returns the built-in CI drivers in detection order. It is
+// unexported: the only reason to hand out the built-in table was to filter it
+// and pass it back, and WithOnlyDrivers took that job. The copy keeps a caller
+// inside this package from reordering the table itself.
+func ciDrivers() []CIDriver { return cloneSlice(builtinCIDrivers) }

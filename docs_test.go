@@ -161,33 +161,35 @@ func TestKindsMatchDocs(t *testing.T) {
 		"delegated":    runby.ModelsDelegated,
 	}
 
-	for _, driver := range runby.AgentDrivers() {
-		t.Run(string(driver.Agent), func(t *testing.T) {
-			path := filepath.Join("docs/research/agents", string(driver.Agent)+".md")
+	// Agent.Kind and Agent.Models answer from the same built-in table the
+	// drivers are declared in, so this needs no access to the table itself.
+	for _, agent := range runby.Agents() {
+		t.Run(string(agent), func(t *testing.T) {
+			path := filepath.Join("docs/research/agents", string(agent)+".md")
 			fields := docFields(t, path)
 
 			kind, ok := productTypes[fields["product_type"]]
 			if !ok {
 				t.Fatalf("%s records product_type %q, which maps to no Kind", path, fields["product_type"])
 			}
-			if kind != driver.Kind {
+			if kind != agent.Kind() {
 				t.Errorf("%s records product_type %q (%s), but the driver says %s",
-					path, fields["product_type"], kind, driver.Kind)
+					path, fields["product_type"], kind, agent.Kind())
 			}
 
 			models, ok := modelSources[fields["model_source"]]
 			if !ok {
 				t.Fatalf("%s records model_source %q, which maps to no ModelSource", path, fields["model_source"])
 			}
-			if models != driver.Models {
+			if models != agent.Models() {
 				t.Errorf("%s records model_source %q, but the driver says %s",
-					path, fields["model_source"], driver.Models)
+					path, fields["model_source"], agent.Models())
 			}
 
 			// Level is derived, so it cannot drift on its own; this checks the
 			// derivation against the pair the documents actually record.
-			if got, want := driver.Agent.Level(), levelFor(kind, models); got != want {
-				t.Errorf("%s is Level %s, want %s for (%s, %s)", driver.Agent, got, want, kind, models)
+			if got, want := agent.Level(), levelFor(kind, models); got != want {
+				t.Errorf("%s is Level %s, want %s for (%s, %s)", agent, got, want, kind, models)
 			}
 		})
 	}

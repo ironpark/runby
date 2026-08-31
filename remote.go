@@ -20,7 +20,8 @@ const (
 // and its serialized output.
 func (p RemotePlatform) String() string { return slug(p, RemoteUnknown) }
 
-// RemotePlatforms returns every supported platform in detection order.
+// RemotePlatforms returns every built-in platform in detection order. As with
+// Agents, registered drivers are not included.
 func RemotePlatforms() []RemotePlatform {
 	return mapSlice(builtinRemoteDrivers, func(d RemoteDriver) RemotePlatform { return d.Platform })
 }
@@ -49,7 +50,12 @@ var remoteKinds = indexBy(builtinRemoteDrivers, func(d RemoteDriver) (RemotePlat
 // Kind reports what a detection of p proves. It returns RemoteKindUnknown for
 // platforms this package does not support; a driver supplied through
 // WithRemoteDrivers carries its own Kind onto the Remote instead.
-func (p RemotePlatform) Kind() RemoteKind { return lookupOr(remoteKinds, p, RemoteKindUnknown) }
+func (p RemotePlatform) Kind() RemoteKind {
+	if kind, ok := remoteKinds[p]; ok {
+		return kind
+	}
+	return registeredRemoteKind(p)
+}
 
 // Remote is one layer detected between the user and this process.
 //

@@ -111,17 +111,17 @@ func WithProcessTree(tree ProcessTree) Option {
 	}
 }
 
-// WithAgentDrivers adds agent drivers ahead of the built-in ones, so a custom
-// orchestrator is reported as the primary layer over the runtime it drives.
-// Drivers are tried in the order given, and every match is reported.
+// WithAgentDrivers adds agent drivers to the built-in ones for this call.
+// Every match is reported, and the agent axis is always ordered by the ladder
+// — Level3 orchestrators, then Level2, then Level1 — so a custom orchestrator
+// is reported as the primary layer over the runtime it drives no matter where
+// it was added. Set Kind and Models so the driver lands on the right rung; a
+// driver that declares neither sorts last.
+//
+// Use Register instead to add a driver once for the whole program, including
+// for Current and the cached entry points, which take no options.
 func WithAgentDrivers(drivers ...AgentDriver) Option {
 	return func(o *options) { prependDrivers(&o.agentDrivers, drivers) }
-}
-
-// WithOnlyAgentDrivers replaces the built-in agent drivers entirely. Passing
-// no drivers disables agent detection.
-func WithOnlyAgentDrivers(drivers ...AgentDriver) Option {
-	return func(o *options) { replaceDrivers(&o.agentDrivers, drivers) }
 }
 
 // WithCIDrivers adds CI drivers ahead of the built-in ones, so a platform this
@@ -131,22 +131,10 @@ func WithCIDrivers(drivers ...CIDriver) Option {
 	return func(o *options) { prependDrivers(&o.ciDrivers, drivers) }
 }
 
-// WithOnlyCIDrivers replaces the built-in CI drivers entirely. Passing no
-// drivers disables CI detection.
-func WithOnlyCIDrivers(drivers ...CIDriver) Option {
-	return func(o *options) { replaceDrivers(&o.ciDrivers, drivers) }
-}
-
 // WithTerminalDrivers adds terminal drivers ahead of the built-in ones.
 // Drivers are tried in the order given, and the first match wins.
 func WithTerminalDrivers(drivers ...TerminalDriver) Option {
 	return func(o *options) { prependDrivers(&o.terminalDrivers, drivers) }
-}
-
-// WithOnlyTerminalDrivers replaces the built-in terminal drivers entirely.
-// Passing no drivers disables terminal detection.
-func WithOnlyTerminalDrivers(drivers ...TerminalDriver) Option {
-	return func(o *options) { replaceDrivers(&o.terminalDrivers, drivers) }
 }
 
 // WithRemoteDrivers adds remote-layer drivers ahead of the built-in ones.
@@ -154,12 +142,6 @@ func WithOnlyTerminalDrivers(drivers ...TerminalDriver) Option {
 // affects only the order of Result.Remote.
 func WithRemoteDrivers(drivers ...RemoteDriver) Option {
 	return func(o *options) { prependDrivers(&o.remoteDrivers, drivers) }
-}
-
-// WithOnlyRemoteDrivers replaces the built-in remote drivers entirely. Passing
-// no drivers disables remote detection.
-func WithOnlyRemoteDrivers(drivers ...RemoteDriver) Option {
-	return func(o *options) { replaceDrivers(&o.remoteDrivers, drivers) }
 }
 
 // WithRunnerDrivers adds runner drivers ahead of the built-in ones, so an
@@ -170,29 +152,52 @@ func WithRunnerDrivers(drivers ...RunnerDriver) Option {
 	return func(o *options) { prependDrivers(&o.runnerDrivers, drivers) }
 }
 
-// WithOnlyRunnerDrivers replaces the built-in runner drivers entirely. Passing
-// no drivers disables runner detection.
-func WithOnlyRunnerDrivers(drivers ...RunnerDriver) Option {
-	return func(o *options) { replaceDrivers(&o.runnerDrivers, drivers) }
+// WithOnlyDrivers runs exactly the drivers given and nothing else: no built-in
+// driver and nothing added through Register participates in this call. With no
+// drivers at all, no axis derived from the environment is detected.
+//
+// It replaces a per-axis option for each of the five axes, because the two
+// things it is actually for do not divide by axis:
+//
+//   - Testing a driver in isolation, so a fixture cannot be answered by a
+//     built-in that happens to match it too.
+//   - Pinning a test in a program where something has registered a driver. The
+//     registry is process-wide, so without this a blank import anywhere in the
+//     build could change what a test observes.
+//
+// Drivers are sorted onto their own axis, so one call covers as many axes as
+// the drivers span. The agent axis is still ordered by the ladder rather than
+// by the order given here.
+func WithOnlyDrivers(drivers ...Driver) Option {
+	var only registry
+	for _, driver := range drivers {
+		if driver == nil {
+			panic("runby: WithOnlyDrivers called with a nil driver")
+		}
+		driver.addTo(&only)
+	}
+	only.check()
+	return func(o *options) {
+		o.agentDrivers = only.agents
+		o.ciDrivers = only.ci
+		o.terminalDrivers = only.terminals
+		o.remoteDrivers = only.remotes
+		o.runnerDrivers = only.runners
+	}
 }
 
 // Detect inspects an environment and returns every supported agent found in
 // it, plus the CI platform and terminal status. With no options it inspects
 // the current process, including its terminal.
 func Detect(opts ...Option) Result {
-	config := options{
-		env:             processEnv{},
-		agentDrivers:    builtinAgentDrivers,
-		ciDrivers:       builtinCIDrivers,
-		terminalDrivers: builtinTerminalDrivers,
-		remoteDrivers:   builtinRemoteDrivers,
-		runnerDrivers:   builtinRunnerDrivers,
-		inspectTTY:      true,
-		inspectProcess:  true,
-	}
+	config := defaultOptions()
 	for _, opt := range opts {
 		opt(&config)
 	}
+	// The agent axis is ordered by the ladder rather than by who was added
+	// first, so neither package initialization order nor the order options
+	// were passed in can report a runtime as the layer above its orchestrator.
+	config.agentDrivers = sortByLadder(config.agentDrivers)
 
 	result := Result{TTY: config.tty}
 	if config.inspectTTY {
@@ -380,7 +385,12 @@ var (
 // so repeated calls are free. Use Detect directly to observe changes made by
 // os.Setenv after the first call.
 func Current() Result {
-	currentOnce.Do(func() { currentResult = Detect() })
+	currentOnce.Do(func() {
+		// Recorded before detecting so that a Register racing this call is
+		// reported as the mistake it is rather than being silently dropped.
+		detected.Store(true)
+		currentResult = Detect()
+	})
 	return currentResult
 }
 

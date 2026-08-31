@@ -96,7 +96,7 @@ func TestCustomTerminalAndRemoteDriversAreCorroborated(t *testing.T) {
 func TestDriversWithoutKindReportUnknown(t *testing.T) {
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME=1"}),
-		runby.WithOnlyAgentDrivers(runby.AgentDriver{
+		runby.WithOnlyDrivers(runby.AgentDriver{
 			Agent: "acme",
 			Detect: func(env runby.Env) (runby.Detection, bool) {
 				return runby.Detection{Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME")}}, true
@@ -150,70 +150,5 @@ func TestCollectExtra(t *testing.T) {
 	// Nothing present carries no map, so a detection without context has none.
 	if got := runby.CollectExtra(env, map[string]string{"acme.missing": "MISSING"}); got != nil {
 		t.Fatalf("CollectExtra = %#v, want nil", got)
-	}
-}
-
-// The built-in tables are the single place a product is registered, so the
-// exported lists must agree with the drivers they are derived from.
-func TestDriverTablesMatchTheirIdentityLists(t *testing.T) {
-	agents := runby.Agents()
-	drivers := runby.AgentDrivers()
-	if len(agents) != len(drivers) {
-		t.Fatalf("Agents() has %d entries, AgentDrivers() has %d", len(agents), len(drivers))
-	}
-	for i, driver := range drivers {
-		if driver.Agent != agents[i] {
-			t.Errorf("driver %d is %q, Agents()[%d] is %q", i, driver.Agent, i, agents[i])
-		}
-		if driver.Kind != driver.Agent.Kind() {
-			t.Errorf("%q: driver Kind %q, Agent.Kind() %q", driver.Agent, driver.Kind, driver.Agent.Kind())
-		}
-		if driver.Detect == nil {
-			t.Errorf("%q has no Detect", driver.Agent)
-		}
-	}
-
-	for i, driver := range runby.RemoteDrivers() {
-		if got := runby.RemotePlatforms()[i]; driver.Platform != got {
-			t.Errorf("driver %d is %q, RemotePlatforms()[%d] is %q", i, driver.Platform, i, got)
-		}
-		if driver.Kind != driver.Platform.Kind() {
-			t.Errorf("%q: driver Kind %q, Platform.Kind() %q", driver.Platform, driver.Kind, driver.Platform.Kind())
-		}
-	}
-	for i, driver := range runby.TerminalDrivers() {
-		if got := runby.TerminalPrograms()[i]; driver.Program != got {
-			t.Errorf("driver %d is %q, TerminalPrograms()[%d] is %q", i, driver.Program, i, got)
-		}
-	}
-	for i, driver := range runby.CIDrivers() {
-		if got := runby.CIProviders()[i]; driver.Provider != got {
-			t.Errorf("driver %d is %q, CIProviders()[%d] is %q", i, driver.Provider, i, got)
-		}
-	}
-}
-
-// The returned slices are copies, so filtering one and passing it back cannot
-// corrupt the built-in tables.
-func TestDriverListsAreCopies(t *testing.T) {
-	drivers := runby.AgentDrivers()
-	drivers[0] = runby.AgentDriver{Agent: "tampered"}
-	if again := runby.AgentDrivers(); again[0].Agent == "tampered" {
-		t.Fatal("AgentDrivers() returned the built-in table itself")
-	}
-
-	// Dropping a driver disables exactly that agent.
-	var withoutCodex []runby.AgentDriver
-	for _, driver := range runby.AgentDrivers() {
-		if driver.Agent != runby.AgentCodex {
-			withoutCodex = append(withoutCodex, driver)
-		}
-	}
-	result := runby.Detect(
-		runby.WithEnviron([]string{"CODEX_THREAD_ID=t-1", "CLAUDECODE=1"}),
-		runby.WithOnlyAgentDrivers(withoutCodex...),
-	)
-	if result.HasLayer(runby.AgentCodex) || !result.HasLayer(runby.AgentClaudeCode) {
-		t.Fatalf("Layers = %#v", result.Layers)
 	}
 }

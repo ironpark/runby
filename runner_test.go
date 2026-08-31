@@ -318,14 +318,14 @@ func TestCustomRunnerDriver(t *testing.T) {
 			return runby.Runner{}, true
 		},
 	}
-	only := runby.Detect(runby.WithEnviron(nil), runby.WithOnlyRunnerDrivers(bare))
+	only := runby.Detect(runby.WithEnviron(nil), runby.WithOnlyDrivers(bare))
 	if len(only.Runner) != 1 || only.Runner[0].Kind != runby.RunnerKindUnknown {
 		t.Errorf("an undeclared kind did not default to unknown: %v", only.Runner)
 	}
 
 	// Passing no drivers disables the axis.
-	off := runby.Detect(runby.WithEnviron([]string{"MAKELEVEL=1"}), runby.WithOnlyRunnerDrivers())
+	off := runby.Detect(runby.WithEnviron([]string{"MAKELEVEL=1"}), runby.WithOnlyDrivers())
 	if off.HasRunner() {
-		t.Errorf("WithOnlyRunnerDrivers() left the axis on: %v", off.Runner)
+		t.Errorf("WithOnlyDrivers() left the axis on: %v", off.Runner)
 	}
 }

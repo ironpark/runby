@@ -27,7 +27,7 @@ func TestDetectCurrentEnvironmentPaseoCodex(t *testing.T) {
 func TestDetectUnknownStillInspectsTerminal(t *testing.T) {
 	// The zero-detection path must not skip terminal inspection; Terminal is a
 	// property of the process, not of a detected layer.
-	result := runby.Detect(runby.WithOnlyAgentDrivers())
+	result := runby.Detect(runby.WithOnlyDrivers())
 
 	if result.IsAgent() {
 		t.Fatalf("Found() = true, want false: %#v", result.Layers)
@@ -397,7 +397,7 @@ func TestLevelDerivedForCustomDrivers(t *testing.T) {
 			}
 			result := runby.Detect(
 				runby.WithEnviron([]string{"ACME=1"}),
-				runby.WithOnlyAgentDrivers(driver),
+				runby.WithOnlyDrivers(driver),
 			)
 			layer, ok := result.Primary()
 			if !ok {
@@ -415,24 +415,5 @@ func TestLevelDerivedForCustomDrivers(t *testing.T) {
 				t.Errorf("Models = %q, want %s", layer.Models, runby.ModelsUnknown)
 			}
 		})
-	}
-}
-
-// TestBuiltinDriversOrderedByLevel holds the precedence contract: the table is
-// ordered from the outermost layer inward, so Primary reports the outermost
-// match when several fire at once.
-func TestBuiltinDriversOrderedByLevel(t *testing.T) {
-	rank := map[runby.Level]int{runby.Level3: 0, runby.Level2: 1, runby.Level1: 2}
-	previous := -1
-	for _, driver := range runby.AgentDrivers() {
-		current, ok := rank[driver.Agent.Level()]
-		if !ok {
-			t.Errorf("%s has no ladder position", driver.Agent)
-			continue
-		}
-		if current < previous {
-			t.Errorf("%s (%s) is registered after a deeper layer", driver.Agent, driver.Agent.Level())
-		}
-		previous = current
 	}
 }

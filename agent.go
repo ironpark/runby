@@ -155,15 +155,27 @@ var agentModels = indexBy(builtinAgentDrivers, func(d AgentDriver) (Agent, Model
 	return d.Agent, d.Models
 })
 
-// Kind reports how much a detection of a proves. It returns KindUnknown for
-// agents this package does not support; a driver supplied through
-// WithAgentDrivers carries its own Kind onto the Detection instead.
-func (a Agent) Kind() Kind { return lookupOr(agentKinds, a, KindUnknown) }
+// Kind reports how much a detection of a proves. It answers for the built-in
+// agents and for those added through Register, and returns KindUnknown for
+// anything else — including a driver passed to a single Detect call through
+// WithAgentDrivers, which is not visible outside that call. Detection.Kind
+// always carries the driver's own answer.
+func (a Agent) Kind() Kind {
+	if kind, ok := agentKinds[a]; ok {
+		return kind
+	}
+	return registeredAgentKind(a)
+}
 
-// Models reports where a's intelligence comes from. As with Kind, it returns
-// ModelsUnknown for agents this package does not support; a driver supplied
-// through WithAgentDrivers carries its own onto the Detection instead.
-func (a Agent) Models() ModelSource { return lookupOr(agentModels, a, ModelsUnknown) }
+// Models reports where a's intelligence comes from. As with Kind it answers for
+// the built-in agents and for registered ones, and returns ModelsUnknown
+// otherwise.
+func (a Agent) Models() ModelSource {
+	if models, ok := agentModels[a]; ok {
+		return models
+	}
+	return registeredAgentModels(a)
+}
 
 // Level reports the layer a occupies in the agent stack.
 func (a Agent) Level() Level { return level(a.Kind(), a.Models()) }
@@ -172,7 +184,10 @@ func (a Agent) Level() Level { return level(a.Kind(), a.Models()) }
 // and its serialized output.
 func (a Agent) String() string { return slug(a, AgentUnknown) }
 
-// Agents returns every supported agent in detection precedence order.
+// Agents returns every built-in agent in detection precedence order. Drivers
+// added through Register or WithAgentDrivers are deliberately not included:
+// every name returned here has a research document in this repository
+// justifying it, and TestSlugsMatchDocs enforces that.
 func Agents() []Agent {
 	return mapSlice(builtinAgentDrivers, func(d AgentDriver) Agent { return d.Agent })
 }

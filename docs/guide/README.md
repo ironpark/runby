@@ -12,6 +12,7 @@
 | [`remote.md`](remote.md) | 멀티플렉서·SSH·컨테이너 계층과 잔존 위험 |
 | [`runner.md`](runner.md) | 실행 주체 축. 스크립트·훅·서비스가 실행했는지, git 훅을 감지할 수 없는 이유 |
 | [`process.md`](process.md) | 상위 프로세스 체인과 교차 검증 |
+| [`drivers.md`](drivers.md) | 드라이버 만들기, `Register`와 `_` 임포트로 배포하기 |
 
 각 판정의 **근거**(어떤 공식 문서·소스에서 확인했는지)는 [`docs/research/`](../research/)에 있습니다.
 

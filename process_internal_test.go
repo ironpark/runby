@@ -44,12 +44,9 @@ var unmatchableProducts = map[string]string{
 // builtinLabels is the mapping Detect builds from the built-in drivers, which
 // are the only place a product's executable names live.
 func builtinLabels() executableLabels {
-	return options{
-		agentDrivers:    builtinAgentDrivers,
-		terminalDrivers: builtinTerminalDrivers,
-		remoteDrivers:   builtinRemoteDrivers,
-		runnerDrivers:   builtinRunnerDrivers,
-	}.executableLabels()
+	// defaultOptions is what Detect starts from, so this cannot go on checking
+	// a driver set that Detect no longer uses.
+	return defaultOptions().executableLabels()
 }
 
 func TestExecutablesCoverEveryProduct(t *testing.T) {

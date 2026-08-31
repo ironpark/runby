@@ -19,16 +19,21 @@ result := runby.Detect(runby.WithAgentDrivers(myDriver))   // 사내 오케스�
 | `WithTTY(TTY)` | 표준 스트림 상태를 직접 주입 |
 | `WithoutProcessTree()` | 상위 프로세스 체인 읽기 생략 |
 | `WithProcessTree(ProcessTree)` | 상위 프로세스 체인을 직접 주입 |
-| `WithAgentDrivers(...AgentDriver)` | 내장 agent 드라이버 앞에 추가 |
-| `WithOnlyAgentDrivers(...)` | 내장 agent 드라이버를 대체. 인자가 없으면 비활성화 |
-| `WithCIDrivers(...CIDriver)` | 내장 CI 드라이버 앞에 추가 |
-| `WithOnlyCIDrivers(...)` | 내장 CI 드라이버를 대체. 인자가 없으면 비활성화 |
-| `WithTerminalDrivers(...TerminalDriver)` | 내장 터미널 드라이버 앞에 추가 |
-| `WithOnlyTerminalDrivers(...)` | 내장 터미널 드라이버를 대체. 인자가 없으면 비활성화 |
-| `WithRemoteDrivers(...RemoteDriver)` | 내장 remote 드라이버 앞에 추가 |
-| `WithOnlyRemoteDrivers(...)` | 내장 remote 드라이버를 대체. 인자가 없으면 비활성화 |
+| `WithAgentDrivers(...AgentDriver)` | 내장·등록된 것에 **더함** |
+| `WithCIDrivers(...CIDriver)` | 〃 |
+| `WithTerminalDrivers(...TerminalDriver)` | 〃 |
+| `WithRemoteDrivers(...RemoteDriver)` | 〃 |
+| `WithRunnerDrivers(...RunnerDriver)` | 〃 |
+| `WithOnlyDrivers(...Driver)` | **딱 이것만** 실행. 내장도 등록된 것도 무시. 인자가 없으면 전부 비활성화 |
 
 `WithEnviron`·`WithEnv`·`WithLookup`은 **이 프로세스의 것이 아닐 수도 있는** 환경을 넘기는 것이므로, 같은 프로세스를 설명해야만 의미가 있는 `TTY`와 `Process` 축은 자동으로 꺼집니다.
+
+`WithOnlyDrivers`는 축별로 나뉘지 않습니다. `Driver` 인터페이스로 받아 드라이버가 속한 축에 알아서 배치하므로 한 번에 여러 축을 덮을 수 있고, 주지 않은 축은 꺼집니다. 용도는 두 가지입니다 — **드라이버를 격리해서 테스트**하는 것, 그리고 어딘가의 `_` 임포트가 `Register`한 드라이버에 좌우되지 않는 **결정적 테스트**를 쓰는 것.
+
+```go
+runby.Detect(runby.WithOnlyDrivers(myAgent, myRunner))  // 딱 이 둘만
+runby.Detect(runby.WithOnlyDrivers())                    // 환경 기반 축 전부 off
+```
 
 ## Result
 
@@ -128,6 +133,8 @@ runby.HasRunner()   // Current().HasRunner()
 
 축마다 드라이버 구조체가 하나씩 있고, 내장 제품과 사내 제품이 **같은 타입**을 씁니다. 드라이버는 감지 규칙과 함께, 환경이 알려줄 수 없는 사실(축위, 실행 파일 이름)까지 한 곳에 담습니다.
 
+드라이버를 **모듈로 배포**해서 `_` 임포트로 쓰게 하려면 [`drivers.md`](drivers.md)를 보십시오. 아래 옵션은 그 `Detect` 호출 하나에만 적용되며, `runby.IsAgent()`·`Current()`·CLI에는 반영되지 않습니다.
+
 ```go
 acme := runby.AgentDriver{
 	Agent:       "acme-orchestrator",
@@ -144,9 +151,12 @@ acme := runby.AgentDriver{
 }
 
 result := runby.Detect(runby.WithAgentDrivers(acme))
+
+// 프로세스 전체에 한 번만 등록하려면 (init에서):
+runby.Register(acme)
 ```
 
-`WithAgentDrivers`로 추가한 드라이버는 내장 드라이버보다 앞서므로, 사내 오케스트레이터가 그것이 구동한 런타임보다 우선해 보고됩니다.
+에이전트 축의 순서는 추가 순서가 아니라 **`Kind`와 `Models`에서 파생된 `Level`**로 정해집니다(`l3` → `l2` → `l1`). 사내 오케스트레이터는 그것이 구동한 런타임보다 언제나 앞서고, 둘 다 선언하지 않은 드라이버는 사다리에 자리가 없어 맨 뒤로 갑니다.
 
 `Agent`·`Kind`·`Models`는 드라이버가 제공하므로 `Detect` 안에서 다시 쓸 필요가 없고, `Level`은 그 둘에서 내장 에이전트와 **같은 규칙으로** 파생됩니다. `Confidence`와 `Sandbox.Network`는 비워두면 기본값이 채워집니다.
 
