@@ -87,6 +87,27 @@ func EqualsFold(env Env, name, want string) bool {
 	return ok && strings.EqualFold(value, want)
 }
 
+// collectExtra returns the values of the given variables keyed by the stable
+// Extra key each maps to, skipping the ones that are not set. It returns nil
+// when none are present, so a detection carrying no context carries no map.
+//
+// The spec-driven axes build Extra from their spec tables; the hand-written
+// agent detectors use this.
+func collectExtra(env Env, keys map[string]string) map[string]string {
+	var extra map[string]string
+	for key, name := range keys {
+		value, ok := Value(env, name)
+		if !ok {
+			continue
+		}
+		if extra == nil {
+			extra = make(map[string]string, len(keys))
+		}
+		extra[key] = value
+	}
+	return extra
+}
+
 // PresentNames returns the sorted subset of names that are set to a non-empty
 // value. Detectors use it to build Detection.Evidence, which holds variable
 // names only; values may be sensitive and are never copied into it.

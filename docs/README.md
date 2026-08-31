@@ -27,6 +27,7 @@
 | 에이전트 | 공식 실행 식별 신호 | 적용 범위 |
 |---|---|---|
 | Paseo | `PASEO_AGENT_ID` | Paseo 에이전트가 실행한 프로세스 |
+| Orca (Stably AI) | `ORCA_PANE_KEY` + `ORCA_TAB_ID`/`ORCA_WORKTREE_ID` | Orca 관리형 pane/worktree. 실제 하위 agent는 agent별 신호로 별도 판별 |
 | OpenAI Codex | `CODEX_THREAD_ID`, `CODEX_SESSION_ID` | 모델이 접근할 수 있는 셸 명령; 공식 CLI 소스에서 주입을 확인했으나 안정적 공개 환경변수 계약에는 미포함 |
 | Claude Code | `CLAUDE_CODE_CHILD_SESSION=1`, `CLAUDECODE=1` | 직접 자식 및 넓은 Claude Code 실행 컨텍스트 |
 | Antigravity CLI | 없음 | 공식 변수는 표시·업데이트 설정용이며 범용 자식 프로세스 실행 마커는 확인되지 않음 |
@@ -55,6 +56,7 @@ CI 감지는 "누가 명령을 요청했는가"가 아니라 "어디서 실행�
 ## 에이전트별 조사
 
 - [Paseo](agents/paseo.md)
+- [Orca (Stably AI)](agents/orca.md)
 - [OpenAI Codex](agents/codex.md)
 - [Claude Code](agents/claude-code.md)
 - [Antigravity CLI](agents/antigravity-cli.md)

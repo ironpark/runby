@@ -6,6 +6,7 @@ type Agent string
 const (
 	AgentUnknown      Agent = "unknown"
 	AgentPaseo        Agent = "paseo"
+	AgentOrca         Agent = "orca"
 	AgentCodex        Agent = "codex"
 	AgentClaudeCode   Agent = "claude-code"
 	AgentAntigravity2 Agent = "antigravity-2"
@@ -36,6 +37,7 @@ const (
 // added here must also be added to detectors in runby.go.
 var agentKinds = map[Agent]Kind{
 	AgentPaseo:        KindOrchestrator,
+	AgentOrca:         KindOrchestrator,
 	AgentCodex:        KindHarness,
 	AgentClaudeCode:   KindHarness,
 	AgentAntigravity2: KindHarness,
