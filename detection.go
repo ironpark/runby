@@ -2,9 +2,9 @@ package runby
 
 // Detection is one agent layer detected in an environment.
 type Detection struct {
-	Agent      Agent      `json:"agent"`
-	Kind       Kind       `json:"kind"`
-	Confidence Confidence `json:"confidence"`
+	Agent Agent `json:"agent"`
+	Kind  Kind  `json:"kind"`
+	Axis
 
 	// SessionID is the agent's identifier for the conversation or thread that
 	// launched the process.
@@ -21,15 +21,6 @@ type Detection struct {
 
 	Sandbox Sandbox `json:"sandbox"`
 	Paths   Paths   `json:"paths"`
-
-	// Extra holds values that only one agent advertises, keyed by
-	// "<agent-slug>.<name>", so that agent-specific metadata does not widen
-	// the shared fields above. Keys are stable; treat missing keys as unset.
-	Extra map[string]string `json:"extra,omitempty"`
-
-	// Evidence lists the environment variable names that produced this
-	// detection, sorted. Their values may be sensitive and are never copied.
-	Evidence []string `json:"evidence"`
 
 	// AncestorPID is the PID of a running ancestor process whose executable
 	// belongs to this agent, or 0 when none was found.
@@ -89,15 +80,19 @@ type Result struct {
 	Remote []Remote `json:"remote"`
 }
 
-// Found reports whether any supported agent was detected. Terminal ownership
-// is not agent evidence and is reported on the Terminal axis instead, so this
-// answers "was this launched by an AI agent".
-func (r Result) Found() bool { return len(r.Layers) > 0 }
+// IsAgent reports whether any supported agent was detected, answering "was
+// this launched by an AI agent". Terminal ownership is not agent evidence and
+// is reported on the Terminal axis instead.
+//
+// It, IsCI, HasTerminal, and IsRemote are the four axis predicates and are
+// named alike on purpose. The Layer and RemoteLayer accessors below answer the
+// different question of whether one named product is among the layers.
+func (r Result) IsAgent() bool { return len(r.Layers) > 0 }
 
 // Primary returns the most specific detected layer.
 func (r Result) Primary() (Detection, bool) {
 	if len(r.Layers) == 0 {
-		return Detection{Agent: AgentUnknown, Kind: KindUnknown, Confidence: ConfidenceUnknown}, false
+		return Detection{Agent: AgentUnknown, Kind: KindUnknown, Axis: Axis{Confidence: ConfidenceUnknown}}, false
 	}
 	return r.Layers[0], true
 }
@@ -108,8 +103,8 @@ func (r Result) Agent() Agent {
 	return primary.Agent
 }
 
-// Get returns the detected layer for agent.
-func (r Result) Get(agent Agent) (Detection, bool) {
+// Layer returns the detected layer for agent.
+func (r Result) Layer(agent Agent) (Detection, bool) {
 	for _, layer := range r.Layers {
 		if layer.Agent == agent {
 			return layer, true
@@ -118,9 +113,9 @@ func (r Result) Get(agent Agent) (Detection, bool) {
 	return Detection{}, false
 }
 
-// Has reports whether agent is one of the detected layers.
-func (r Result) Has(agent Agent) bool {
-	_, ok := r.Get(agent)
+// HasLayer reports whether agent is one of the detected layers.
+func (r Result) HasLayer(agent Agent) bool {
+	_, ok := r.Layer(agent)
 	return ok
 }
 
@@ -138,8 +133,8 @@ func (r Result) HasTerminal() bool { return r.Terminal.Detected }
 // IsRemote reports whether any layer sits between the user and this process.
 func (r Result) IsRemote() bool { return len(r.Remote) > 0 }
 
-// GetRemote returns the detected layer for platform.
-func (r Result) GetRemote(platform RemotePlatform) (Remote, bool) {
+// RemoteLayer returns the detected layer for platform.
+func (r Result) RemoteLayer(platform RemotePlatform) (Remote, bool) {
 	for _, layer := range r.Remote {
 		if layer.Platform == platform {
 			return layer, true
@@ -148,9 +143,9 @@ func (r Result) GetRemote(platform RemotePlatform) (Remote, bool) {
 	return Remote{}, false
 }
 
-// HasRemote reports whether platform is one of the detected layers.
-func (r Result) HasRemote(platform RemotePlatform) bool {
-	_, ok := r.GetRemote(platform)
+// HasRemoteLayer reports whether platform is one of the detected layers.
+func (r Result) HasRemoteLayer(platform RemotePlatform) bool {
+	_, ok := r.RemoteLayer(platform)
 	return ok
 }
 

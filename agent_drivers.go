@@ -1,6 +1,9 @@
 package runby
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 // builtinAgentDrivers is ordered from the most specific orchestrator to the
 // underlying runtime. Result.Primary reports the first match, so this order is
@@ -26,25 +29,22 @@ var builtinAgentDrivers = []AgentDriver{
 // AgentDrivers returns the built-in agent drivers in precedence order. The
 // returned slice is a copy and may be reordered, filtered, or adjusted before
 // being passed back through WithOnlyAgentDrivers.
-func AgentDrivers() []AgentDriver {
-	drivers := make([]AgentDriver, len(builtinAgentDrivers))
-	copy(drivers, builtinAgentDrivers)
-	return drivers
-}
+func AgentDrivers() []AgentDriver { return cloneSlice(builtinAgentDrivers) }
 
 // detectPaseo identifies a process launched by a Paseo agent. PASEO_AGENT_ID is
 // set per agent, so it names the logical agent rather than a single session.
 func detectPaseo(env Env) (Detection, bool) {
-	agentID, ok := Value(env, "PASEO_AGENT_ID")
+	r := newReader(env)
+	agentID, ok := r.value("PASEO_AGENT_ID")
 	if !ok {
 		return Detection{}, false
 	}
 
-	workingDirectory, _ := Value(env, "PASEO_AGENT_CWD")
+	workingDirectory, _ := r.value("PASEO_AGENT_CWD")
 	return Detection{
-		AgentID:  agentID,
-		Paths:    Paths{WorkingDirectory: workingDirectory},
-		Evidence: PresentNames(env, "PASEO_AGENT_ID", "PASEO_AGENT_CWD"),
+		AgentID: agentID,
+		Paths:   Paths{WorkingDirectory: workingDirectory},
+		Axis:    Axis{Evidence: r.evidence()},
 	}, true
 }
 
@@ -75,18 +75,6 @@ var orcaExtra = map[string]string{
 	"orca.host_incarnation": "ORCA_ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION",
 }
 
-// orcaNames is every variable detectOrca consults, so Evidence and the lookup
-// set cannot drift apart. The marker variables appear in orcaExtra too;
-// PresentNames deduplicates the union.
-var orcaNames = func() []string {
-	names := append([]string{"ORCA_USER_DATA_PATH"}, orcaMarkers.owner...)
-	names = append(names, orcaMarkers.location...)
-	for _, name := range orcaExtra {
-		names = append(names, name)
-	}
-	return names
-}()
-
 // detectOrca identifies a process running in a terminal hosted by Orca
 // (github.com/stablyai/orca), a desktop orchestrator that runs CLI agents in
 // terminals backed by git worktrees.
@@ -96,50 +84,46 @@ var orcaNames = func() []string {
 // the confidence is never definite. When Orca did launch an agent, that agent
 // sets its own marker and is reported as its own layer.
 func detectOrca(env Env) (Detection, bool) {
-	if !AnyPresent(env, orcaMarkers.owner...) || !AnyPresent(env, orcaMarkers.location...) {
+	r := newReader(env)
+	if !r.any(orcaMarkers.owner...) || !r.any(orcaMarkers.location...) {
 		return Detection{}, false
 	}
 
 	// The pane key identifies the pane a session runs in, which is the closest
 	// thing Orca advertises to a session identifier. The terminal handle is
 	// the stable name Orca's own CLI and daemon use for a terminal.
-	sessionID, ok := Value(env, "ORCA_PANE_KEY")
-	if !ok {
-		sessionID, _ = Value(env, "ORCA_TERMINAL_HANDLE")
-	}
-
+	sessionID := r.first("ORCA_PANE_KEY", "ORCA_TERMINAL_HANDLE")
 	// Orca prefers the worktree it created over the repository it came from.
-	workingDirectory, ok := Value(env, "ORCA_WORKTREE_PATH")
-	if !ok {
-		workingDirectory, _ = Value(env, "ORCA_ROOT_PATH")
-	}
-	dataDirectory, _ := Value(env, "ORCA_USER_DATA_PATH")
+	workingDirectory := r.first("ORCA_WORKTREE_PATH", "ORCA_ROOT_PATH")
+	dataDirectory, _ := r.value("ORCA_USER_DATA_PATH")
 
 	return Detection{
-		Confidence: ConfidenceProbable,
-		SessionID:  sessionID,
+		SessionID: sessionID,
 		Paths: Paths{
 			WorkingDirectory: workingDirectory,
 			DataDirectory:    dataDirectory,
 		},
-		Extra:    CollectExtra(env, orcaExtra),
-		Evidence: PresentNames(env, orcaNames...),
+		Axis: Axis{
+			Confidence: ConfidenceProbable,
+			Extra:      r.extra(orcaExtra),
+			Evidence:   r.evidence(),
+		},
 	}, true
 }
 
 func detectCodex(env Env) (Detection, bool) {
-	threadID, hasThreadID := Value(env, "CODEX_THREAD_ID")
-	sessionID, hasSessionID := Value(env, "CODEX_SESSION_ID")
-	sandbox, hasSandbox := Value(env, "CODEX_SANDBOX")
-	ci, hasCI := Bool(env, "CODEX_CI")
-	networkDisabled, hasNetwork := Bool(env, "CODEX_SANDBOX_NETWORK_DISABLED")
+	r := newReader(env)
+	_, hasThreadID := r.peek("CODEX_THREAD_ID")
+	_, hasSessionID := r.peek("CODEX_SESSION_ID")
+	// Codex prefers a thread over a session; both are recorded either way.
+	threadID := r.first("CODEX_THREAD_ID", "CODEX_SESSION_ID")
+	sandbox, hasSandbox := r.value("CODEX_SANDBOX")
+	ci, hasCI := r.boolean("CODEX_CI")
+	networkDisabled, hasNetwork := r.boolean("CODEX_SANDBOX_NETWORK_DISABLED")
 	if !hasThreadID && !hasSessionID && !hasSandbox && !(hasCI && ci) {
 		return Detection{}, false
 	}
 
-	if threadID == "" {
-		threadID = sessionID
-	}
 	// A thread or session identifier is set per Codex conversation, so it is an
 	// execution marker. The sandbox and CI variables describe the environment
 	// Codex was configured with and could plausibly be set by other tooling.
@@ -156,70 +140,80 @@ func detectCodex(env Env) (Detection, bool) {
 		}
 	}
 
+	// The value is the parsed boolean rather than the raw one, so that "1" and
+	// "true" reach a caller in the same form.
 	var extra map[string]string
 	if hasCI {
-		extra = map[string]string{"codex.ci": boolString(ci)}
+		extra = map[string]string{"codex.ci": strconv.FormatBool(ci)}
 	}
 
 	return Detection{
-		Confidence: confidence,
-		SessionID:  threadID,
-		Sandbox:    Sandbox{Mode: sandbox, Network: network},
-		Extra:      extra,
-		Evidence:   PresentNames(env, "CODEX_THREAD_ID", "CODEX_SESSION_ID", "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED", "CODEX_CI"),
+		SessionID: threadID,
+		Sandbox:   Sandbox{Mode: sandbox, Network: network},
+		Axis: Axis{
+			Confidence: confidence,
+			Extra:      extra,
+			Evidence:   r.evidence(),
+		},
 	}, true
 }
 
 func detectClaudeCode(env Env) (Detection, bool) {
-	sessionID, hasSessionID := Value(env, "CLAUDE_CODE_SESSION_ID")
-	aiAgent, hasAIAgent := Value(env, "AI_AGENT")
-	isAIAgent := hasAIAgent && strings.HasPrefix(strings.ToLower(aiAgent), "claude-code")
-	if !IsTrue(env, "CLAUDECODE") && !hasSessionID && !isAIAgent {
+	r := newReader(env)
+	claudeCode := r.isTrue("CLAUDECODE")
+	sessionID, hasSessionID := r.value("CLAUDE_CODE_SESSION_ID")
+	// AI_AGENT is shared with other tooling, so it is evidence only when its
+	// value names Claude Code: it is peeked, and recorded once the value has
+	// decided. Every other variable here is recorded by the act of reading it.
+	aiAgent, _ := r.peek("AI_AGENT")
+	isAIAgent := strings.HasPrefix(strings.ToLower(aiAgent), "claude-code")
+	if isAIAgent {
+		r.record("AI_AGENT")
+	}
+	if !claudeCode && !hasSessionID && !isAIAgent {
 		return Detection{}, false
 	}
 
-	entrypoint, _ := Value(env, "CLAUDE_CODE_ENTRYPOINT")
-	childSession, _ := Bool(env, "CLAUDE_CODE_CHILD_SESSION")
-	// AI_AGENT is only evidence when its value names Claude Code, so it joins
-	// the candidate list conditionally; PresentNames still does the sorting.
-	names := []string{"CLAUDECODE", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_CHILD_SESSION"}
-	if isAIAgent {
-		names = append(names, "AI_AGENT")
-	}
+	entrypoint, _ := r.value("CLAUDE_CODE_ENTRYPOINT")
+	nested, _ := r.boolean("CLAUDE_CODE_CHILD_SESSION")
 	return Detection{
 		SessionID:  sessionID,
 		Entrypoint: entrypoint,
-		Nested:     childSession,
-		Evidence:   PresentNames(env, names...),
+		Nested:     nested,
+		Axis:       Axis{Evidence: r.evidence()},
 	}, true
 }
 
 func detectCursor(env Env) (Detection, bool) {
-	if _, ok := Value(env, "CURSOR_AGENT"); !ok {
+	r := newReader(env)
+	if _, ok := r.value("CURSOR_AGENT"); !ok {
 		return Detection{}, false
 	}
-	return Detection{
-		Evidence: []string{"CURSOR_AGENT"},
-	}, true
+	return Detection{Axis: Axis{Evidence: r.evidence()}}, true
 }
 
 // detectOpenCode identifies OpenCode running as an ACP client. OpenCode has no
 // general execution marker, so this covers ACP invocations only and is reported
 // as a supporting signal rather than proof.
 func detectOpenCode(env Env) (Detection, bool) {
-	if !EqualsFold(env, "OPENCODE_CLIENT", "acp") {
+	r := newReader(env)
+	if !r.equalsFold("OPENCODE_CLIENT", "acp") {
 		return Detection{}, false
 	}
 	return Detection{
-		Confidence: ConfidenceProbable,
 		Entrypoint: "acp",
-		Evidence:   []string{"OPENCODE_CLIENT"},
+		Axis: Axis{
+			Confidence: ConfidenceProbable,
+			Evidence:   r.evidence(),
+		},
 	}, true
 }
 
 func detectAmp(env Env) (Detection, bool) {
-	threadID, hasThreadID := Value(env, "AMP_THREAD_ID")
-	if !IsTrue(env, "AMP_ORB") && !hasThreadID {
+	r := newReader(env)
+	orb := r.isTrue("AMP_ORB")
+	threadID, hasThreadID := r.value("AMP_THREAD_ID")
+	if !orb && !hasThreadID {
 		return Detection{}, false
 	}
 
@@ -230,27 +224,21 @@ func detectAmp(env Env) (Detection, bool) {
 	return Detection{
 		SessionID:  threadID,
 		Entrypoint: entrypoint,
-		Evidence:   PresentNames(env, "AMP_ORB", "AMP_THREAD_ID"),
+		Axis:       Axis{Evidence: r.evidence()},
 	}, true
 }
 
 // detectAntigravity2 identifies a sidecar whose lifecycle Antigravity 2.0
 // manages. Antigravity CLI sets no general execution marker and is not detected.
 func detectAntigravity2(env Env) (Detection, bool) {
-	dataDirectory, ok := Value(env, "ANTIGRAVITY_EXECUTABLE_DATA_DIR")
+	r := newReader(env)
+	dataDirectory, ok := r.value("ANTIGRAVITY_EXECUTABLE_DATA_DIR")
 	if !ok {
 		return Detection{}, false
 	}
 	return Detection{
 		Entrypoint: "sidecar",
 		Paths:      Paths{DataDirectory: dataDirectory},
-		Evidence:   []string{"ANTIGRAVITY_EXECUTABLE_DATA_DIR"},
+		Axis:       Axis{Evidence: r.evidence()},
 	}, true
-}
-
-func boolString(value bool) string {
-	if value {
-		return "true"
-	}
-	return "false"
 }

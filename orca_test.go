@@ -22,7 +22,7 @@ func TestOrcaLayersWithTheAgentItLaunched(t *testing.T) {
 		t.Fatalf("Chain() = %q, want the orchestrator outside the harness", result.Chain())
 	}
 
-	orca, ok := result.Get(runby.AgentOrca)
+	orca, ok := result.Layer(runby.AgentOrca)
 	if !ok || result.Agent() != runby.AgentOrca {
 		t.Fatalf("primary = %q, want %q", result.Agent(), runby.AgentOrca)
 	}
@@ -55,7 +55,7 @@ func TestOrcaLayersWithTheAgentItLaunched(t *testing.T) {
 	}
 
 	// The harness underneath is detected independently, at its own confidence.
-	codex, ok := result.Get(runby.AgentCodex)
+	codex, ok := result.Layer(runby.AgentCodex)
 	if !ok || codex.SessionID != "thread-9" || codex.Confidence != runby.ConfidenceDefinite {
 		t.Fatalf("Codex layer = %#v", codex)
 	}
@@ -71,7 +71,7 @@ func TestOrcaFallsBackToTerminalHandleAndRootPath(t *testing.T) {
 		"ORCA_ROOT_PATH=/work/project",
 	}))
 
-	orca, ok := result.Get(runby.AgentOrca)
+	orca, ok := result.Layer(runby.AgentOrca)
 	if !ok {
 		t.Fatal("Get(AgentOrca) = false")
 	}
@@ -97,7 +97,7 @@ func TestOrcaRequiresAnOwnerAndALocationMarker(t *testing.T) {
 		{"ORCA_WORKTREE_PATH=/work/trees/wt-42", "ORCA_WORKSPACE_NAME=demo"},
 		{"ORCA_USER_DATA_PATH=/home/dev/.orca", "ORCA_CODEX_HOME=/home/dev/.orca/codex"},
 	} {
-		if runby.Detect(runby.WithEnviron(environ)).Has(runby.AgentOrca) {
+		if runby.Detect(runby.WithEnviron(environ)).HasLayer(runby.AgentOrca) {
 			t.Errorf("environ %v detected Orca, want no detection", environ)
 		}
 	}
@@ -109,7 +109,7 @@ func TestOrcaEvidenceNamesTheVariablesItRead(t *testing.T) {
 		"ORCA_WORKTREE_ID=wt-42",
 		"ORCA_ORCHESTRATION_COMPATIBILITY_HOST_KIND=wsl",
 		"ORCA_ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION=Ubuntu-24.04",
-	})).Get(runby.AgentOrca)
+	})).Layer(runby.AgentOrca)
 	if !ok {
 		t.Fatal("Get(AgentOrca) = false")
 	}

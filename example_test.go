@@ -15,7 +15,7 @@ func Example() {
 		"CODEX_SANDBOX_NETWORK_DISABLED=true",
 	}))
 
-	fmt.Println(result.Found())
+	fmt.Println(result.IsAgent())
 	fmt.Println(result.Chain())
 	// Output:
 	// true
@@ -30,18 +30,18 @@ func ExampleResult_HasTerminal() {
 		"TERM_PROGRAM=zed",
 	}))
 
-	fmt.Println(result.Found(), result.HasTerminal(), result.Terminal.Program)
+	fmt.Println(result.IsAgent(), result.HasTerminal(), result.Terminal.Program)
 	// Output: false true zed
 }
 
-func ExampleResult_Get() {
+func ExampleResult_Layer() {
 	result := runby.Detect(runby.WithEnviron([]string{
 		"CODEX_THREAD_ID=thread-123",
 		"CODEX_SANDBOX=workspace-write",
 		"CODEX_SANDBOX_NETWORK_DISABLED=true",
 	}))
 
-	if codex, ok := result.Get(runby.AgentCodex); ok {
+	if codex, ok := result.Layer(runby.AgentCodex); ok {
 		fmt.Println(codex.SessionID, codex.Sandbox.Mode, codex.Sandbox.Network)
 	}
 	// Output: thread-123 workspace-write disabled
@@ -61,7 +61,7 @@ func ExampleWithAgentDrivers() {
 			if !ok {
 				return runby.Detection{}, false
 			}
-			return runby.Detection{AgentID: id, Evidence: runby.PresentNames(env, "ACME_RUN_ID")}, true
+			return runby.Detection{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
 		},
 	}
 

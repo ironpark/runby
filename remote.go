@@ -18,20 +18,11 @@ const (
 
 // String returns the stable slug used across this package, its documentation,
 // and its serialized output.
-func (p RemotePlatform) String() string {
-	if p == "" {
-		return string(RemoteUnknown)
-	}
-	return string(p)
-}
+func (p RemotePlatform) String() string { return slug(p, RemoteUnknown) }
 
 // RemotePlatforms returns every supported platform in detection order.
 func RemotePlatforms() []RemotePlatform {
-	platforms := make([]RemotePlatform, 0, len(builtinRemoteDrivers))
-	for _, driver := range builtinRemoteDrivers {
-		platforms = append(platforms, driver.Platform)
-	}
-	return platforms
+	return mapSlice(builtinRemoteDrivers, func(d RemoteDriver) RemotePlatform { return d.Platform })
 }
 
 // RemoteKind separates a terminal multiplexer from a remote or isolated
@@ -51,23 +42,14 @@ const (
 
 // remoteKinds is derived from the built-in driver table, so a driver is the
 // one place a platform is registered.
-var remoteKinds = func() map[RemotePlatform]RemoteKind {
-	kinds := make(map[RemotePlatform]RemoteKind, len(builtinRemoteDrivers))
-	for _, driver := range builtinRemoteDrivers {
-		kinds[driver.Platform] = driver.Kind
-	}
-	return kinds
-}()
+var remoteKinds = indexBy(builtinRemoteDrivers, func(d RemoteDriver) (RemotePlatform, RemoteKind) {
+	return d.Platform, d.Kind
+})
 
 // Kind reports what a detection of p proves. It returns RemoteKindUnknown for
 // platforms this package does not support; a driver supplied through
 // WithRemoteDrivers carries its own Kind onto the Remote instead.
-func (p RemotePlatform) Kind() RemoteKind {
-	if kind, ok := remoteKinds[p]; ok {
-		return kind
-	}
-	return RemoteKindUnknown
-}
+func (p RemotePlatform) Kind() RemoteKind { return lookupOr(remoteKinds, p, RemoteKindUnknown) }
 
 // Remote is one layer detected between the user and this process.
 //
@@ -90,9 +72,9 @@ func (p RemotePlatform) Kind() RemoteKind {
 //     environment variables. Only a tool that advertises itself, such as
 //     Dev Containers or Codespaces, is visible here.
 type Remote struct {
-	Platform   RemotePlatform `json:"platform"`
-	Kind       RemoteKind     `json:"kind"`
-	Confidence Confidence     `json:"confidence"`
+	Platform RemotePlatform `json:"platform"`
+	Kind     RemoteKind     `json:"kind"`
+	Axis
 
 	// SessionID identifies the multiplexer session, workspace, or distro,
 	// when the platform advertises one.
@@ -103,14 +85,6 @@ type Remote struct {
 	// Detection.AncestorPID, a non-zero value confirms the environment
 	// evidence against a live process, and zero is not a denial.
 	AncestorPID int `json:"ancestor_pid,omitempty"`
-
-	// Extra holds values that only one platform advertises, keyed by
-	// "<platform-slug>.<name>".
-	Extra map[string]string `json:"extra,omitempty"`
-
-	// Evidence lists the environment variable names that produced this
-	// result, sorted. Their values may be sensitive and are never copied.
-	Evidence []string `json:"evidence"`
 }
 
 // IsMultiplexer reports whether this layer is a terminal multiplexer.
@@ -137,7 +111,3 @@ type RemoteDriver struct {
 	// Confidence are filled in by Detect.
 	Detect func(env Env) (Remote, bool)
 }
-
-// IsRemote reports whether any layer was detected between the user and this
-// process, using the cached Current result.
-func IsRemote() bool { return len(Current().Remote) > 0 }

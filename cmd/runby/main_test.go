@@ -57,7 +57,7 @@ func TestIsMatchesTheLibrary(t *testing.T) {
 	// The command must not develop its own opinion about the axes.
 	result := runby.Current()
 	for axis, want := range map[string]bool{
-		"agent":    result.Found(),
+		"agent":    result.IsAgent(),
 		"ci":       result.IsCI(),
 		"terminal": result.HasTerminal(),
 		"remote":   result.IsRemote(),

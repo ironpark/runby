@@ -19,7 +19,7 @@ func TestDetectCurrentEnvironmentPaseoCodex(t *testing.T) {
 	if got, want := result.Chain(), "paseo>codex"; got != want {
 		t.Fatalf("Chain() = %q, want %q: %#v", got, want, result.Layers)
 	}
-	if !result.Found() {
+	if !result.IsAgent() {
 		t.Fatalf("IsAgent() = false: %#v", result.Layers)
 	}
 }
@@ -29,7 +29,7 @@ func TestDetectUnknownStillInspectsTerminal(t *testing.T) {
 	// property of the process, not of a detected layer.
 	result := runby.Detect(runby.WithOnlyAgentDrivers())
 
-	if result.Found() {
+	if result.IsAgent() {
 		t.Fatalf("Found() = true, want false: %#v", result.Layers)
 	}
 	if !result.TTY.Inspected {
@@ -85,7 +85,7 @@ func TestDetectUnknownEnviron(t *testing.T) {
 		"COPILOT_MODEL=gpt-5",
 	}))
 
-	if result.Found() || result.Found() {
+	if result.IsAgent() || result.IsAgent() {
 		t.Fatalf("Found()/IsAgent() = true, want false: %#v", result.Layers)
 	}
 }
@@ -108,7 +108,7 @@ func TestDetectLayers(t *testing.T) {
 	}
 
 	// The orchestrator is primary because it names the logical agent.
-	paseo, ok := result.Get(runby.AgentPaseo)
+	paseo, ok := result.Layer(runby.AgentPaseo)
 	if !ok || result.Agent() != runby.AgentPaseo {
 		t.Fatalf("primary = %q, want %q", result.Agent(), runby.AgentPaseo)
 	}
@@ -119,7 +119,7 @@ func TestDetectLayers(t *testing.T) {
 		t.Fatalf("Paseo classification = %#v", paseo)
 	}
 
-	codex, ok := result.Get(runby.AgentCodex)
+	codex, ok := result.Layer(runby.AgentCodex)
 	if !ok {
 		t.Fatal("Get(AgentCodex) = false")
 	}
@@ -132,14 +132,14 @@ func TestDetectLayers(t *testing.T) {
 	if codex.Extra["codex.ci"] != "true" {
 		t.Fatalf("Extra = %#v", codex.Extra)
 	}
-	if !result.Has(runby.AgentCodex) || result.Has(runby.AgentAmp) {
+	if !result.HasLayer(runby.AgentCodex) || result.HasLayer(runby.AgentAmp) {
 		t.Fatalf("Has is inconsistent: %#v", result.Layers)
 	}
 }
 
 func TestCodexSessionIDFallsBackToSessionVariable(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron([]string{"CODEX_SESSION_ID=session-9"}))
-	codex, ok := result.Get(runby.AgentCodex)
+	codex, ok := result.Layer(runby.AgentCodex)
 	if !ok || codex.SessionID != "session-9" {
 		t.Fatalf("Codex detection = %#v", codex)
 	}
@@ -149,7 +149,7 @@ func TestCodexSandboxOnlyIsProbable(t *testing.T) {
 	// The sandbox variables describe configuration, not a specific run, so
 	// they are a supporting signal rather than an execution marker.
 	result := runby.Detect(runby.WithEnviron([]string{"CODEX_SANDBOX=read-only"}))
-	codex, ok := result.Get(runby.AgentCodex)
+	codex, ok := result.Layer(runby.AgentCodex)
 	if !ok || codex.Confidence != runby.ConfidenceProbable {
 		t.Fatalf("Codex detection = %#v", codex)
 	}
@@ -166,7 +166,7 @@ func TestClaudeCodeDetection(t *testing.T) {
 		"CLAUDE_CODE_CHILD_SESSION=true",
 	}))
 
-	claude, ok := result.Get(runby.AgentClaudeCode)
+	claude, ok := result.Layer(runby.AgentClaudeCode)
 	if !ok {
 		t.Fatal("Get(AgentClaudeCode) = false")
 	}
@@ -180,10 +180,10 @@ func TestClaudeCodeDetection(t *testing.T) {
 }
 
 func TestClaudeCodeAIAgentIsEvidenceOnlyWhenItNamesClaudeCode(t *testing.T) {
-	if got := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=claude-code/2.0"})); !got.Has(runby.AgentClaudeCode) {
+	if got := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=claude-code/2.0"})); !got.HasLayer(runby.AgentClaudeCode) {
 		t.Fatalf("AI_AGENT=claude-code not detected: %#v", got.Layers)
 	}
-	if got := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=some-other-agent"})); got.Found() {
+	if got := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=some-other-agent"})); got.IsAgent() {
 		t.Fatalf("AI_AGENT=some-other-agent detected: %#v", got.Layers)
 	}
 }
@@ -197,7 +197,7 @@ func TestZedIsATerminalNotAnAgent(t *testing.T) {
 		"TERM_PROGRAM_VERSION=0.100.0",
 	}))
 
-	if result.Found() {
+	if result.IsAgent() {
 		t.Fatalf("Found() = true, want false: %#v", result.Layers)
 	}
 	if !result.HasTerminal() || result.Terminal.Program != runby.TerminalZed {
@@ -222,13 +222,13 @@ func TestZedRequiresBothVariables(t *testing.T) {
 
 func TestAmpEntrypoints(t *testing.T) {
 	orb := runby.Detect(runby.WithEnviron([]string{"AMP_ORB=1"}))
-	amp, ok := orb.Get(runby.AgentAmp)
+	amp, ok := orb.Layer(runby.AgentAmp)
 	if !ok || amp.Entrypoint != "orb" || amp.SessionID != "" {
 		t.Fatalf("Amp orb detection = %#v", amp)
 	}
 
 	service := runby.Detect(runby.WithEnviron([]string{"AMP_THREAD_ID=T-1"}))
-	amp, ok = service.Get(runby.AgentAmp)
+	amp, ok = service.Layer(runby.AgentAmp)
 	if !ok || amp.Entrypoint != "orb-service" || amp.SessionID != "T-1" {
 		t.Fatalf("Amp service detection = %#v", amp)
 	}
@@ -236,28 +236,28 @@ func TestAmpEntrypoints(t *testing.T) {
 
 func TestRemainingDetectors(t *testing.T) {
 	cursor := runby.Detect(runby.WithEnviron([]string{"CURSOR_AGENT=1"}))
-	if cursor.Agent() != runby.AgentCursor || !cursor.Found() {
+	if cursor.Agent() != runby.AgentCursor || !cursor.IsAgent() {
 		t.Fatalf("Cursor detection = %#v", cursor.Layers)
 	}
 
 	opencode := runby.Detect(runby.WithEnviron([]string{"OPENCODE_CLIENT=ACP"}))
-	layer, ok := opencode.Get(runby.AgentOpenCode)
+	layer, ok := opencode.Layer(runby.AgentOpenCode)
 	if !ok || layer.Entrypoint != "acp" || layer.Confidence != runby.ConfidenceProbable {
 		t.Fatalf("OpenCode detection = %#v", layer)
 	}
-	if got := runby.Detect(runby.WithEnviron([]string{"OPENCODE_CLIENT=cli"})); got.Found() {
+	if got := runby.Detect(runby.WithEnviron([]string{"OPENCODE_CLIENT=cli"})); got.IsAgent() {
 		t.Fatalf("OPENCODE_CLIENT=cli detected: %#v", got.Layers)
 	}
 
 	antigravity := runby.Detect(runby.WithEnviron([]string{"ANTIGRAVITY_EXECUTABLE_DATA_DIR=/data/ag"}))
-	layer, ok = antigravity.Get(runby.AgentAntigravity2)
+	layer, ok = antigravity.Layer(runby.AgentAntigravity2)
 	if !ok || layer.Paths.DataDirectory != "/data/ag" || layer.Entrypoint != "sidecar" {
 		t.Fatalf("Antigravity detection = %#v", layer)
 	}
 }
 
 func TestEmptyValueIsNotEvidence(t *testing.T) {
-	if got := runby.Detect(runby.WithEnviron([]string{"PASEO_AGENT_ID=   "})); got.Found() {
+	if got := runby.Detect(runby.WithEnviron([]string{"PASEO_AGENT_ID=   "})); got.IsAgent() {
 		t.Fatalf("blank PASEO_AGENT_ID detected: %#v", got.Layers)
 	}
 }
@@ -273,7 +273,7 @@ func TestWithLookupAndLastValueWins(t *testing.T) {
 	}
 
 	dup := runby.Detect(runby.WithEnviron([]string{"PASEO_AGENT_ID=first", "PASEO_AGENT_ID=second"}))
-	paseo, _ := dup.Get(runby.AgentPaseo)
+	paseo, _ := dup.Layer(runby.AgentPaseo)
 	if paseo.AgentID != "second" {
 		t.Fatalf("AgentID = %q, want %q", paseo.AgentID, "second")
 	}
@@ -289,7 +289,7 @@ func TestWithAgentDriversTakePrecedence(t *testing.T) {
 			if !ok {
 				return runby.Detection{}, false
 			}
-			return runby.Detection{AgentID: id, Evidence: runby.PresentNames(env, "ACME_RUN_ID")}, true
+			return runby.Detection{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
 		},
 	}
 
@@ -308,7 +308,7 @@ func TestWithAgentDriversTakePrecedence(t *testing.T) {
 		primary.AgentID != "run-7" || primary.Confidence != runby.ConfidenceDefinite {
 		t.Fatalf("primary = %#v", primary)
 	}
-	if !result.Found() {
+	if !result.IsAgent() {
 		t.Fatal("IsAgent() = false, want true")
 	}
 }
@@ -335,7 +335,7 @@ func TestCurrentIsCached(t *testing.T) {
 	if !reflect.DeepEqual(runby.Current(), runby.Current()) {
 		t.Fatal("Current() is not stable")
 	}
-	if runby.IsAgent() != runby.Current().Found() {
+	if runby.IsAgent() != runby.Current().IsAgent() {
 		t.Fatal("IsAgent() disagrees with Current()")
 	}
 }

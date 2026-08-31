@@ -7,9 +7,9 @@
 ```go
 result := runby.Detect()
 result.IsRemote()                      // 낀 계층이 있는가
-result.HasRemote(runby.RemoteSSH)      // 특정 계층
-result.GetRemote(runby.RemoteTmux)     // (Remote, bool)
-result.Multiplexer()                   // (Remote, bool) — 잔존 위험의 주 원인
+result.HasRemoteLayer(runby.RemoteSSH)  // 특정 계층
+result.RemoteLayer(runby.RemoteTmux)    // (Remote, bool)
+result.Multiplexer()                    // (Remote, bool) — 잔존 위험의 주 원인
 ```
 
 | 계층 | `RemotePlatform` | `Kind` | 마커 |

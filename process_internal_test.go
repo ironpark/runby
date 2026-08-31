@@ -105,18 +105,17 @@ func TestTruncatedNamesMatchByPrefix(t *testing.T) {
 	full := "gnome-terminal-server"
 	truncated := full[:proc.CommLimit]
 
-	if label, ok := labels.find(procInfo{Name: truncated, Truncated: true}); !ok ||
-		label.Terminal != TerminalGNOMETerminal {
+	if label := labels.find(procInfo{Name: truncated, Truncated: true}); label.Terminal != TerminalGNOMETerminal {
 		t.Fatalf("truncated %q did not resolve to GNOME Terminal: %#v", truncated, label)
 	}
 	// The same prefix without the flag must not match: a process really named
 	// "gnome-terminal" is not the server.
-	if _, ok := labels.find(procInfo{Name: truncated}); ok {
-		t.Errorf("%q matched without the truncation flag", truncated)
+	if label := labels.find(procInfo{Name: truncated}); label != (Process{}) {
+		t.Errorf("%q matched without the truncation flag: %#v", truncated, label)
 	}
 	// An ambiguous prefix names no single product, so it labels nothing.
 	ambiguous := executableLabels{"aaa-one": {Agent: AgentCodex}, "aaa-two": {Agent: AgentAmp}}
-	if _, ok := ambiguous.find(procInfo{Name: "aaa", Truncated: true}); ok {
-		t.Error("an ambiguous prefix produced a label")
+	if label := ambiguous.find(procInfo{Name: "aaa", Truncated: true}); label != (Process{}) {
+		t.Errorf("an ambiguous prefix produced a label: %#v", label)
 	}
 }

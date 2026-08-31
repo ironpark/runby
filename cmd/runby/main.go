@@ -99,7 +99,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 // axes maps the "is" subcommand's arguments to the question each asks. They
 // are the same questions the library's cached entry points answer.
 var axes = map[string]func(runby.Result) bool{
-	"agent":    func(r runby.Result) bool { return r.Found() },
+	"agent":    func(r runby.Result) bool { return r.IsAgent() },
 	"ci":       func(r runby.Result) bool { return r.IsCI() },
 	"terminal": func(r runby.Result) bool { return r.HasTerminal() },
 	"remote":   func(r runby.Result) bool { return r.IsRemote() },
@@ -140,7 +140,7 @@ func report(w io.Writer, result runby.Result, verbose bool) {
 	}
 
 	// Agent.
-	if !result.Found() {
+	if !result.IsAgent() {
 		line("agent", "감지되지 않음", nil)
 	} else {
 		line("agent", result.Chain(), nil)

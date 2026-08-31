@@ -44,45 +44,57 @@ type Result struct {
 	Remote   []Remote    // 동시에 여러 계층이 존재할 수 있음
 }
 
-result.Found()                  // AI 에이전트가 실행했는가
-result.Agent()                  // 최상위 레이어의 Agent, 없으면 AgentUnknown
-result.Primary()                // (Detection, bool)
-result.Get(runby.AgentCodex)    // (Detection, bool)
-result.Has(runby.AgentCodex)    // bool
-result.Chain()                  // "paseo>codex", 감지 실패 시 "unknown"
-result.IsCI()                   // CI 잡에서 도는가
-result.HasTerminal()            // 터미널 에뮬레이터를 식별했는가
-result.IsRemote()               // 낀 계층이 있는가
-result.HasRemote(runby.RemoteSSH)
-result.GetRemote(runby.RemoteTmux)
-result.Multiplexer()            // (Remote, bool) — 잔존 위험의 주 원인
+// 축 술어 넷은 이름을 맞춰 두었습니다.
+result.IsAgent()                       // AI 에이전트가 실행했는가
+result.IsCI()                          // CI 잡에서 도는가
+result.HasTerminal()                   // 터미널 에뮬레이터를 식별했는가
+result.IsRemote()                      // 낀 계층이 있는가
+
+// 특정 제품이 계층에 있는지는 다른 질문이라 이름도 다릅니다.
+result.Layer(runby.AgentCodex)         // (Detection, bool)
+result.HasLayer(runby.AgentCodex)      // bool
+result.RemoteLayer(runby.RemoteTmux)   // (Remote, bool)
+result.HasRemoteLayer(runby.RemoteSSH) // bool
+
+result.Agent()                         // 최상위 레이어의 Agent, 없으면 AgentUnknown
+result.Primary()                       // (Detection, bool)
+result.Chain()                         // "paseo>codex", 감지 실패 시 "unknown"
+result.Multiplexer()                   // (Remote, bool) — 잔존 위험의 주 원인
 ```
 
 ## Detection
 
 ```go
-type Detection struct {
-	Agent      Agent
-	Kind       Kind
+// Axis는 네 축의 결과가 공통으로 지니는 부분이며, 임베드되어 있습니다.
+// 임베드이므로 직렬화 형태는 평평합니다 — JSON은 아래 필드를 그대로 갖습니다.
+type Axis struct {
 	Confidence Confidence
+	Extra      map[string]string // 단일 제품 전용 값. 키는 "<slug>.<name>"
+	Evidence   []string          // 감지에 사용한 변수 "이름"만
+}
 
-	SessionID  string  // 대화/스레드 식별자
-	AgentID    string  // 오케스트레이터의 논리적 에이전트 식별자
-	Entrypoint string  // "cli", "acp", "sidecar" 등 제품 자체 용어
-	Nested     bool    // 최상위 세션이 아닌 자식 세션
+type Detection struct {
+	Agent Agent
+	Kind  Kind
+	Axis
 
-	Sandbox Sandbox           // {Mode string, Network Network}
-	Paths   Paths             // {WorkingDirectory, DataDirectory}
-	Extra   map[string]string // 단일 에이전트 전용 값. 키는 "<slug>.<name>"
+	SessionID  string // 대화/스레드 식별자
+	AgentID    string // 오케스트레이터의 논리적 에이전트 식별자
+	Entrypoint string // "cli", "acp", "sidecar" 등 제품 자체 용어
+	Nested     bool   // 최상위 세션이 아닌 자식 세션
 
-	Evidence    []string // 감지에 사용한 변수 "이름"만
-	AncestorPID int      // 살아 있는 조상으로 확인되면 그 PID
+	Sandbox Sandbox // {Mode string, Network Network}
+	Paths   Paths   // {WorkingDirectory, DataDirectory}
+
+	AncestorPID int // 살아 있는 조상으로 확인되면 그 PID
 }
 ```
 
 모든 필드에 JSON 태그가 있어 로그·텔레메트리로 그대로 직렬화할 수 있습니다.
 
-`Extra`는 한 에이전트만 광고하는 값을 담아 공용 필드가 무한정 늘어나지 않게 합니다. 현재 키는 `codex.ci`와 `orca.*` 계열입니다.
+`Axis`는 `CI`, `Terminal`, `Remote`에도 똑같이 임베드되어 있어, 어느 축의 결과든 `Confidence`·`Extra`·`Evidence`를 같은 이름으로 읽을 수 있습니다. `AncestorPID`는 `Axis`에 없습니다 — CI 잡은 이 프로세스가 파생된 프로세스가 아니라 러너 위의 작업이라 조상 체인에 대조할 대상이 없기 때문입니다.
+
+`Extra`는 한 제품만 광고하는 값을 담아 공용 필드가 무한정 늘어나지 않게 합니다. 현재 키는 `codex.ci`와 `orca.*` 계열입니다.
 
 **`Evidence`에는 변수 이름만 들어갑니다.** 값은 민감할 수 있으므로 어떤 경우에도 복사하지 않습니다. 이 규칙은 네 축 전부에 동일하게 적용됩니다.
 
@@ -96,10 +108,10 @@ type Detection struct {
 
 ```go
 runby.Current()     // Detect()를 1회만 계산해 캐시
-runby.IsAgent()     // Current().Found()
-runby.IsCI()        // Current().CI.Detected
-runby.HasTerminal() // Current().Terminal.Detected
-runby.IsRemote()    // len(Current().Remote) > 0
+runby.IsAgent()     // Current().IsAgent()
+runby.IsCI()        // Current().IsCI()
+runby.HasTerminal() // Current().HasTerminal()
+runby.IsRemote()    // Current().IsRemote()
 ```
 
 첫 호출 이후의 `os.Setenv`를 반영하려면 `Detect()`를 직접 부르십시오.
@@ -118,7 +130,7 @@ acme := runby.AgentDriver{
 		if !ok {
 			return runby.Detection{}, false
 		}
-		return runby.Detection{AgentID: id, Evidence: runby.PresentNames(env, "ACME_RUN_ID")}, true
+		return runby.Detection{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
 	},
 }
 

@@ -284,27 +284,17 @@ func (spec ciSpec) detect(env Env) (CI, bool) {
 	result.Attempt = parseAttempt(env, spec.attempt, spec.attemptOffset)
 	values.add(spec.attempt)
 
-	result.Confidence = values.confidence
-	result.Extra = values.extra
-	result.Evidence = values.evidence(env)
+	values.apply(env, &result.Axis)
 	return result, true
 }
 
 // builtinCIDrivers is ordered from the most specific platform to the generic
 // CI convention. Detect reports the first match.
-var builtinCIDrivers = func() []CIDriver {
-	drivers := make([]CIDriver, 0, len(ciSpecs))
-	for _, spec := range ciSpecs {
-		drivers = append(drivers, CIDriver{Provider: spec.provider, Detect: spec.detect})
-	}
-	return drivers
-}()
+var builtinCIDrivers = mapSlice(ciSpecs, func(spec ciSpec) CIDriver {
+	return CIDriver{Provider: spec.provider, Detect: spec.detect}
+})
 
 // CIDrivers returns the built-in CI drivers in precedence order. The returned
 // slice is a copy and may be reordered, filtered, or adjusted before being
 // passed back through WithOnlyCIDrivers.
-func CIDrivers() []CIDriver {
-	drivers := make([]CIDriver, len(builtinCIDrivers))
-	copy(drivers, builtinCIDrivers)
-	return drivers
-}
+func CIDrivers() []CIDriver { return cloneSlice(builtinCIDrivers) }

@@ -232,7 +232,7 @@ func TestTerminalMultiplexerWithoutEmulatorIdentity(t *testing.T) {
 	if result.HasTerminal() {
 		t.Fatalf("Terminal = %#v, want undetected", result.Terminal)
 	}
-	if !result.HasRemote(runby.RemoteTmux) {
+	if !result.HasRemoteLayer(runby.RemoteTmux) {
 		t.Fatalf("Remote = %#v", result.Remote)
 	}
 }
@@ -244,7 +244,7 @@ func TestTerminalIsIndependentOfAgentAndCI(t *testing.T) {
 		"GITHUB_ACTIONS=true", "GITHUB_RUN_ID=1",
 		"TERM_PROGRAM=ghostty",
 	}))
-	if !result.Found() || !result.IsCI() || !result.HasTerminal() {
+	if !result.IsAgent() || !result.IsCI() || !result.HasTerminal() {
 		t.Fatalf("result = %#v", result)
 	}
 	if result.Chain() != "claude-code" {
@@ -272,7 +272,7 @@ func TestWithTerminalDrivers(t *testing.T) {
 			if !ok {
 				return runby.Terminal{}, false
 			}
-			return runby.Terminal{SessionID: id, Evidence: runby.PresentNames(env, "ACME_TERM_SESSION")}, true
+			return runby.Terminal{SessionID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_TERM_SESSION")}}, true
 		},
 	}
 

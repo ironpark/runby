@@ -219,31 +219,21 @@ func (spec terminalSpec) detect(env Env) (Terminal, bool) {
 	result.Term, _ = Value(env, "TERM")
 	values.add("TERM")
 
-	result.Confidence = values.confidence
-	result.Extra = values.extra
-	result.Evidence = values.evidence(env)
+	values.apply(env, &result.Axis)
 	return result, true
 }
 
 // builtinTerminalDrivers is ordered from the most product-specific terminal to
 // the generic VTE family. Detect reports the first match.
-var builtinTerminalDrivers = func() []TerminalDriver {
-	drivers := make([]TerminalDriver, 0, len(terminalSpecs))
-	for _, spec := range terminalSpecs {
-		drivers = append(drivers, TerminalDriver{
-			Program:     spec.program,
-			Executables: spec.executables,
-			Detect:      spec.detect,
-		})
+var builtinTerminalDrivers = mapSlice(terminalSpecs, func(spec terminalSpec) TerminalDriver {
+	return TerminalDriver{
+		Program:     spec.program,
+		Executables: spec.executables,
+		Detect:      spec.detect,
 	}
-	return drivers
-}()
+})
 
 // TerminalDrivers returns the built-in terminal drivers in precedence order.
 // The returned slice is a copy and may be reordered, filtered, or adjusted
 // before being passed back through WithOnlyTerminalDrivers.
-func TerminalDrivers() []TerminalDriver {
-	drivers := make([]TerminalDriver, len(builtinTerminalDrivers))
-	copy(drivers, builtinTerminalDrivers)
-	return drivers
-}
+func TerminalDrivers() []TerminalDriver { return cloneSlice(builtinTerminalDrivers) }

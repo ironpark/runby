@@ -165,33 +165,23 @@ func (spec remoteSpec) detect(env Env) (Remote, bool) {
 		return Remote{}, false
 	}
 
-	result.Confidence = values.confidence
-	result.Extra = values.extra
-	result.Evidence = values.evidence(env)
+	values.apply(env, &result.Axis)
 	return result, true
 }
 
 // builtinRemoteDrivers is in detection order. Unlike the agent axis, every
 // matching driver is reported: an SSH session into a Codespace running tmux is
 // three concurrent layers, not a precedence contest.
-var builtinRemoteDrivers = func() []RemoteDriver {
-	drivers := make([]RemoteDriver, 0, len(remoteSpecs))
-	for _, spec := range remoteSpecs {
-		drivers = append(drivers, RemoteDriver{
-			Platform:    spec.platform,
-			Kind:        spec.kind,
-			Executables: spec.executables,
-			Detect:      spec.detect,
-		})
+var builtinRemoteDrivers = mapSlice(remoteSpecs, func(spec remoteSpec) RemoteDriver {
+	return RemoteDriver{
+		Platform:    spec.platform,
+		Kind:        spec.kind,
+		Executables: spec.executables,
+		Detect:      spec.detect,
 	}
-	return drivers
-}()
+})
 
 // RemoteDrivers returns the built-in remote drivers in detection order. The
 // returned slice is a copy and may be reordered, filtered, or adjusted before
 // being passed back through WithOnlyRemoteDrivers.
-func RemoteDrivers() []RemoteDriver {
-	drivers := make([]RemoteDriver, len(builtinRemoteDrivers))
-	copy(drivers, builtinRemoteDrivers)
-	return drivers
-}
+func RemoteDrivers() []RemoteDriver { return cloneSlice(builtinRemoteDrivers) }

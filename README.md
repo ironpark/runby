@@ -37,7 +37,7 @@ if runby.IsCI() {
 ```go
 result := runby.Detect()
 
-result.Found()                 // AI 에이전트가 실행했는가
+result.IsAgent()               // AI 에이전트가 실행했는가
 result.Chain()                 // "paseo>codex"
 result.CI.Provider             // "github-actions"
 result.Terminal.Program        // "ghostty"

@@ -61,40 +61,22 @@ type AgentDriver struct {
 
 // agentKinds is derived from the built-in driver table, so a driver is the one
 // place an agent is registered.
-var agentKinds = func() map[Agent]Kind {
-	kinds := make(map[Agent]Kind, len(builtinAgentDrivers))
-	for _, driver := range builtinAgentDrivers {
-		kinds[driver.Agent] = driver.Kind
-	}
-	return kinds
-}()
+var agentKinds = indexBy(builtinAgentDrivers, func(d AgentDriver) (Agent, Kind) {
+	return d.Agent, d.Kind
+})
 
 // Kind reports how much a detection of a proves. It returns KindUnknown for
 // agents this package does not support; a driver supplied through
 // WithAgentDrivers carries its own Kind onto the Detection instead.
-func (a Agent) Kind() Kind {
-	if kind, ok := agentKinds[a]; ok {
-		return kind
-	}
-	return KindUnknown
-}
+func (a Agent) Kind() Kind { return lookupOr(agentKinds, a, KindUnknown) }
 
 // String returns the stable slug used across this package, its documentation,
 // and its serialized output.
-func (a Agent) String() string {
-	if a == "" {
-		return string(AgentUnknown)
-	}
-	return string(a)
-}
+func (a Agent) String() string { return slug(a, AgentUnknown) }
 
 // Agents returns every supported agent in detection precedence order.
 func Agents() []Agent {
-	agents := make([]Agent, 0, len(builtinAgentDrivers))
-	for _, driver := range builtinAgentDrivers {
-		agents = append(agents, driver.Agent)
-	}
-	return agents
+	return mapSlice(builtinAgentDrivers, func(d AgentDriver) Agent { return d.Agent })
 }
 
 // Confidence records how directly the evidence ties the process to the agent.

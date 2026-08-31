@@ -4,10 +4,10 @@
 
 ```go
 result := runby.Detect()
-result.Found()                // AI 에이전트가 실행했는가
-result.Chain()                // "paseo>codex", 감지 실패 시 "unknown"
-result.Agent()                // 최상위 레이어의 Agent
-result.Get(runby.AgentCodex)  // (Detection, bool)
+result.IsAgent()               // AI 에이전트가 실행했는가
+result.Chain()                 // "paseo>codex", 감지 실패 시 "unknown"
+result.Agent()                 // 최상위 레이어의 Agent
+result.Layer(runby.AgentCodex) // (Detection, bool)
 ```
 
 API 키와 일반 설정 변수는 에이전트가 프로세스를 실행했다는 증거가 아니므로 감지에 사용하지 않습니다.
@@ -29,7 +29,7 @@ Antigravity CLI, GitHub Copilot CLI, Junie, 일반 OpenCode CLI는 공식적으�
 
 ## Kind: 오케스트레이터인가, 하네스인가
 
-`KindOrchestrator`는 하위 에이전트를 관리하며 자신의 에이전트 ID를 광고하는 제품(Paseo, Orca), `KindHarness`는 모델이 요청한 명령을 실행하는 런타임입니다. 둘 다 **AI 에이전트가 이 프로세스를 실행했다는 증거**이므로 `Found()`가 그대로 그 질문의 답이 됩니다.
+`KindOrchestrator`는 하위 에이전트를 관리하며 자신의 에이전트 ID를 광고하는 제품(Paseo, Orca), `KindHarness`는 모델이 요청한 명령을 실행하는 런타임입니다. 둘 다 **AI 에이전트가 이 프로세스를 실행했다는 증거**이므로 `IsAgent()`가 그대로 그 질문의 답이 됩니다.
 
 터미널을 소유한다는 사실은 에이전트 실행의 증거가 아닙니다. Zed는 Agent 전용 신호가 없어 이 축이 아니라 [터미널 축](terminal.md)(`Terminal.Program == TerminalZed`)으로 보고합니다.
 
@@ -39,7 +39,7 @@ Paseo가 Codex를 구동했다면 `Layers`에 둘 다 들어가고, 명시적인
 
 ```go
 result := runby.Detect()
-if codex, ok := result.Get(runby.AgentCodex); ok && codex.Sandbox.Network == runby.NetworkDisabled {
+if codex, ok := result.Layer(runby.AgentCodex); ok && codex.Sandbox.Network == runby.NetworkDisabled {
 	skipNetworkTests()
 }
 ```
@@ -62,7 +62,7 @@ acme := runby.AgentDriver{
 		if !ok {
 			return runby.Detection{}, false
 		}
-		return runby.Detection{AgentID: id, Evidence: runby.PresentNames(env, "ACME_RUN_ID")}, true
+		return runby.Detection{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
 	},
 }
 

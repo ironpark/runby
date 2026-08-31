@@ -31,21 +31,12 @@ const (
 
 // String returns the stable slug used across this package, its documentation,
 // and its serialized output.
-func (p TerminalProgram) String() string {
-	if p == "" {
-		return string(TerminalUnknown)
-	}
-	return string(p)
-}
+func (p TerminalProgram) String() string { return slug(p, TerminalUnknown) }
 
 // TerminalPrograms returns every supported terminal in detection precedence
 // order.
 func TerminalPrograms() []TerminalProgram {
-	programs := make([]TerminalProgram, 0, len(builtinTerminalDrivers))
-	for _, driver := range builtinTerminalDrivers {
-		programs = append(programs, driver.Program)
-	}
-	return programs
+	return mapSlice(builtinTerminalDrivers, func(d TerminalDriver) TerminalProgram { return d.Program })
 }
 
 // Terminal identifies the terminal emulator that produced this environment.
@@ -77,9 +68,9 @@ func TerminalPrograms() []TerminalProgram {
 // Treat Terminal as context for presentation decisions, never as a trust
 // boundary.
 type Terminal struct {
-	Detected   bool            `json:"detected"`
-	Program    TerminalProgram `json:"program"`
-	Confidence Confidence      `json:"confidence"`
+	Detected bool            `json:"detected"`
+	Program  TerminalProgram `json:"program"`
+	Axis
 
 	// Version is the emulator version it advertised, in its own format.
 	Version string `json:"version,omitempty"`
@@ -103,14 +94,6 @@ type Terminal struct {
 	// Detection.AncestorPID, a non-zero value confirms the environment
 	// evidence against a live process, and zero is not a denial.
 	AncestorPID int `json:"ancestor_pid,omitempty"`
-
-	// Extra holds values that only one terminal advertises, keyed by
-	// "<terminal-slug>.<name>".
-	Extra map[string]string `json:"extra,omitempty"`
-
-	// Evidence lists the environment variable names that produced this
-	// result, sorted. Their values may be sensitive and are never copied.
-	Evidence []string `json:"evidence"`
 }
 
 // TerminalDriver detects one terminal emulator. It is the unit of extension

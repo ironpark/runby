@@ -24,21 +24,12 @@ const (
 
 // String returns the stable slug used across this package, its documentation,
 // and its serialized output.
-func (p CIProvider) String() string {
-	if p == "" {
-		return string(CIProviderUnknown)
-	}
-	return string(p)
-}
+func (p CIProvider) String() string { return slug(p, CIProviderUnknown) }
 
 // CIProviders returns every supported provider in detection precedence order.
 // CIProviderGeneric is last because it is the fallback.
 func CIProviders() []CIProvider {
-	providers := make([]CIProvider, 0, len(builtinCIDrivers))
-	for _, driver := range builtinCIDrivers {
-		providers = append(providers, driver.Provider)
-	}
-	return providers
+	return mapSlice(builtinCIDrivers, func(d CIDriver) CIProvider { return d.Provider })
 }
 
 // CI describes the continuous integration run that owns this process.
@@ -48,9 +39,9 @@ func CIProviders() []CIProvider {
 // both a KindHarness layer and a CI result. Kind answers who requested the
 // command; CI answers where it runs.
 type CI struct {
-	Detected   bool       `json:"detected"`
-	Provider   CIProvider `json:"provider"`
-	Confidence Confidence `json:"confidence"`
+	Detected bool       `json:"detected"`
+	Provider CIProvider `json:"provider"`
+	Axis
 
 	// PipelineID is the platform's identifier for the whole run, called a
 	// run, build, or pipeline depending on the platform.
@@ -72,14 +63,6 @@ type CI struct {
 	Trigger string `json:"trigger,omitempty"`
 	// Runner names the machine or agent executing the job.
 	Runner string `json:"runner,omitempty"`
-
-	// Extra holds values that only one platform advertises, keyed by
-	// "<provider-slug>.<name>".
-	Extra map[string]string `json:"extra,omitempty"`
-
-	// Evidence lists the environment variable names that produced this
-	// result, sorted. Their values may be sensitive and are never copied.
-	Evidence []string `json:"evidence"`
 }
 
 // CIDriver detects one CI platform. It is the unit of extension for this
@@ -99,10 +82,6 @@ type CIDriver struct {
 	// and a missing Confidence are filled in by Detect.
 	Detect func(env Env) (CI, bool)
 }
-
-// IsCI reports whether this process is running in a CI job, using the cached
-// Current result.
-func IsCI() bool { return Current().CI.Detected }
 
 // parseAttempt reads a 1-based attempt counter, adding offset first so that
 // platforms exposing a 0-based retry count normalize to the same form.

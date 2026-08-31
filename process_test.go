@@ -66,11 +66,11 @@ func TestWithProcessTreeCorroboratesAgents(t *testing.T) {
 		runby.WithProcessTree(tree),
 	)
 
-	paseo, _ := result.Get(runby.AgentPaseo)
+	paseo, _ := result.Layer(runby.AgentPaseo)
 	if paseo.AncestorPID != 300 {
 		t.Fatalf("Paseo AncestorPID = %d, want 300", paseo.AncestorPID)
 	}
-	claude, _ := result.Get(runby.AgentClaudeCode)
+	claude, _ := result.Layer(runby.AgentClaudeCode)
 	if claude.AncestorPID != 200 {
 		t.Fatalf("Claude Code AncestorPID = %d, want 200", claude.AncestorPID)
 	}
@@ -89,8 +89,8 @@ func TestAncestorPIDZeroIsNotADenial(t *testing.T) {
 		}),
 	)
 
-	claude, ok := result.Get(runby.AgentClaudeCode)
-	if !ok || !result.Found() {
+	claude, ok := result.Layer(runby.AgentClaudeCode)
+	if !ok || !result.IsAgent() {
 		t.Fatalf("detection was suppressed: %#v", result.Layers)
 	}
 	if claude.AncestorPID != 0 {
@@ -136,7 +136,7 @@ func TestProcessTreeSurvivesJSON(t *testing.T) {
 			Ancestors: []runby.Process{{PID: 7, PPID: 1, Name: "codex", Path: "/usr/local/bin/codex", Agent: runby.AgentCodex}},
 		}),
 	)
-	codex, _ := result.Get(runby.AgentCodex)
+	codex, _ := result.Layer(runby.AgentCodex)
 	if codex.AncestorPID != 7 {
 		t.Fatalf("AncestorPID = %d, want 7", codex.AncestorPID)
 	}
@@ -163,7 +163,7 @@ func TestCustomDriverGetsAncestorCorroboration(t *testing.T) {
 		}),
 	)
 
-	layer, ok := result.Get(acme)
+	layer, ok := result.Layer(acme)
 	if !ok {
 		t.Fatalf("custom agent not detected: %#v", result.Layers)
 	}
@@ -205,7 +205,7 @@ func TestTerminalAndRemoteAreCorroboratedToo(t *testing.T) {
 	if result.Terminal.AncestorPID != 10 {
 		t.Fatalf("Terminal.AncestorPID = %d, want 10", result.Terminal.AncestorPID)
 	}
-	tmux, ok := result.GetRemote(runby.RemoteTmux)
+	tmux, ok := result.RemoteLayer(runby.RemoteTmux)
 	if !ok || tmux.AncestorPID != 20 {
 		t.Fatalf("tmux layer = %#v, want AncestorPID 20", tmux)
 	}

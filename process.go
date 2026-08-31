@@ -62,6 +62,17 @@ func (t ProcessTree) FindAgent(agent Agent) (Process, bool) {
 	return t.Find(func(p Process) bool { return p.Agent == agent })
 }
 
+// pidOf returns the PID of the nearest matching ancestor, or 0 when there is
+// none. Every axis that can be corroborated against a live process reports it
+// that way, so the zero-means-none convention is expressed once.
+func (t ProcessTree) pidOf(match func(Process) bool) int {
+	process, ok := t.Find(match)
+	if !ok {
+		return 0
+	}
+	return process.PID
+}
+
 // executableLabels collects the name-to-product mapping from a set of drivers.
 // Building it per Detect call rather than once at init is what lets a driver
 // supplied through WithAgentDrivers and its siblings be corroborated exactly
@@ -77,12 +88,12 @@ func (labels executableLabels) add(executables []string, label Process) {
 // find returns the label for an executable name. A truncated name is matched
 // as a prefix, because Linux caps /proc/<pid>/comm and the full name is
 // unreadable for a process owned by another user.
-func (labels executableLabels) find(info procInfo) (Process, bool) {
+func (labels executableLabels) find(info procInfo) Process {
 	if label, ok := labels[info.Name]; ok {
-		return label, true
+		return label
 	}
 	if !info.Truncated {
-		return Process{}, false
+		return Process{}
 	}
 	var match Process
 	found := 0
@@ -91,11 +102,22 @@ func (labels executableLabels) find(info procInfo) (Process, bool) {
 			match, found = label, found+1
 		}
 	}
-	// An ambiguous prefix names no single product, so it labels nothing.
-	if found == 1 {
-		return match, true
+	// An ambiguous prefix names no single product, so it labels nothing. A
+	// miss yields the zero Process, so a caller needs no second branch and a
+	// new label field needs no change here.
+	if found != 1 {
+		return Process{}
 	}
-	return Process{}, false
+	return match
+}
+
+// describe turns one ancestor into a labelled Process. It is the single place
+// the two facts are joined, so a chain that was read and one that was injected
+// are described identically.
+func (labels executableLabels) describe(info procInfo) Process {
+	process := labels.find(info)
+	process.PID, process.PPID, process.Name, process.Path = info.PID, info.PPID, info.Name, info.Path
+	return process
 }
 
 // procInfo is the shape inspectProcessTree needs from internal/proc, named
@@ -117,14 +139,7 @@ func inspectProcessTree(labels executableLabels) ProcessTree {
 		return tree
 	}
 
-	tree.Ancestors = make([]Process, 0, len(ancestors))
-	for _, info := range ancestors {
-		// A miss yields the zero Process, so the labels stay empty without a
-		// second branch, and a new label field needs no change here.
-		process, _ := labels.find(info)
-		process.PID, process.PPID, process.Name, process.Path = info.PID, info.PPID, info.Name, info.Path
-		tree.Ancestors = append(tree.Ancestors, process)
-	}
+	tree.Ancestors = mapSlice(ancestors, labels.describe)
 	return tree
 }
 
@@ -134,12 +149,10 @@ func labelProcessTree(tree ProcessTree, labels executableLabels) ProcessTree {
 	if len(tree.Ancestors) == 0 {
 		return tree
 	}
-	labelled := make([]Process, len(tree.Ancestors))
-	for i, process := range tree.Ancestors {
-		label, _ := labels.find(procInfo{Name: process.Name})
-		label.PID, label.PPID, label.Name, label.Path = process.PID, process.PPID, process.Name, process.Path
-		labelled[i] = label
-	}
-	tree.Ancestors = labelled
+	tree.Ancestors = mapSlice(tree.Ancestors, func(p Process) Process {
+		// An injected chain carries no truncation flag, so it is described
+		// from the same fields a read one exposes.
+		return labels.describe(procInfo{PID: p.PID, PPID: p.PPID, Name: p.Name, Path: p.Path})
+	})
 	return tree
 }

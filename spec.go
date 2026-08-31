@@ -7,10 +7,23 @@ import "strings"
 // differ, so those products are declared as data rather than as one function
 // each, and the part of that data every axis shares lives here.
 //
-// The agent axis is deliberately not spec-driven. Its rules are irregular —
-// confidence that depends on which variable matched, values derived rather
-// than copied, evidence that counts only when a value matches — so most agents
-// would need an escape hatch anyway. They are written as functions.
+// The agent axis is deliberately not spec-driven, and the reason is about this
+// file rather than about the agents. specField binds one variable name to one
+// string field, which is all the three axes here ever need. Agents need more:
+// a preferred source with a fallback (Orca's worktree then its repository,
+// Codex's thread then its session), a field set to a constant rather than read
+// (OpenCode's "acp", Antigravity's "sidecar", Amp's entrypoint, which depends
+// on which variable matched), a bool field (Claude Code's Nested), a
+// confidence that depends on which variable matched, an enum derived from a
+// boolean, and an Extra value normalized rather than copied (both Codex).
+// Only two of the eight agents fit the shape as it stands.
+//
+// Widening specField to cover them would land that complexity on the
+// thirty-odd specs in this package that need none of it, and the irregular
+// agents would still reach for an escape hatch. So agents are written as
+// functions, and the one thing spec-driving would have guaranteed them — that
+// a variable cannot be read without being reported as evidence — is provided
+// instead by reader, in reader.go.
 
 // specCore is the part of a spec that every axis shares: how to recognize the
 // product, and the context and evidence that recognition carries.
@@ -60,9 +73,15 @@ func (v *specValues) add(names ...string) {
 	}
 }
 
-// evidence returns the sorted, deduplicated subset of the consulted variables
-// that are set. Only names are returned; values may be sensitive.
-func (v *specValues) evidence(env Env) []string { return PresentNames(env, v.names...) }
+// apply copies the shared results onto a result's Axis and resolves the
+// consulted variables into evidence. It is the last thing every spec-driven
+// axis does, so that the three of them cannot drift apart in how they do it.
+// Only names reach Evidence; values may be sensitive.
+func (v *specValues) apply(env Env, axis *Axis) {
+	axis.Confidence = v.confidence
+	axis.Extra = v.extra
+	axis.Evidence = PresentNames(env, v.names...)
+}
 
 // read checks the marker and, when it matches, fills fields from env and
 // collects the context and confidence shared by every axis. Callers record any

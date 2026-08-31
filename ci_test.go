@@ -226,7 +226,7 @@ func TestCIAgentAndCIAreIndependentAxes(t *testing.T) {
 		"GITHUB_RUN_ID=99",
 	}))
 
-	if !result.Found() || result.Agent() != runby.AgentClaudeCode {
+	if !result.IsAgent() || result.Agent() != runby.AgentClaudeCode {
 		t.Fatalf("agent = %#v", result.Layers)
 	}
 	if !result.IsCI() || result.CI.Provider != runby.CIProviderGitHubActions {
@@ -267,7 +267,7 @@ func TestWithCIDrivers(t *testing.T) {
 			if !ok {
 				return runby.CI{}, false
 			}
-			return runby.CI{PipelineID: id, Evidence: runby.PresentNames(env, "ACME_CI_BUILD")}, true
+			return runby.CI{PipelineID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_CI_BUILD")}}, true
 		},
 	}
 

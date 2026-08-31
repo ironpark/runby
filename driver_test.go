@@ -21,7 +21,7 @@ func TestCustomMultiplexerCapsTerminalConfidence(t *testing.T) {
 			if !ok {
 				return runby.Remote{}, false
 			}
-			return runby.Remote{SessionID: id, Evidence: runby.PresentNames(env, "ACME_MUX")}, true
+			return runby.Remote{SessionID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_MUX")}}, true
 		},
 	}
 
@@ -49,7 +49,7 @@ func TestCustomTerminalAndRemoteDriversAreCorroborated(t *testing.T) {
 			if !runby.IsTrue(env, "ACME_TERM") {
 				return runby.Terminal{}, false
 			}
-			return runby.Terminal{Evidence: runby.PresentNames(env, "ACME_TERM")}, true
+			return runby.Terminal{Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_TERM")}}, true
 		},
 	}
 	vpn := runby.RemoteDriver{
@@ -60,7 +60,7 @@ func TestCustomTerminalAndRemoteDriversAreCorroborated(t *testing.T) {
 			if !runby.IsTrue(env, "ACME_VPN") {
 				return runby.Remote{}, false
 			}
-			return runby.Remote{Evidence: runby.PresentNames(env, "ACME_VPN")}, true
+			return runby.Remote{Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_VPN")}}, true
 		},
 	}
 
@@ -81,7 +81,7 @@ func TestCustomTerminalAndRemoteDriversAreCorroborated(t *testing.T) {
 	if result.Terminal.AncestorPID != 20 {
 		t.Errorf("Terminal.AncestorPID = %d, want 20", result.Terminal.AncestorPID)
 	}
-	layer, ok := result.GetRemote("acme-vpn")
+	layer, ok := result.RemoteLayer("acme-vpn")
 	if !ok || layer.AncestorPID != 10 {
 		t.Errorf("Remote = %#v, want AncestorPID 10", result.Remote)
 	}
@@ -99,7 +99,7 @@ func TestDriversWithoutKindReportUnknown(t *testing.T) {
 		runby.WithOnlyAgentDrivers(runby.AgentDriver{
 			Agent: "acme",
 			Detect: func(env runby.Env) (runby.Detection, bool) {
-				return runby.Detection{Evidence: runby.PresentNames(env, "ACME")}, true
+				return runby.Detection{Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME")}}, true
 			},
 		}),
 	)
@@ -213,7 +213,7 @@ func TestDriverListsAreCopies(t *testing.T) {
 		runby.WithEnviron([]string{"CODEX_THREAD_ID=t-1", "CLAUDECODE=1"}),
 		runby.WithOnlyAgentDrivers(withoutCodex...),
 	)
-	if result.Has(runby.AgentCodex) || !result.Has(runby.AgentClaudeCode) {
+	if result.HasLayer(runby.AgentCodex) || !result.HasLayer(runby.AgentClaudeCode) {
 		t.Fatalf("Layers = %#v", result.Layers)
 	}
 }

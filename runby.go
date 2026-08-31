@@ -114,67 +114,51 @@ func WithProcessTree(tree ProcessTree) Option {
 // orchestrator is reported as the primary layer over the runtime it drives.
 // Drivers are tried in the order given, and every match is reported.
 func WithAgentDrivers(drivers ...AgentDriver) Option {
-	return func(o *options) {
-		o.agentDrivers = append(append([]AgentDriver{}, drivers...), o.agentDrivers...)
-	}
+	return func(o *options) { prependDrivers(&o.agentDrivers, drivers) }
 }
 
 // WithOnlyAgentDrivers replaces the built-in agent drivers entirely. Passing
 // no drivers disables agent detection.
 func WithOnlyAgentDrivers(drivers ...AgentDriver) Option {
-	return func(o *options) {
-		o.agentDrivers = append([]AgentDriver{}, drivers...)
-	}
+	return func(o *options) { replaceDrivers(&o.agentDrivers, drivers) }
 }
 
 // WithCIDrivers adds CI drivers ahead of the built-in ones, so a platform this
 // package does not support is reported over the generic CI convention. Drivers
 // are tried in the order given, and the first match wins.
 func WithCIDrivers(drivers ...CIDriver) Option {
-	return func(o *options) {
-		o.ciDrivers = append(append([]CIDriver{}, drivers...), o.ciDrivers...)
-	}
+	return func(o *options) { prependDrivers(&o.ciDrivers, drivers) }
 }
 
 // WithOnlyCIDrivers replaces the built-in CI drivers entirely. Passing no
 // drivers disables CI detection.
 func WithOnlyCIDrivers(drivers ...CIDriver) Option {
-	return func(o *options) {
-		o.ciDrivers = append([]CIDriver{}, drivers...)
-	}
+	return func(o *options) { replaceDrivers(&o.ciDrivers, drivers) }
 }
 
 // WithTerminalDrivers adds terminal drivers ahead of the built-in ones.
 // Drivers are tried in the order given, and the first match wins.
 func WithTerminalDrivers(drivers ...TerminalDriver) Option {
-	return func(o *options) {
-		o.terminalDrivers = append(append([]TerminalDriver{}, drivers...), o.terminalDrivers...)
-	}
+	return func(o *options) { prependDrivers(&o.terminalDrivers, drivers) }
 }
 
 // WithOnlyTerminalDrivers replaces the built-in terminal drivers entirely.
 // Passing no drivers disables terminal detection.
 func WithOnlyTerminalDrivers(drivers ...TerminalDriver) Option {
-	return func(o *options) {
-		o.terminalDrivers = append([]TerminalDriver{}, drivers...)
-	}
+	return func(o *options) { replaceDrivers(&o.terminalDrivers, drivers) }
 }
 
 // WithRemoteDrivers adds remote-layer drivers ahead of the built-in ones.
 // Unlike the agent axis, every matching driver is reported, so ordering
 // affects only the order of Result.Remote.
 func WithRemoteDrivers(drivers ...RemoteDriver) Option {
-	return func(o *options) {
-		o.remoteDrivers = append(append([]RemoteDriver{}, drivers...), o.remoteDrivers...)
-	}
+	return func(o *options) { prependDrivers(&o.remoteDrivers, drivers) }
 }
 
 // WithOnlyRemoteDrivers replaces the built-in remote drivers entirely. Passing
 // no drivers disables remote detection.
 func WithOnlyRemoteDrivers(drivers ...RemoteDriver) Option {
-	return func(o *options) {
-		o.remoteDrivers = append([]RemoteDriver{}, drivers...)
-	}
+	return func(o *options) { replaceDrivers(&o.remoteDrivers, drivers) }
 }
 
 // Detect inspects an environment and returns every supported agent found in
@@ -247,17 +231,13 @@ func detectAgents(config options, tree ProcessTree) []Detection {
 		if detection.Kind == "" {
 			detection.Kind = KindUnknown
 		}
-		if detection.Confidence == "" {
-			detection.Confidence = ConfidenceDefinite
-		}
 		if detection.Sandbox.Network == "" {
 			detection.Sandbox.Network = NetworkUnknown
 		}
+		detection.applyDefaults()
 		// An ancestor running this agent's executable proves it is still
 		// alive, which no environment variable can.
-		if ancestor, ok := tree.FindAgent(detection.Agent); ok {
-			detection.AncestorPID = ancestor.PID
-		}
+		detection.AncestorPID = tree.pidOf(func(p Process) bool { return p.Agent == detection.Agent })
 		layers = append(layers, detection)
 	}
 	return layers
@@ -265,7 +245,8 @@ func detectAgents(config options, tree ProcessTree) []Detection {
 
 // detectCI reports the CI platform. Only the first, most specific match is
 // reported; every platform also sets the generic CI variable, so later matches
-// are redundant.
+// are redundant. Nothing in the ancestor chain can corroborate a CI run, so
+// unlike the other axes this one has no live process to consult.
 func detectCI(config options) CI {
 	for _, driver := range config.ciDrivers {
 		ci, ok := driver.Detect(config.env)
@@ -273,13 +254,11 @@ func detectCI(config options) CI {
 			continue
 		}
 		ci.Provider = driver.Provider
-		if ci.Confidence == "" {
-			ci.Confidence = ConfidenceDefinite
-		}
 		ci.Detected = true
+		ci.applyDefaults()
 		return ci
 	}
-	return CI{Provider: CIProviderUnknown, Confidence: ConfidenceUnknown}
+	return CI{Provider: CIProviderUnknown, Axis: Axis{Confidence: ConfidenceUnknown}}
 }
 
 // detectRemote reports every layer between the user and this process. Unlike
@@ -297,12 +276,8 @@ func detectRemote(config options, tree ProcessTree) []Remote {
 		if remote.Kind == "" {
 			remote.Kind = RemoteKindUnknown
 		}
-		if remote.Confidence == "" {
-			remote.Confidence = ConfidenceDefinite
-		}
-		if ancestor, ok := tree.Find(func(p Process) bool { return p.Remote == remote.Platform }); ok {
-			remote.AncestorPID = ancestor.PID
-		}
+		remote.applyDefaults()
+		remote.AncestorPID = tree.pidOf(func(p Process) bool { return p.Remote == remote.Platform })
 		layers = append(layers, remote)
 	}
 	return layers
@@ -320,10 +295,8 @@ func detectTerminal(config options, result Result) Terminal {
 		}
 		terminal = found
 		terminal.Program = driver.Program
-		if terminal.Confidence == "" {
-			terminal.Confidence = ConfidenceDefinite
-		}
 		terminal.Detected = true
+		terminal.applyDefaults()
 		break
 	}
 	if !terminal.Detected {
@@ -333,9 +306,7 @@ func detectTerminal(config options, result Result) Terminal {
 		return terminal
 	}
 
-	if ancestor, ok := result.Process.Find(func(p Process) bool { return p.Terminal == terminal.Program }); ok {
-		terminal.AncestorPID = ancestor.PID
-	}
+	terminal.AncestorPID = result.Process.pidOf(func(p Process) bool { return p.Terminal == terminal.Program })
 
 	// A multiplexer server keeps the environment of whichever client started
 	// it and cannot refresh a running pane, so the identity here may name a
@@ -366,15 +337,26 @@ func Current() Result {
 	return currentResult
 }
 
-// IsAgent reports whether this process was launched by an AI agent, using the
-// cached Current result. Terminal ownership is not agent evidence and is
-// reported on the Terminal axis, so it never affects this.
-func IsAgent() bool { return Current().Found() }
+// The four axis predicates below are the shorthand for the common case, each
+// answering one axis of the cached Current result. They live together, and are
+// named like their Result counterparts, so that the set is visible at a glance.
 
-// HasTerminal reports whether a terminal emulator was identified, using the
-// cached Current result. See Terminal for why this is weaker evidence than the
-// other axes, and Result.HasTerminal for why it is not called IsTerminal.
-func HasTerminal() bool { return Current().Terminal.Detected }
+// IsAgent reports whether this process was launched by an AI agent. Terminal
+// ownership is not agent evidence and is reported on the Terminal axis, so it
+// never affects this.
+func IsAgent() bool { return Current().IsAgent() }
+
+// IsCI reports whether this process is running in a CI job.
+func IsCI() bool { return Current().IsCI() }
+
+// HasTerminal reports whether a terminal emulator was identified. See Terminal
+// for why this is weaker evidence than the other axes, and Result.HasTerminal
+// for why it is not called IsTerminal.
+func HasTerminal() bool { return Current().HasTerminal() }
+
+// IsRemote reports whether any layer was detected between the user and this
+// process.
+func IsRemote() bool { return Current().IsRemote() }
 
 // Environ returns the current process environment as an Env. It is a
 // convenience for callers that build their own driver pipelines.

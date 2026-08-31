@@ -4,7 +4,7 @@
 
 ```go
 result := runby.Detect()
-result.Found()            // Claude Code가 실행했는가
+result.IsAgent()            // Claude Code가 실행했는가
 result.IsCI()             // CI 잡에서 도는가
 result.CI.Provider        // "github-actions"
 result.CI.PipelineID      // GITHUB_RUN_ID
@@ -42,7 +42,7 @@ acme := runby.CIDriver{
 		if !ok {
 			return runby.CI{}, false
 		}
-		return runby.CI{PipelineID: id, Evidence: runby.PresentNames(env, "ACME_CI_BUILD")}, true
+		return runby.CI{PipelineID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_CI_BUILD")}}, true
 	},
 }
 
