@@ -14,7 +14,7 @@
 
 **대표 API(`IsAgent()`, `Current()`)는 옵션을 받지 않습니다.** 그래서 라이브러리로 배포할 드라이버는 `Register`가 유일한 길입니다.
 
-축별 옵션(`WithAgentDrivers` 등 다섯 개)은 제거되었습니다. 그 조합은 전부 `BuiltinDrivers()`로 표현되고, 이쪽은 순서가 숨지 않습니다.
+`WithOnlyDrivers`는 `BuiltinDrivers()`와 조합해 씁니다. 우선순위가 슬라이스 순서로 드러납니다.
 
 ```go
 // 내장 + 커스텀
@@ -95,9 +95,18 @@ func main() {
 - **CI·터미널** — 첫 매치가 이깁니다. 등록된 드라이버가 앞이므로 내장보다 우선합니다. 등록된 드라이버끼리의 순서는 임포트 순서이며 **보장되지 않습니다.** 정확한 순서가 필요하면 `WithOnlyDrivers`에 원하는 순서로 직접 넘기십시오.
 - **remote·runner** — 매치되는 전부가 보고되므로 순서는 결과 슬라이스의 순서일 뿐입니다.
 
-### 내장 드라이버를 끄려면 걸러 내십시오
+### 내장 드라이버 끄기
 
-`Register`는 **교체**만 표현합니다 — "아무것도 보고하지 않는 드라이버"라는 값은 없습니다. 특정 내장 제품을 침묵시키려면 `BuiltinDrivers()`를 걸러서 넘기십시오.
+**프로세스 전체**에서 끄려면 같은 식별자로, 절대 매치하지 않는 `Detect`를 등록하십시오. 등록은 같은 식별자를 교체하므로 내장 드라이버가 실행되지 않습니다.
+
+```go
+runby.Register(runby.AgentDriver{
+	Agent: runby.AgentCodex, Kind: runby.KindHarness, Models: runby.ModelsFirstParty,
+	Detect: func(runby.Env) (runby.Detection, bool) { return runby.Detection{}, false },
+})
+```
+
+이쪽이 `Current()`·`IsAgent()`·CLI까지 닿습니다. **한 호출에서만** 끄려면 `BuiltinDrivers()`를 걸러서 넘기십시오 — 주로 테스트용입니다.
 
 ```go
 var drivers []runby.Driver
@@ -110,13 +119,13 @@ for _, driver := range runby.BuiltinDrivers() {
 result := runby.Detect(runby.WithOnlyDrivers(drivers...))
 ```
 
-이것은 그 `Detect` 호출에만 적용됩니다. `Current()`가 보는 것은 바꿀 수 없습니다 — 옵션을 받지 않기 때문입니다.
+`Current()`는 옵션을 받지 않으므로 이 방식으로는 바꿀 수 없습니다. 그래서 위의 `Register` 방식이 있습니다.
 
 ### 실패는 시끄럽게
 
 `Register`는 두 경우에 **panic**합니다. 조용한 실패는 "요청한 코드와 말없이 어긋난 감지"가 되기 때문입니다.
 
-- 같은 축에 같은 식별자를 두 번 등록
+- 같은 축에 같은 식별자를 두 번 등록 — `WithOnlyDrivers`도 같습니다. 그래서 내장 하나를 이 호출에서만 **교체**하려면 `append(BuiltinDrivers(), myCodex)`가 아니라 먼저 걸러 내야 합니다
 - `Current()`가 이미 캐시를 계산한 뒤에 등록 — `init`에서 부르면 일어나지 않습니다
 
 ### 프로세스 전체 상태입니다

@@ -247,14 +247,13 @@ func sortByLadder(drivers []AgentDriver) []AgentDriver {
 }
 
 // BuiltinDrivers returns every driver this package ships, as a fresh slice
-// that the caller may filter or extend. It is the raw material for
-// WithOnlyDrivers, which otherwise runs nothing but the drivers given:
+// the caller may filter or extend. It is the raw material for WithOnlyDrivers,
+// which otherwise runs nothing but the drivers given:
 //
 //	Detect(WithOnlyDrivers(append(BuiltinDrivers(), acme)...))
 //
-// Filtering it is also the only way to silence a built-in, which Register
-// cannot express — registering the same identity replaces a built-in, but
-// there is no driver value meaning "report nothing":
+// Filtering it drops a built-in from one call, which is chiefly useful in a
+// test that wants the built-in set minus the product it is standing in for:
 //
 //	var drivers []Driver
 //	for _, driver := range BuiltinDrivers() {
@@ -264,24 +263,29 @@ func sortByLadder(drivers []AgentDriver) []AgentDriver {
 //		drivers = append(drivers, driver)
 //	}
 //
+// To silence a built-in for the whole program, including Current and the CLI,
+// register a driver with the same identity whose Detect never matches. That
+// reaches the entry points which take no options, and this does not.
+//
 // The order is each axis's own: the agent axis is in ladder order, and the CI
 // and terminal axes are in the order their first match is decided.
 func BuiltinDrivers() []Driver {
-	var drivers []Driver
-	for _, driver := range builtinAgentDrivers {
-		drivers = append(drivers, driver)
-	}
-	for _, driver := range builtinCIDrivers {
-		drivers = append(drivers, driver)
-	}
-	for _, driver := range builtinTerminalDrivers {
-		drivers = append(drivers, driver)
-	}
-	for _, driver := range builtinRemoteDrivers {
-		drivers = append(drivers, driver)
-	}
-	for _, driver := range builtinRunnerDrivers {
-		drivers = append(drivers, driver)
-	}
+	drivers := make([]Driver, 0, len(builtinAgentDrivers)+len(builtinCIDrivers)+
+		len(builtinTerminalDrivers)+len(builtinRemoteDrivers)+len(builtinRunnerDrivers))
+	drivers = appendDrivers(drivers, builtinAgentDrivers)
+	drivers = appendDrivers(drivers, builtinCIDrivers)
+	drivers = appendDrivers(drivers, builtinTerminalDrivers)
+	drivers = appendDrivers(drivers, builtinRemoteDrivers)
+	drivers = appendDrivers(drivers, builtinRunnerDrivers)
 	return drivers
+}
+
+// appendDrivers widens one axis's table into the common Driver slice. Each
+// conversion copies the driver, which is what keeps the shipped tables beyond
+// a caller's reach.
+func appendDrivers[D Driver](dst []Driver, src []D) []Driver {
+	for _, driver := range src {
+		dst = append(dst, driver)
+	}
+	return dst
 }

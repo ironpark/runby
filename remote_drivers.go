@@ -180,9 +180,3 @@ var builtinRemoteDrivers = mapSlice(remoteSpecs, func(spec remoteSpec) RemoteDri
 		Detect:      spec.detect,
 	}
 })
-
-// remoteDrivers returns the built-in remote drivers in detection order. It is
-// unexported: the only reason to hand out the built-in table was to filter it
-// and pass it back, and WithOnlyDrivers took that job. The copy keeps a caller
-// inside this package from reordering the table itself.
-func remoteDrivers() []RemoteDriver { return cloneSlice(builtinRemoteDrivers) }

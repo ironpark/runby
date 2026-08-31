@@ -23,15 +23,18 @@ runby.Register(myDriver)                                   // 사내 드라이�
 | `WithProcessTree(ProcessTree)` | 상위 프로세스 체인을 직접 주입 |
 | `WithOnlyDrivers(...Driver)` | **딱 이것만** 실행. 내장도 등록된 것도 무시. 인자가 없으면 전부 비활성화 |
 
-드라이버를 넘기는 옵션은 `WithOnlyDrivers` 하나입니다. 축별 `With*Drivers` 다섯 개는 제거되었고, 그 자리는 `BuiltinDrivers()`와의 조합이 대신합니다 — 순서가 숨지 않고 슬라이스에 드러납니다.
+드라이버를 넘기는 옵션은 `WithOnlyDrivers` 하나이고, `BuiltinDrivers()`와 조합해 씁니다. 우선순위가 숨지 않고 슬라이스 순서에 드러납니다.
 
 | 하고 싶은 일 | 방법 |
 |---|---|
 | 프로그램 전체에 드라이버 추가 | `Register(d)` (`init`에서) |
 | 이 호출에만 내장 + 커스텀 | `WithOnlyDrivers(append(BuiltinDrivers(), d)...)` |
 | 커스텀을 내장보다 **앞**에 | `WithOnlyDrivers(append([]Driver{d}, BuiltinDrivers()...)...)` |
-| 내장 하나 끄기 | `BuiltinDrivers()`를 필터해서 `WithOnlyDrivers` |
+| 내장 하나 끄기 (이 호출만) | `BuiltinDrivers()`를 필터해서 `WithOnlyDrivers` |
+| 내장 하나 끄기 (프로세스 전체) | 같은 식별자 + 절대 매치 안 하는 `Detect`를 `Register` |
 | 드라이버 격리 테스트 | `WithOnlyDrivers(d)` |
+
+`WithOnlyDrivers`는 같은 축에 같은 식별자가 둘이면 **panic합니다** — `Register`가 조용히 교체하는 것과 다릅니다. 내장 하나를 이 호출에서만 교체하려면 `append(BuiltinDrivers(), myCodex)`가 아니라 먼저 걸러 내십시오.
 
 CI·터미널 축은 **첫 매치가 이깁니다.** 커스텀 드라이버가 내장보다 우선해야 한다면 슬라이스 앞에 두십시오. 에이전트 축은 순서와 무관하게 항상 사다리(`l3`→`l2`→`l1`)로 정렬되고, remote·runner 축은 매치 전부를 보고하므로 순서가 결과 순서일 뿐입니다.
 

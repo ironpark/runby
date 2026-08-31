@@ -153,9 +153,9 @@ func TestCollectExtra(t *testing.T) {
 }
 
 // BuiltinDrivers is the raw material WithOnlyDrivers needs to mean anything
-// other than "these drivers and nothing else". Filtering it is the only way to
-// silence a built-in: Register replaces one identity with another, and there
-// is no driver value that means "report nothing".
+// other than "these drivers and nothing else". Filtering it drops a built-in
+// from one call; internal/silencetest covers dropping one for the whole
+// process by registering a driver that never matches.
 func TestBuiltinDriversCanDropOneProduct(t *testing.T) {
 	var drivers []runby.Driver
 	for _, driver := range runby.BuiltinDrivers() {
@@ -193,7 +193,9 @@ func TestBuiltinDriversAreCopied(t *testing.T) {
 	if agent, ok := runby.BuiltinDrivers()[0].(runby.AgentDriver); !ok || agent.Agent == "tampered" {
 		t.Fatal("BuiltinDrivers handed out a shared slice")
 	}
-	// Every built-in product is present, on every axis.
+	// Every built-in product is present, on every axis. The internal table
+	// tests pin each axis to its identity list; this pins that BuiltinDrivers
+	// actually reaches all five, which adding a sixth axis would break.
 	want := len(runby.Agents()) + len(runby.CIProviders()) + len(runby.TerminalPrograms()) +
 		len(runby.RemotePlatforms()) + len(runby.RunnerTools())
 	if got := len(runby.BuiltinDrivers()); got != want {

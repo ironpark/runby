@@ -293,9 +293,3 @@ func (spec ciSpec) detect(env Env) (CI, bool) {
 var builtinCIDrivers = mapSlice(ciSpecs, func(spec ciSpec) CIDriver {
 	return CIDriver{Provider: spec.provider, Detect: spec.detect}
 })
-
-// ciDrivers returns the built-in CI drivers in detection order. It is
-// unexported: the only reason to hand out the built-in table was to filter it
-// and pass it back, and WithOnlyDrivers took that job. The copy keeps a caller
-// inside this package from reordering the table itself.
-func ciDrivers() []CIDriver { return cloneSlice(builtinCIDrivers) }

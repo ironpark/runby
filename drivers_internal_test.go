@@ -2,7 +2,7 @@ package runby
 
 import "testing"
 
-// The built-in driver tables are unexported, so the tests that hold them to
+// The built-in driver tables are unexported, so the tests holding them to
 // their contracts live inside the package. Callers outside reach the same
 // drivers through BuiltinDrivers, which flattens all five tables into the one
 // type WithOnlyDrivers takes.
@@ -12,7 +12,7 @@ import "testing"
 // registered, so the two cannot disagree about what exists or in what order.
 func TestDriverTablesMatchTheirIdentityLists(t *testing.T) {
 	agents := Agents()
-	drivers := agentDrivers()
+	drivers := builtinAgentDrivers
 	if len(agents) != len(drivers) {
 		t.Fatalf("Agents() has %d entries, the table has %d", len(agents), len(drivers))
 	}
@@ -31,7 +31,7 @@ func TestDriverTablesMatchTheirIdentityLists(t *testing.T) {
 		}
 	}
 
-	for i, driver := range remoteDrivers() {
+	for i, driver := range builtinRemoteDrivers {
 		if got := RemotePlatforms()[i]; driver.Platform != got {
 			t.Errorf("driver %d is %q, RemotePlatforms()[%d] is %q", i, driver.Platform, i, got)
 		}
@@ -39,7 +39,7 @@ func TestDriverTablesMatchTheirIdentityLists(t *testing.T) {
 			t.Errorf("%q: driver Kind %q, Platform.Kind() %q", driver.Platform, driver.Kind, driver.Platform.Kind())
 		}
 	}
-	for i, driver := range runnerDrivers() {
+	for i, driver := range builtinRunnerDrivers {
 		if got := RunnerTools()[i]; driver.Tool != got {
 			t.Errorf("driver %d is %q, RunnerTools()[%d] is %q", i, driver.Tool, i, got)
 		}
@@ -47,25 +47,15 @@ func TestDriverTablesMatchTheirIdentityLists(t *testing.T) {
 			t.Errorf("%q: driver Kind %q, Tool.Kind() %q", driver.Tool, driver.Kind, driver.Tool.Kind())
 		}
 	}
-	for i, driver := range terminalDrivers() {
+	for i, driver := range builtinTerminalDrivers {
 		if got := TerminalPrograms()[i]; driver.Program != got {
 			t.Errorf("driver %d is %q, TerminalPrograms()[%d] is %q", i, driver.Program, i, got)
 		}
 	}
-	for i, driver := range ciDrivers() {
+	for i, driver := range builtinCIDrivers {
 		if got := CIProviders()[i]; driver.Provider != got {
 			t.Errorf("driver %d is %q, CIProviders()[%d] is %q", i, driver.Provider, i, got)
 		}
-	}
-}
-
-// TestDriverTablesAreCopied keeps a caller inside this package from reordering
-// or truncating a table that every other caller shares.
-func TestDriverTablesAreCopied(t *testing.T) {
-	drivers := agentDrivers()
-	drivers[0] = AgentDriver{Agent: "tampered"}
-	if again := agentDrivers(); again[0].Agent == "tampered" {
-		t.Fatal("agentDrivers() returned the built-in table itself")
 	}
 }
 

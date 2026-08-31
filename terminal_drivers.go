@@ -274,9 +274,3 @@ var builtinTerminalDrivers = mapSlice(terminalSpecs, func(spec terminalSpec) Ter
 		Detect:      spec.detect,
 	}
 })
-
-// terminalDrivers returns the built-in terminal drivers in detection order. It is
-// unexported: the only reason to hand out the built-in table was to filter it
-// and pass it back, and WithOnlyDrivers took that job. The copy keeps a caller
-// inside this package from reordering the table itself.
-func terminalDrivers() []TerminalDriver { return cloneSlice(builtinTerminalDrivers) }

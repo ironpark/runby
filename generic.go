@@ -1,22 +1,16 @@
 package runby
 
-// The four detection axes are declared the same way — a table of products, a
-// slice of drivers built from it, and options that add to or replace those
-// drivers — so the plumbing around them is written once here and instantiated
-// per axis rather than copied.
+// The five detection axes are declared the same way — a table of products and
+// a slice of drivers built from it — so the plumbing around them is written
+// once here and instantiated per axis rather than copied.
 
-// cloneSlice returns a copy of s. The exported XDrivers accessors use it so a
-// caller can reorder or filter the built-in tables without affecting them.
+// cloneSlice returns a copy of s, so that handing a built-in table to a
+// caller — or to Detect, which sorts the agent axis — cannot reorder or
+// truncate the table every other caller shares.
 func cloneSlice[T any](s []T) []T {
 	out := make([]T, len(s))
 	copy(out, s)
 	return out
-}
-
-// replaceDrivers discards the drivers already configured. Passing none
-// disables the axis.
-func replaceDrivers[T any](dst *[]T, add []T) {
-	*dst = cloneSlice(add)
 }
 
 // mapSlice applies fn to every element. It builds a driver table from a spec
@@ -38,15 +32,6 @@ func indexBy[T any, K comparable, V any](s []T, fn func(T) (K, V)) map[K]V {
 		out[key] = value
 	}
 	return out
-}
-
-// lookupOr returns the value stored under key, or fallback when it is absent.
-// Every axis uses it to answer a question about a product it may not know.
-func lookupOr[K comparable, V any](m map[K]V, key K, fallback V) V {
-	if value, ok := m[key]; ok {
-		return value
-	}
-	return fallback
 }
 
 // slug renders a product identity as its stable string, mapping the zero value
