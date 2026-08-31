@@ -417,3 +417,58 @@ func TestLevelDerivedForCustomDrivers(t *testing.T) {
 		})
 	}
 }
+
+// The five agents added from the vercel/detect-agent survey. Each marker was
+// verified against the product's own source or reference documentation before
+// the driver was written; docs/research/agents/ records which and why.
+func TestAgentsAddedFromTheDetectAgentSurvey(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		environ    []string
+		want       runby.Agent
+		confidence runby.Confidence
+		entrypoint string
+	}{
+		{"gemini cli", []string{"GEMINI_CLI=1"}, runby.AgentGeminiCLI, runby.ConfidenceDefinite, ""},
+		{"auggie", []string{"AUGMENT_AGENT=1"}, runby.AgentAuggie, runby.ConfidenceDefinite, ""},
+		{"grok build hook", []string{"GROK_PLUGIN_ROOT=/p"}, runby.AgentGrokBuild, runby.ConfidenceDefinite, "plugin-hook"},
+		{"openclaw exec", []string{"OPENCLAW_SHELL=exec"}, runby.AgentOpenClaw, runby.ConfidenceDefinite, "exec"},
+		{"openclaw tui", []string{"OPENCLAW_SHELL=tui-local"}, runby.AgentOpenClaw, runby.ConfidenceDefinite, "tui-local"},
+		// Cline's marker rides on the terminal it created, and a human can
+		// type into that terminal, so it never claims to be proof.
+		{"cline", []string{"CLINE_ACTIVE=true"}, runby.AgentCline, runby.ConfidenceProbable, ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := runby.Detect(runby.WithEnviron(test.environ))
+			layer, ok := result.Layer(test.want)
+			if !ok {
+				t.Fatalf("%s not detected from %v", test.want, test.environ)
+			}
+			if layer.Confidence != test.confidence {
+				t.Errorf("Confidence = %q, want %q", layer.Confidence, test.confidence)
+			}
+			if layer.Entrypoint != test.entrypoint {
+				t.Errorf("Entrypoint = %q, want %q", layer.Entrypoint, test.entrypoint)
+			}
+		})
+	}
+}
+
+// Variables that merely share a prefix with a marker are configuration the user
+// sets, not evidence that the product launched anything. OpenClaw's timeout
+// setting is the trap: a prefix match would report the agent for it.
+func TestConfigurationLookalikesAreNotEvidence(t *testing.T) {
+	for _, environ := range [][]string{
+		{"OPENCLAW_SHELL_ENV_TIMEOUT_MS=15000"},
+		{"GEMINI_CLI_HOME=/home/u/.gemini"},
+		{"CLINE_DATA_DIR=/home/u/.cline"},
+		{"AUGMENT_API_URL=https://example.invalid"},
+		// GOOSE_PROVIDER selects which LLM to use; it is set by the user and
+		// says nothing about what launched this process.
+		{"GOOSE_PROVIDER=anthropic"},
+	} {
+		if result := runby.Detect(runby.WithEnviron(environ)); result.IsAgent() {
+			t.Errorf("%v was reported as %s", environ, result.Chain())
+		}
+	}
+}

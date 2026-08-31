@@ -13,6 +13,11 @@ const (
 	AgentAmp          Agent = "amp"
 	AgentCursor       Agent = "cursor-agent"
 	AgentOpenCode     Agent = "opencode"
+	AgentGeminiCLI    Agent = "gemini-cli"
+	AgentCline        Agent = "cline"
+	AgentOpenClaw     Agent = "openclaw"
+	AgentAuggie       Agent = "auggie"
+	AgentGrokBuild    Agent = "grok-build"
 )
 
 // A product on this axis is classified along two independent axes, because one

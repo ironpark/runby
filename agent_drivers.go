@@ -31,10 +31,17 @@ var builtinAgentDrivers = []AgentDriver{
 	{Agent: AgentCursor, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"cursor-agent"}, Detect: detectCursor},
 	{Agent: AgentOpenCode, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"opencode"}, Detect: detectOpenCode},
 	{Agent: AgentAmp, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"amp"}, Detect: detectAmp},
+	{Agent: AgentOpenClaw, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"openclaw"}, Detect: detectOpenClaw},
+	{Agent: AgentAuggie, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"auggie"}, Detect: detectAuggie},
+	// Cline runs inside a code editor rather than as a binary of its own, so
+	// there is no ancestor name that would corroborate it.
+	{Agent: AgentCline, Kind: KindHarness, Models: ModelsMultiVendor, Detect: detectCline},
 
 	// Level 1 — a harness built around its own vendor's model.
 	{Agent: AgentCodex, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"codex"}, Detect: detectCodex},
 	{Agent: AgentClaudeCode, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"claude"}, Detect: detectClaudeCode},
+	{Agent: AgentGeminiCLI, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"gemini"}, Detect: detectGeminiCLI},
+	{Agent: AgentGrokBuild, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"grok"}, Detect: detectGrokBuild},
 }
 
 // detectPaseo identifies a process launched by a Paseo agent. PASEO_AGENT_ID is
@@ -246,5 +253,73 @@ func detectAntigravity2(env Env) (Detection, bool) {
 		Entrypoint: "sidecar",
 		Paths:      Paths{DataDirectory: dataDirectory},
 		Axis:       Axis{Evidence: r.evidence()},
+	}, true
+}
+
+// detectGeminiCLI identifies a process Gemini CLI launched. The CLI names the
+// variable its identification marker in source and sets it on every shell
+// command and stdio MCP server it starts, so its presence is proof rather than
+// a supporting signal.
+func detectGeminiCLI(env Env) (Detection, bool) {
+	r := newReader(env)
+	if !r.isTrue("GEMINI_CLI") {
+		return Detection{}, false
+	}
+	return Detection{Axis: Axis{Evidence: r.evidence()}}, true
+}
+
+// detectGrokBuild identifies a Grok Build plugin hook. The documented scope is
+// narrow — only hooks receive these variables, not the shell commands the agent
+// runs — so a Grok Build session that never fires a hook is not reported.
+func detectGrokBuild(env Env) (Detection, bool) {
+	r := newReader(env)
+	if !r.any("GROK_PLUGIN_ROOT", "GROK_PLUGIN_DATA") {
+		return Detection{}, false
+	}
+	return Detection{
+		Entrypoint: "plugin-hook",
+		Axis:       Axis{Evidence: r.evidence()},
+	}, true
+}
+
+// detectAuggie identifies a command Auggie ran through its launch-process tool.
+// The official reference documents the variable for exactly this purpose.
+func detectAuggie(env Env) (Detection, bool) {
+	r := newReader(env)
+	if !r.isTrue("AUGMENT_AGENT") {
+		return Detection{}, false
+	}
+	return Detection{Axis: Axis{Evidence: r.evidence()}}, true
+}
+
+// detectOpenClaw identifies a process OpenClaw spawned. The variable carries
+// which runtime started it, so the value becomes the entrypoint rather than
+// being discarded.
+func detectOpenClaw(env Env) (Detection, bool) {
+	r := newReader(env)
+	entrypoint, ok := r.value("OPENCLAW_SHELL")
+	if !ok {
+		return Detection{}, false
+	}
+	return Detection{
+		Entrypoint: strings.ToLower(entrypoint),
+		Axis:       Axis{Evidence: r.evidence()},
+	}, true
+}
+
+// detectCline identifies a terminal Cline created. Cline sets the marker on the
+// terminals it opens to run its commands, but a human can type into the same
+// terminal, so this is a supporting signal rather than proof that the agent
+// issued the command.
+func detectCline(env Env) (Detection, bool) {
+	r := newReader(env)
+	if !r.isTrue("CLINE_ACTIVE") {
+		return Detection{}, false
+	}
+	return Detection{
+		Axis: Axis{
+			Confidence: ConfidenceProbable,
+			Evidence:   r.evidence(),
+		},
 	}, true
 }

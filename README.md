@@ -123,7 +123,7 @@ runby -json    # Result 전체 JSON
 
 ## 지원 범위
 
-- **에이전트:** Paseo, Orca, OpenAI Codex, Claude Code, Antigravity 2.0, Amp, Cursor Agent, OpenCode ACP
+- **에이전트:** Paseo, Orca, Antigravity 2.0, Cursor Agent, OpenCode ACP, Amp, OpenClaw, Auggie, Cline, OpenAI Codex, Claude Code, Gemini CLI, Grok Build
 - **CI:** GitHub Actions, Forgejo Actions, GitLab CI/CD, CircleCI, Travis CI, Buildkite, Azure Pipelines, Bitbucket Pipelines, Jenkins, 일반 `CI=true`
 - **실행 도구:** npm, pnpm, Bun, GNU Make, systemd, pre-commit
 - **원격 환경:** tmux, GNU Screen, Zellij, OpenSSH, WSL, GitHub Codespaces, Gitpod, Dev Containers
