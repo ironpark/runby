@@ -166,3 +166,7 @@ runby -json            # Result 전체 JSON
 환경변수 기반 감지는 모든 플랫폼에서 동일하게 동작합니다. 상위 프로세스 체인은 Linux·macOS·Windows에서 지원하며, 그 외 플랫폼에서는 `Process.Supported == false`입니다. 일부 Unix 플랫폼의 TTY 제한은 [터미널 가이드](docs/guide/terminal.md#tty-터미널-축과-무엇이-다른가)에 정리되어 있습니다.
 
 `runby`는 외부 Go 모듈에 의존하지 않습니다.
+
+## 라이선스
+
+[MIT](LICENSE)
