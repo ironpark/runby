@@ -9,7 +9,7 @@ result := runby.Current()                                  // 현재 프로세�
 result := runby.Detect()                                   // 현재 프로세스
 result := runby.Detect(runby.WithEnviron(environ))         // 명시적 환경
 result := runby.Detect(runby.WithoutTTY())                 // TTY 시스템콜 생략
-runby.Register(myDriver)                                   // 사내 드라이버, 프로세스 전체
+runby.Register(myDriver)                                   // 커스텀 드라이버, 프로세스 전체
 ```
 
 ## 옵션
@@ -215,7 +215,7 @@ result := runby.Detect(runby.WithEnviron([]string{"GITHUB_ACTIONS=true"}))
 
 ## 드라이버 확장
 
-축마다 드라이버 구조체가 하나씩 있고, 내장 제품과 사내 제품이 **같은 타입**을 씁니다. 드라이버는 감지 규칙과 함께, 환경이 알려줄 수 없는 사실(축위, 실행 파일 이름)까지 한 곳에 담습니다.
+축마다 드라이버 구조체가 하나씩 있고, 내장 제품과 커스텀 제품이 **같은 타입**을 씁니다. 드라이버는 감지 규칙과 함께, 환경이 알려줄 수 없는 사실(축위, 실행 파일 이름)까지 한 곳에 담습니다.
 
 드라이버를 **모듈로 배포**해서 `_` 임포트로 쓰게 하려면 [`drivers.md`](drivers.md)를 보십시오. 아래 옵션은 그 `Detect` 호출 하나에만 적용되며, `Current()`와 CLI에는 반영되지 않습니다.
 
@@ -241,7 +241,7 @@ result := runby.Detect(runby.WithDrivers(acme))
 runby.Register(acme)
 ```
 
-에이전트 축의 순서는 추가 순서가 아니라 **`Kind`와 `Models`에서 파생**됩니다 — 오케스트레이터, 그다음 멀티 벤더 하네스, 그다음 자사 모델 하네스 순. 사내 오케스트레이터는 그것이 구동한 런타임보다 언제나 앞서고, 둘 다 선언하지 않은 드라이버는 사다리에 자리가 없어 맨 뒤로 갑니다.
+에이전트 축의 순서는 추가 순서가 아니라 **`Kind`와 `Models`에서 파생**됩니다 — 오케스트레이터, 그다음 멀티 벤더 하네스, 그다음 자사 모델 하네스 순. 커스텀 오케스트레이터는 그것이 구동한 런타임보다 언제나 앞서고, 둘 다 선언하지 않은 드라이버는 사다리에 자리가 없어 맨 뒤로 갑니다.
 
 `Name`·`Kind`·`Models`는 드라이버가 제공하므로 `Detect` 안에서 다시 쓸 필요가 없습니다. `Confidence`와 `Sandbox.Network`는 비워두면 기본값이 채워집니다.
 
@@ -294,4 +294,4 @@ return runby.Agent{
 
 ### 드라이버가 환경을 바꿀 수 없는 이유
 
-드라이버의 `Detect`는 `Env` 인터페이스(`Lookup(name) (string, bool)`)만 받습니다. `os.Environ()`을 직접 읽지 않으므로 사내 드라이버가 실수로 환경을 변경하거나 다른 프로세스의 환경을 섞을 수 없고, 같은 드라이버를 테스트에서 임의의 환경으로 그대로 실행할 수 있습니다.
+드라이버의 `Detect`는 `Env` 인터페이스(`Lookup(name) (string, bool)`)만 받습니다. `os.Environ()`을 직접 읽지 않으므로 커스텀 드라이버가 실수로 환경을 변경하거나 다른 프로세스의 환경을 섞을 수 없고, 같은 드라이버를 테스트에서 임의의 환경으로 그대로 실행할 수 있습니다.

@@ -107,7 +107,7 @@ if agentID, ok := result.AgentID(); ok {
 
 Orca가 항상 `probable`인 것이 그 예입니다. Orca는 자신이 호스팅하는 pane에 표시를 남기므로, 사용자가 Orca 터미널에 직접 입력한 명령과 Orca가 실행한 에이전트가 호출한 명령이 같은 변수를 갖습니다. 실제로 실행한 에이전트는 해당 harness의 고유 신호로 별도 계층에 보고됩니다.
 
-## 사내 에이전트 추가
+## 커스텀 에이전트 추가
 
 ```go
 acme := runby.AgentDriver{
