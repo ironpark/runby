@@ -16,7 +16,8 @@ var unmatchableProducts = map[string]string{
 	"orca":          "orca is also the GNOME screen reader, so the name would mislabel an unrelated process",
 	// Cline is an editor extension, so the ancestor is the editor rather than
 	// the agent, and an editor running is not evidence the agent ran anything.
-	"cline": "an editor extension, so the ancestor is the editor and not the agent",
+	"cline":    "an editor extension, so the ancestor is the editor and not the agent",
+	"roo-code": "a VS Code extension, so the ancestor is the editor and not the agent",
 
 	// Terminals.
 	"apple-terminal": "the binary is named Terminal, too generic to match safely",

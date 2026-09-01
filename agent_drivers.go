@@ -34,6 +34,11 @@ var builtinAgentDrivers = []AgentDriver{
 	{Agent: AgentOpenClaw, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"openclaw"}, Detect: detectOpenClaw},
 	{Agent: AgentAuggie, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"auggie"}, Detect: detectAuggie},
 	{Agent: AgentPi, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"pi"}, Detect: detectPi},
+	{Agent: AgentCrush, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"crush"}, Detect: detectCrush},
+	// Roo Code owns a VS Code terminal rather than a standalone executable, so
+	// there is no ancestor name that can corroborate its marker.
+	{Agent: AgentRooCode, Kind: KindHarness, Models: ModelsMultiVendor, Detect: detectRooCode},
+	{Agent: AgentOpenHands, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"openhands"}, Detect: detectOpenHands},
 	// Cline runs inside a code editor rather than as a binary of its own, so
 	// there is no ancestor name that would corroborate it.
 	{Agent: AgentCline, Kind: KindHarness, Models: ModelsMultiVendor, Detect: detectCline},
@@ -43,6 +48,7 @@ var builtinAgentDrivers = []AgentDriver{
 	{Agent: AgentClaudeCode, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"claude"}, Detect: detectClaudeCode},
 	{Agent: AgentGeminiCLI, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"gemini"}, Detect: detectGeminiCLI},
 	{Agent: AgentGrokBuild, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"grok"}, Detect: detectGrokBuild},
+	{Agent: AgentQwenCode, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"qwen"}, Detect: detectQwenCode},
 }
 
 // detectPaseo identifies a process launched by a Paseo agent. PASEO_AGENT_ID is
@@ -353,6 +359,85 @@ func detectPi(env Env) (Agent, bool) {
 			Extra:    r.Extra(piExtra),
 			Evidence: r.Evidence(),
 		},
+	}, true
+}
+
+// detectCrush identifies a process Crush launched. Crush stamps all shells it
+// spawns with CRUSH=1; the generic names beside it are supporting evidence only
+// when their values specifically name Crush.
+func detectCrush(env Env) (Agent, bool) {
+	r := NewEnvReader(env)
+	if !r.IsTrue("CRUSH") {
+		return Agent{}, false
+	}
+
+	for _, name := range []string{"AGENT", "AI_AGENT"} {
+		value, _ := r.Peek(name)
+		if strings.EqualFold(value, "crush") {
+			r.Record(name)
+		}
+	}
+	return Agent{Axis: Axis{Evidence: r.Evidence()}}, true
+}
+
+// detectRooCode identifies a command running in a Roo Code terminal. Roo
+// stamps terminals it creates, not each process it invokes, so the result is
+// probable for the same reason as Cline's terminal marker.
+func detectRooCode(env Env) (Agent, bool) {
+	r := NewEnvReader(env)
+	if !r.IsTrue("ROO_ACTIVE") {
+		return Agent{}, false
+	}
+	return Agent{
+		Axis: Axis{
+			Confidence: ConfidenceProbable,
+			Evidence:   r.Evidence(),
+		},
+	}, true
+}
+
+var openHandsExtra = map[string]string{
+	"openhands.project_dir": "OPENHANDS_PROJECT_DIR",
+	"openhands.event_type":  "OPENHANDS_EVENT_TYPE",
+	"openhands.tool_name":   "OPENHANDS_TOOL_NAME",
+}
+
+// detectOpenHands identifies a process launched by OpenHands. Its terminal
+// and hook helpers set AI_AGENT to the product name; hook-only variables add
+// context but are not needed to decide the detection.
+func detectOpenHands(env Env) (Agent, bool) {
+	r := NewEnvReader(env)
+	aiAgent, _ := r.Peek("AI_AGENT")
+	if !strings.EqualFold(aiAgent, "openhands") {
+		return Agent{}, false
+	}
+	r.Record("AI_AGENT")
+
+	sessionID, _ := r.Value("OPENHANDS_SESSION_ID")
+	return Agent{
+		SessionID: sessionID,
+		Axis: Axis{
+			Extra:    r.Extra(openHandsExtra),
+			Evidence: r.Evidence(),
+		},
+	}, true
+}
+
+// detectQwenCode identifies a process Qwen Code launched. Qwen Code injects
+// QWEN_CODE into every shell child and carries the session's context beside
+// it when those values are available.
+func detectQwenCode(env Env) (Agent, bool) {
+	r := NewEnvReader(env)
+	if !r.IsTrue("QWEN_CODE") {
+		return Agent{}, false
+	}
+
+	sessionID, _ := r.Value("QWEN_CODE_SESSION_ID")
+	workingDirectory, _ := r.Value("QWEN_CODE_PROJECT_DIR")
+	return Agent{
+		SessionID: sessionID,
+		Paths:     Paths{WorkingDirectory: workingDirectory},
+		Axis:      Axis{Evidence: r.Evidence()},
 	}, true
 }
 

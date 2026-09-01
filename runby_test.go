@@ -690,6 +690,147 @@ func TestPiDetection(t *testing.T) {
 	}
 }
 
+func TestNewAgentDetectors(t *testing.T) {
+	tests := []struct {
+		name       string
+		environ    []string
+		want       runby.AgentName
+		detected   bool
+		confidence runby.Confidence
+	}{
+		{
+			name:       "crush",
+			environ:    []string{"CRUSH=1", "AGENT=crush", "AI_AGENT=crush"},
+			want:       runby.AgentCrush,
+			detected:   true,
+			confidence: runby.ConfidenceDefinite,
+		},
+		{
+			name:     "crush generic names alone",
+			environ:  []string{"AGENT=crush", "AI_AGENT=crush"},
+			want:     runby.AgentCrush,
+			detected: false,
+		},
+		{
+			name:       "qwen code",
+			environ:    []string{"QWEN_CODE=1", "QWEN_CODE_SESSION_ID=qwen-session", "QWEN_CODE_PROJECT_DIR=/workspace"},
+			want:       runby.AgentQwenCode,
+			detected:   true,
+			confidence: runby.ConfidenceDefinite,
+		},
+		{
+			name:     "qwen code context alone",
+			environ:  []string{"QWEN_CODE_SESSION_ID=qwen-session", "QWEN_CODE_PROJECT_DIR=/workspace"},
+			want:     runby.AgentQwenCode,
+			detected: false,
+		},
+		{
+			name:       "roo code",
+			environ:    []string{"ROO_ACTIVE=true"},
+			want:       runby.AgentRooCode,
+			detected:   true,
+			confidence: runby.ConfidenceProbable,
+		},
+		{
+			name:     "roo code absent",
+			environ:  nil,
+			want:     runby.AgentRooCode,
+			detected: false,
+		},
+		{
+			name:       "openhands",
+			environ:    []string{"AI_AGENT=OpenHands", "OPENHANDS_SESSION_ID=openhands-session", "OPENHANDS_PROJECT_DIR=/workspace", "OPENHANDS_EVENT_TYPE=before_tool", "OPENHANDS_TOOL_NAME=terminal"},
+			want:       runby.AgentOpenHands,
+			detected:   true,
+			confidence: runby.ConfidenceDefinite,
+		},
+		{
+			name:     "openhands exact value required",
+			environ:  []string{"AI_AGENT=openhands/1"},
+			want:     runby.AgentOpenHands,
+			detected: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := runby.Detect(runby.WithEnviron(test.environ))
+			layer, ok := result.Agent(test.want)
+			if ok != test.detected {
+				t.Fatalf("detected = %v, want %v: %#v", ok, test.detected, result.Agents)
+			}
+			if !test.detected {
+				return
+			}
+			if layer.Confidence != test.confidence {
+				t.Errorf("Confidence = %q, want %q", layer.Confidence, test.confidence)
+			}
+		})
+	}
+
+	qwen, ok := runby.Detect(runby.WithEnviron([]string{
+		"QWEN_CODE=1",
+		"QWEN_CODE_SESSION_ID=qwen-session",
+		"QWEN_CODE_PROJECT_DIR=/workspace",
+	})).Agent(runby.AgentQwenCode)
+	if !ok || qwen.SessionID != "qwen-session" || qwen.Paths.WorkingDirectory != "/workspace" {
+		t.Fatalf("Qwen Code context = %#v", qwen)
+	}
+	if want := []string{"QWEN_CODE", "QWEN_CODE_PROJECT_DIR", "QWEN_CODE_SESSION_ID"}; !reflect.DeepEqual(qwen.Evidence, want) {
+		t.Fatalf("Qwen Code Evidence = %#v, want %#v", qwen.Evidence, want)
+	}
+
+	crush, ok := runby.Detect(runby.WithEnviron([]string{
+		"CRUSH=1",
+		"AGENT=crush",
+		"AI_AGENT=crush",
+		"AGENT_OTHER=crush",
+	})).Agent(runby.AgentCrush)
+	if !ok {
+		t.Fatal("Crush was not detected")
+	}
+	if want := []string{"AGENT", "AI_AGENT", "CRUSH"}; !reflect.DeepEqual(crush.Evidence, want) {
+		t.Fatalf("Crush Evidence = %#v, want %#v", crush.Evidence, want)
+	}
+
+	openhands, ok := runby.Detect(runby.WithEnviron([]string{
+		"AI_AGENT=openhands",
+		"OPENHANDS_SESSION_ID=openhands-session",
+		"OPENHANDS_PROJECT_DIR=/workspace",
+		"OPENHANDS_EVENT_TYPE=before_tool",
+		"OPENHANDS_TOOL_NAME=terminal",
+	})).Agent(runby.AgentOpenHands)
+	if !ok || openhands.SessionID != "openhands-session" {
+		t.Fatalf("OpenHands detection = %#v", openhands)
+	}
+	if openhands.Extra["openhands.project_dir"] != "/workspace" ||
+		openhands.Extra["openhands.event_type"] != "before_tool" ||
+		openhands.Extra["openhands.tool_name"] != "terminal" {
+		t.Fatalf("OpenHands Extra = %#v", openhands.Extra)
+	}
+	if want := []string{"AI_AGENT", "OPENHANDS_EVENT_TYPE", "OPENHANDS_PROJECT_DIR", "OPENHANDS_SESSION_ID", "OPENHANDS_TOOL_NAME"}; !reflect.DeepEqual(openhands.Evidence, want) {
+		t.Fatalf("OpenHands Evidence = %#v, want %#v", openhands.Evidence, want)
+	}
+}
+
+func TestOpenHandsAndClaudeCodeDoNotCrossDetect(t *testing.T) {
+	openhands := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=openhands"}))
+	if _, ok := openhands.Agent(runby.AgentClaudeCode); ok {
+		t.Fatalf("OpenHands marker detected as Claude Code: %#v", openhands.Agents)
+	}
+	if _, ok := openhands.Agent(runby.AgentOpenHands); !ok {
+		t.Fatalf("OpenHands marker not detected: %#v", openhands.Agents)
+	}
+
+	claude := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=claude-code/2.0"}))
+	if _, ok := claude.Agent(runby.AgentOpenHands); ok {
+		t.Fatalf("Claude Code marker detected as OpenHands: %#v", claude.Agents)
+	}
+	if _, ok := claude.Agent(runby.AgentClaudeCode); !ok {
+		t.Fatalf("Claude Code marker not detected: %#v", claude.Agents)
+	}
+}
+
 func TestZeroEnumsRenderAsUnknown(t *testing.T) {
 	for _, value := range []fmt.Stringer{
 		runby.AgentName(""),

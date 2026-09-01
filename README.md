@@ -136,7 +136,7 @@ runby -json            # Result 전체 JSON
 
 ## 지원 범위
 
-- **에이전트:** Paseo, Orca, Antigravity 2.0, Cursor Agent, OpenCode, Amp, OpenClaw, Auggie, Cline, pi, OpenAI Codex, Claude Code, Gemini CLI, Grok Build
+- **에이전트:** Paseo, Orca, Antigravity 2.0, Cursor Agent, OpenCode, Amp, OpenClaw, Auggie, pi, Charm Crush, Roo Code, OpenHands, Cline, OpenAI Codex, Claude Code, Gemini CLI, Grok Build, Qwen Code
 - **CI:** GitHub Actions, Forgejo Actions, Gitea Actions, GitLab CI/CD, CircleCI, Travis CI, Buildkite, Azure Pipelines, Bitbucket Pipelines, Jenkins, Vercel, Netlify, TeamCity, Drone, AppVeyor, Semaphore, Cirrus CI, AWS CodeBuild, Google Cloud Build, Xcode Cloud, Cloudflare Pages, Cloudflare Workers Builds, Woodpecker CI, Bitrise, Render, Harness CI, Bamboo, GoCD, Taskcluster, Sourcehut, Codefresh, Codemagic, Buddy, Screwdriver, Vela, 일반 CI 관례
 - **실행 도구:** npm, pnpm, Bun, GNU Make, systemd, pre-commit
 - **원격 환경:** tmux, GNU Screen, Zellij, OpenSSH, WSL, GitHub Codespaces, Gitpod, Dev Containers

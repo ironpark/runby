@@ -19,6 +19,10 @@ const (
 	AgentAuggie       AgentName = "auggie"
 	AgentGrokBuild    AgentName = "grok-build"
 	AgentPi           AgentName = "pi"
+	AgentCrush        AgentName = "crush"
+	AgentQwenCode     AgentName = "qwen-code"
+	AgentRooCode      AgentName = "roo-code"
+	AgentOpenHands    AgentName = "openhands"
 )
 
 // A product on this axis is classified along two independent axes, because one
