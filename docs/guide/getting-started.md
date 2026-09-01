@@ -105,7 +105,7 @@ if codex, ok := result.Agent(runby.AgentCodex); ok {
 | 다른 프로세스나 기록된 환경을 분류함 | `Detect(WithEnviron(...))` |
 | 환경변수 픽스처로 테스트함 | `Detect(WithEnviron(...))` |
 | TTY나 프로세스 시스템콜을 생략함 | `Detect(WithoutTTY(), WithoutProcessTree())` |
-| 커스텀 드라이버를 한 호출에서 격리함 | `Detect(WithOnlyDrivers(...))` |
+| 사용자 정의 드라이버를 한 호출에서 격리함 | `Detect(WithOnlyDrivers(...))` |
 
 `Current()`는 첫 호출 뒤 결과를 캐시합니다. 프로그램 시작 후 `os.Setenv`로 바꾼 값을 반영하려면 `Detect()`를 직접 호출하세요.
 

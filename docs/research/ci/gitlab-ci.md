@@ -94,7 +94,7 @@ GitLab 공식 문서가 열거하는 값은 다음과 같습니다.
 4. `CI_PIPELINE_SOURCE` 값으로 트리거 유형(수동/스케줄/API/트리거 토큰/MR/child·downstream)을 분류합니다.
 5. `CI_SERVER_URL`, `CI_SERVER_VERSION`으로 GitLab.com인지 self-managed 인스턴스인지 보강 판단합니다. 단, `CI_SERVER_URL`은 인스턴스 운영자가 임의의 도메인으로 설정하므로 GitLab.com(`https://gitlab.com`)과의 문자열 일치만으로 SaaS 여부를 확정하고, 그 외 값은 self-managed로 간주하되 절대적 신뢰 신호로 취급하지 않습니다.
 
-**child/downstream 파이프라인 관련 주의사항**: `CI_PIPELINE_SOURCE`는 같은 프로젝트 내 child 파이프라인에서는 `parent_pipeline`, 멀티 프로젝트(다운스트림) 파이프라인에서는 `pipeline` 값을 가집니다. 두 경우 모두 `CI_PIPELINE_ID`와 `CI_JOB_ID`는 원본 파이프라인/잡과는 별개의 새 값을 받습니다(GitLab 공식 문서는 부모 파이프라인 ID를 자식에 자동 상속한다고 명시하지 않으며, 필요 시 `trigger` 잡의 커스텀 변수로 수동 전달해야 한다고 안내합니다). 따라서 `runby`가 child/downstream 파이프라인에서 부모 파이프라인과의 연결 관계를 확인하려면 GitLab이 자동으로 상속하는 표준 변수가 아니라, 사용자가 명시적으로 전달한 커스텀 변수에 의존해야 합니다.
+**child/downstream 파이프라인 관련 주의사항**: `CI_PIPELINE_SOURCE`는 같은 프로젝트 내 child 파이프라인에서는 `parent_pipeline`, 멀티 프로젝트(다운스트림) 파이프라인에서는 `pipeline` 값을 가집니다. 두 경우 모두 `CI_PIPELINE_ID`와 `CI_JOB_ID`는 원본 파이프라인/잡과는 별개의 새 값을 받습니다(GitLab 공식 문서는 부모 파이프라인 ID를 자식에 자동 상속한다고 명시하지 않으며, 필요 시 `trigger` 잡의 사용자 정의 변수로 수동 전달해야 한다고 안내합니다). 따라서 `runby`가 child/downstream 파이프라인에서 부모 파이프라인과의 연결 관계를 확인하려면 GitLab이 자동으로 상속하는 표준 변수가 아니라, 사용자가 명시적으로 전달한 사용자 정의 변수에 의존해야 합니다.
 
 **self-managed·self-hosted/그룹 Runner 관련 주의사항**: 공식 다운스트림 파이프라인 문서는 GitLab.com, GitLab Self-Managed, GitLab Dedicated 간 이 변수들의 동작 차이를 명시하지 않습니다. `CI_RUNNER_ID`, `CI_RUNNER_TAGS`, `CI_RUNNER_DESCRIPTION`은 GitLab이 관리하는 shared Runner든 사용자가 등록한 self-hosted/그룹 Runner든 동일한 스키마로 제공되지만, 값 자체(태그 구성, 설명 텍스트)는 Runner 관리자가 임의로 설정하므로 인스턴스 간 비교 가능한 표준값이 아닙니다.
 
