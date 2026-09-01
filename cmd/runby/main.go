@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 
@@ -25,17 +26,29 @@ import (
 const usage = `runby — 이 프로세스를 무엇이 실행했는지 보고합니다.
 
   runby [-json] [-v]     사람이 읽는 요약, 또는 Result 전체 JSON
-  runby is <축>          종료 코드로만 답합니다. 축: agent ci terminal remote runner tty
+  runby is <축> [제품]   종료 코드로만 답합니다
   runby chain            "paseo>codex" 한 줄. 감지 실패 시 "unknown"
+
+축:
+  agent ci terminal remote runner   제품 이름을 덧붙여 좁힐 수 있습니다
+  tty                               제품 차원이 없습니다
+
+  runby is agent          에이전트가 실행했는가
+  runby is agent codex    그게 codex인가
+  runby is ci github-actions
+  runby is remote tmux
+
+  제품 이름은 -json에 나오는 슬러그와 같습니다. 오타는 거짓이 아니라
+  사용법 오류(2)로 답하므로, 스크립트가 잘못된 분기를 타지 않습니다.
 
 플래그:
   -json   Result 전체를 JSON으로 출력합니다. 필드는 라이브러리와 동일합니다.
   -v      각 축이 근거로 삼은 환경변수 이름을 함께 출력합니다.
 
 종료 코드:
-  0  정상. "is"에서는 해당 축이 참
-  1  "is"에서 해당 축이 거짓
-  2  사용법 오류
+  0  정상. "is"에서는 참
+  1  "is"에서 거짓
+  2  사용법 오류 (알 수 없는 축·제품 포함)
 
 환경변수 값은 어떤 모드에서도 출력하지 않습니다. -v는 변수 이름만 보여줍니다.
 다만 -json에는 제품이 광고한 식별자와 실행 파일 경로가 값으로 들어가므로,
@@ -96,20 +109,84 @@ func run(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// axes maps the "is" subcommand's arguments to the question each asks. They
-// are the same questions the library's cached entry points answer.
-var axes = map[string]func(runby.Result) bool{
-	"agent":    func(r runby.Result) bool { return r.IsAgent() },
-	"ci":       func(r runby.Result) bool { return r.IsCI() },
-	"terminal": func(r runby.Result) bool { return r.HasTerminal() },
-	"remote":   func(r runby.Result) bool { return r.IsRemote() },
-	"runner":   func(r runby.Result) bool { return r.HasRunner() },
-	"tty":      func(r runby.Result) bool { return r.TTY.Interactive },
+// axis is one question the "is" subcommand can ask.
+//
+// any answers "did this axis detect anything", and named answers "did it detect
+// this one product". Both come from the library rather than from a rule of this
+// command's own, which is what TestIsMatchesTheLibrary pins.
+//
+// products lists the names named accepts. It exists so that a typo is a usage
+// error rather than a silent false: a script that asks for "codexx" and is told
+// "no" would take the wrong branch forever. The list is the built-in one, which
+// is complete for this binary because it registers no drivers of its own.
+type axis struct {
+	any      func(runby.Result) bool
+	named    func(runby.Result, string) bool
+	products func() []string
+}
+
+// slugs widens an axis's identity list into the plain strings the command
+// compares against, since each identity is already its stable slug.
+func slugs[T ~string](values []T) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		out = append(out, string(value))
+	}
+	return out
+}
+
+// axes maps the "is" subcommand's arguments to the questions each asks. They
+// are the same questions the library's Result answers.
+//
+// The tty axis has no named form: it reports whether the standard streams can
+// carry a prompt, which is not a product anyone can name.
+var axes = map[string]axis{
+	"agent": {
+		any: func(r runby.Result) bool { return r.IsAgent() },
+		named: func(r runby.Result, name string) bool {
+			_, ok := r.Layer(runby.Agent(name))
+			return ok
+		},
+		products: func() []string { return slugs(runby.Agents()) },
+	},
+	"ci": {
+		any: func(r runby.Result) bool { return r.IsCI() },
+		named: func(r runby.Result, name string) bool {
+			return r.IsCI() && r.CI.Provider == runby.CIProvider(name)
+		},
+		products: func() []string { return slugs(runby.CIProviders()) },
+	},
+	"terminal": {
+		any: func(r runby.Result) bool { return r.HasTerminal() },
+		named: func(r runby.Result, name string) bool {
+			return r.HasTerminal() && r.Terminal.Program == runby.TerminalProgram(name)
+		},
+		products: func() []string { return slugs(runby.TerminalPrograms()) },
+	},
+	"remote": {
+		any: func(r runby.Result) bool { return r.IsRemote() },
+		named: func(r runby.Result, name string) bool {
+			_, ok := r.Remote(runby.RemotePlatform(name))
+			return ok
+		},
+		products: func() []string { return slugs(runby.RemotePlatforms()) },
+	},
+	"runner": {
+		any: func(r runby.Result) bool { return r.HasRunner() },
+		named: func(r runby.Result, name string) bool {
+			_, ok := r.Runner(runby.RunnerTool(name))
+			return ok
+		},
+		products: func() []string { return slugs(runby.RunnerTools()) },
+	},
+	"tty": {
+		any: func(r runby.Result) bool { return r.TTY.Interactive },
+	},
 }
 
 func runIs(args []string, stderr io.Writer) int {
-	if len(args) != 1 {
-		fmt.Fprintf(stderr, "runby: is는 축 이름 하나가 필요합니다: %s\n", axisNames())
+	if len(args) == 0 || len(args) > 2 {
+		fmt.Fprintf(stderr, "runby: is는 축 하나와 선택적인 제품 하나를 받습니다: is <축> [제품]\n축: %s\n", axisNames())
 		return 2
 	}
 	ask, ok := axes[args[0]]
@@ -117,7 +194,31 @@ func runIs(args []string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "runby: 알 수 없는 축 %q. 가능한 값: %s\n", args[0], axisNames())
 		return 2
 	}
-	if ask(runby.Current()) {
+
+	result := runby.Current()
+	if len(args) == 1 {
+		return exitCode(ask.any(result))
+	}
+
+	product := args[1]
+	if ask.named == nil {
+		fmt.Fprintf(stderr, "runby: %s 축은 제품 이름을 받지 않습니다\n", args[0])
+		return 2
+	}
+	// An unknown name is refused rather than answered, so a typo cannot read as
+	// a confident "no".
+	products := ask.products()
+	if !slices.Contains(products, product) {
+		fmt.Fprintf(stderr, "runby: %s 축에 알 수 없는 제품 %q. 가능한 값: %s\n",
+			args[0], product, strings.Join(products, " "))
+		return 2
+	}
+	return exitCode(ask.named(result, product))
+}
+
+// exitCode is the "is" contract in one place: true is 0, false is 1.
+func exitCode(answer bool) int {
+	if answer {
 		return 0
 	}
 	return 1

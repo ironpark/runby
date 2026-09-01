@@ -10,9 +10,14 @@ go install github.com/ironpark/runby/cmd/runby@latest
 
 ```
 runby [-json] [-v]     사람이 읽는 요약, 또는 Result 전체 JSON
-runby is <축>          종료 코드로만 답. 축: agent ci terminal remote runner tty
+runby is <축> [제품]   종료 코드로만 답
 runby chain            "paseo>codex" 한 줄. 감지 실패 시 "unknown"
 ```
+
+| 축 | 제품을 덧붙일 수 있나 |
+|---|---|
+| `agent` `ci` `terminal` `remote` `runner` | 예 |
+| `tty` | 아니오 — 제품 차원이 없습니다 |
 
 | 플래그 | 설명 |
 |---|---|
@@ -53,11 +58,42 @@ if runby is ci; then
 fi
 ```
 
+제품 이름을 덧붙이면 **어떤** 제품인지까지 좁힙니다.
+
+```sh
+if runby is agent codex; then
+	echo "Codex가 실행했습니다"
+fi
+
+if runby is remote tmux; then
+	echo "tmux 안입니다 — 터미널 축의 값이 낡았을 수 있습니다"
+fi
+
+runby is ci github-actions
+runby is runner npm
+runby is terminal ghostty
+```
+
+제품 이름은 `-json`에 나오는 슬러그와 **같습니다** — `claude-code`, `github-actions`, `gnu-make`처럼요. 사용 가능한 목록은 [지원 범위](../../README.md#지원-범위)에 있고, 오타를 냈을 때 stderr에도 전부 출력됩니다.
+
+에이전트·원격·실행 도구 축은 계층이 여럿일 수 있으므로 **어느 계층에든 있으면 참**입니다. Paseo가 Codex를 구동했다면 `runby is agent paseo`와 `runby is agent codex`가 둘 다 0입니다.
+
 | 종료 코드 | 의미 |
 |---|---|
-| `0` | 정상. `is`에서는 해당 축이 참 |
-| `1` | `is`에서 해당 축이 거짓 |
-| `2` | 사용법 오류 (알 수 없는 명령·축·플래그) |
+| `0` | 정상. `is`에서는 참 |
+| `1` | `is`에서 거짓 |
+| `2` | 사용법 오류 (알 수 없는 명령·축·**제품**·플래그) |
+
+**오타는 거짓이 아니라 오류입니다.** `runby is agent codexx`는 1이 아니라 2로 답합니다. 조용히 1을 돌려주면 스크립트가 영원히 잘못된 분기를 타고 아무도 이유를 알 수 없기 때문입니다. 조건문에서 이 구분이 필요하면 `2`를 따로 처리하십시오.
+
+```sh
+runby is agent codex
+case $? in
+	0) echo "codex" ;;
+	1) echo "codex 아님" ;;
+	*) echo "runby 호출이 잘못됨" >&2; exit 2 ;;
+esac
+```
 
 JSON은 `jq`로 바로 다룰 수 있습니다.
 
@@ -93,10 +129,15 @@ runby -json | jq '{chain: [.layers[].agent] | join(">"), ci: .ci.provider, tty: 
 | CLI | 라이브러리 (`result := runby.Current()`) |
 |---|---|
 | `runby is agent` | `result.IsAgent()` |
+| `runby is agent codex` | `_, ok := result.Layer(runby.AgentCodex)` |
 | `runby is runner` | `result.HasRunner()` |
+| `runby is runner npm` | `_, ok := result.Runner(runby.RunnerNPM)` |
 | `runby is ci` | `result.IsCI()` |
+| `runby is ci github-actions` | `result.CI.Provider == runby.CIProviderGitHubActions` |
 | `runby is terminal` | `result.HasTerminal()` |
+| `runby is terminal ghostty` | `result.Terminal.Program == runby.TerminalGhostty` |
 | `runby is remote` | `result.IsRemote()` |
+| `runby is remote tmux` | `_, ok := result.Remote(runby.RemoteTmux)` |
 | `runby is tty` | `result.TTY.Interactive` |
 
 CLI가 별도의 판단을 갖지 않는다는 사실은 테스트로 고정되어 있습니다.

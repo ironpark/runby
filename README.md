@@ -100,10 +100,14 @@ if runby is agent; then
 	export NO_COLOR=1
 fi
 
-runby chain    # paseo>codex
-runby -v       # 감지 근거가 된 환경변수 이름과 조상 프로세스
-runby -json    # Result 전체 JSON
+runby is agent codex   # 제품 이름을 덧붙여 좁힙니다
+runby is remote tmux   # 축마다 같은 방식으로 동작합니다
+runby chain            # paseo>codex
+runby -v               # 감지 근거가 된 환경변수 이름과 조상 프로세스
+runby -json            # Result 전체 JSON
 ```
+
+제품 이름은 `-json`에 나오는 슬러그와 같습니다. 오타는 거짓(1)이 아니라 사용법 오류(2)로 답하므로, 스크립트가 조용히 잘못된 분기를 타지 않습니다.
 
 `-json`에는 세션 ID와 로컬 경로가 포함될 수 있습니다. 공유용 진단 정보에는 값 대신 변수 이름만 출력하는 `runby -v`가 더 안전합니다. 자세한 내용은 [CLI 가이드](docs/guide/cli.md)를 참고하세요.
 

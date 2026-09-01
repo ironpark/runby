@@ -29,7 +29,9 @@ func TestExitCodesAreTheDocumentedContract(t *testing.T) {
 		{[]string{"chain"}, 0, "체인 한 줄"},
 		{[]string{"is", "bogus"}, 2, "알 수 없는 축"},
 		{[]string{"is"}, 2, "축 누락"},
-		{[]string{"is", "agent", "extra"}, 2, "축이 둘"},
+		{[]string{"is", "agent", "extra"}, 2, "알 수 없는 제품"},
+		{[]string{"is", "agent", "codex", "more"}, 2, "인자가 셋"},
+		{[]string{"is", "tty", "ghostty"}, 2, "tty 축은 제품을 받지 않음"},
 		{[]string{"bogus"}, 2, "알 수 없는 명령"},
 		{[]string{"chain", "extra"}, 2, "chain은 인자를 받지 않음"},
 		{[]string{"extra"}, 2, "예상하지 못한 인자"},
@@ -154,5 +156,78 @@ func TestUsageIsPrintedToStderrOnMisuse(t *testing.T) {
 	}
 	if !strings.Contains(stderr, "runby is <축>") {
 		t.Errorf("stderr does not carry usage:\n%s", stderr)
+	}
+}
+
+// The named form is the same contract as the bare one — exit code only, and no
+// opinion of the command's own. Every built-in product on every axis is checked
+// against the library answer, so a mapping that drifts is caught here.
+func TestIsNamedProductMatchesTheLibrary(t *testing.T) {
+	result := runby.Current()
+
+	check := func(axis, product string, want bool) {
+		t.Helper()
+		code, stdout, stderr := exec(t, "is", axis, product)
+		if code != 0 && code != 1 {
+			t.Fatalf("is %s %s = %d, want 0 or 1: %s", axis, product, code, stderr)
+		}
+		if stdout != "" || stderr != "" {
+			t.Errorf("is %s %s printed %q / %q, want silence", axis, product, stdout, stderr)
+		}
+		if got := code == 0; got != want {
+			t.Errorf("is %s %s = %v, library says %v", axis, product, got, want)
+		}
+	}
+
+	for _, agent := range runby.Agents() {
+		_, want := result.Layer(agent)
+		check("agent", string(agent), want)
+	}
+	for _, provider := range runby.CIProviders() {
+		check("ci", string(provider), result.IsCI() && result.CI.Provider == provider)
+	}
+	for _, program := range runby.TerminalPrograms() {
+		check("terminal", string(program), result.HasTerminal() && result.Terminal.Program == program)
+	}
+	for _, platform := range runby.RemotePlatforms() {
+		_, want := result.Remote(platform)
+		check("remote", string(platform), want)
+	}
+	for _, tool := range runby.RunnerTools() {
+		_, want := result.Runner(tool)
+		check("runner", string(tool), want)
+	}
+}
+
+// A typo must not read as a confident "no". A script branching on exit 1 would
+// take the wrong path forever and nothing would say why, so an unknown product
+// is a usage error that names the valid set.
+func TestIsRefusesAnUnknownProduct(t *testing.T) {
+	code, stdout, stderr := exec(t, "is", "agent", "codexx")
+	if code != 2 {
+		t.Fatalf("is agent codexx = %d, want 2", code)
+	}
+	if stdout != "" {
+		t.Errorf("usage went to stdout: %q", stdout)
+	}
+	if !strings.Contains(stderr, "codexx") {
+		t.Errorf("stderr does not name the typo:\n%s", stderr)
+	}
+	for _, agent := range runby.Agents() {
+		if !strings.Contains(stderr, string(agent)) {
+			t.Errorf("stderr omits %q from the valid set:\n%s", agent, stderr)
+		}
+	}
+}
+
+// The tty axis reports whether the standard streams can carry a prompt, which
+// is not a product anyone can name.
+func TestIsRefusesAProductOnTheTTYAxis(t *testing.T) {
+	code, _, stderr := exec(t, "is", "tty", "ghostty")
+	if code != 2 {
+		t.Fatalf("is tty ghostty = %d, want 2", code)
+	}
+	if !strings.Contains(stderr, "tty") {
+		t.Errorf("stderr does not name the axis:\n%s", stderr)
 	}
 }
