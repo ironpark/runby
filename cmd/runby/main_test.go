@@ -33,6 +33,7 @@ func TestExitCodesAreTheDocumentedContract(t *testing.T) {
 		{[]string{"is", "agent", "extra"}, 2, "알 수 없는 제품"},
 		{[]string{"is", "agent", "codex", "more"}, 2, "인자가 셋"},
 		{[]string{"is", "tty", "ghostty"}, 2, "tty 축은 제품을 받지 않음"},
+		{[]string{"is", "unattended", "codex"}, 2, "unattended 축은 제품을 받지 않음"},
 		{[]string{"bogus"}, 2, "알 수 없는 명령"},
 		{[]string{"chain", "extra"}, 2, "chain은 인자를 받지 않음"},
 		{[]string{"extra"}, 2, "예상하지 못한 인자"},
@@ -45,7 +46,7 @@ func TestExitCodesAreTheDocumentedContract(t *testing.T) {
 }
 
 func TestIsAnswersWithTheExitCodeOnly(t *testing.T) {
-	for _, axis := range []string{"agent", "ci", "terminal", "remote", "tty"} {
+	for _, axis := range []string{"agent", "ci", "terminal", "remote", "tty", "unattended"} {
 		code, stdout, stderr := exec(t, "is", axis)
 		if code != 0 && code != 1 {
 			t.Errorf("is %s = %d, want 0 or 1", axis, code)
@@ -60,11 +61,12 @@ func TestIsMatchesTheLibrary(t *testing.T) {
 	// The command must not develop its own opinion about the axes.
 	result := runby.Current()
 	for axis, want := range map[string]bool{
-		"agent":    result.IsAgent(),
-		"ci":       result.IsCI(),
-		"terminal": result.HasTerminal(),
-		"remote":   result.IsRemote(),
-		"tty":      result.TTY.Interactive,
+		"agent":      result.IsAgent(),
+		"ci":         result.IsCI(),
+		"terminal":   result.HasTerminal(),
+		"remote":     result.IsRemote(),
+		"tty":        result.TTY.Interactive,
+		"unattended": result.Unattended(),
 	} {
 		code, _, _ := exec(t, "is", axis)
 		if got := code == 0; got != want {

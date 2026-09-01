@@ -109,6 +109,7 @@ fi
 
 runby is agent codex   # 제품 이름을 덧붙여 좁힙니다
 runby is remote tmux   # 축마다 같은 방식으로 동작합니다
+runby is unattended    # 아무도 출력을 보고 있지 않은가 — Unattended()와 같은 규칙
 runby chain            # paseo>codex
 runby -v               # 감지 근거가 된 환경변수 이름과 조상 프로세스
 runby -json            # Result 전체 JSON

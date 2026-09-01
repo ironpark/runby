@@ -17,7 +17,9 @@ runby chain            "paseo>codex" 한 줄. 감지 실패 시 "unknown"
 | 축 | 제품을 덧붙일 수 있나 |
 |---|---|
 | `agent` `ci` `terminal` `remote` `runner` | 예 |
-| `tty` | 아니오 — 제품 차원이 없습니다 |
+| `tty` `unattended` | 아니오 — 제품 차원이 없습니다 |
+
+`unattended`는 `Result`의 축이 아니라 라이브러리가 답하는 유일한 축 조합 질문입니다 — "아무도 출력을 보고 있지 않은가". 스피너·프롬프트를 끌지 정할 때 `is agent`/`is ci`/`is tty`를 직접 조합하는 대신 이걸 쓰십시오. 조합을 손으로 재현하면 `probable` 에이전트를 제외하는 규칙까지 따라가지 못합니다.
 
 | 플래그 | 설명 |
 |---|---|
@@ -139,5 +141,6 @@ runby -json | jq '{chain: [.agents[].name] | join(">"), ci: .ci.provider, tty: .
 | `runby is remote` | `result.IsRemote()` |
 | `runby is remote tmux` | `_, ok := result.Remote(runby.RemoteTmux)` |
 | `runby is tty` | `result.TTY.Interactive` |
+| `runby is unattended` | `result.Unattended()` |
 
 CLI가 별도의 판단을 갖지 않는다는 사실은 테스트로 고정되어 있습니다.

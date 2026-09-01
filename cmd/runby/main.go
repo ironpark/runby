@@ -31,12 +31,15 @@ const usage = `runby — 이 프로세스를 무엇이 실행했는지 보고합
 
 축:
   agent ci terminal remote runner   제품 이름을 덧붙여 좁힐 수 있습니다
-  tty                               제품 차원이 없습니다
+  tty unattended                    제품 차원이 없습니다
 
   runby is agent          에이전트가 실행했는가
   runby is agent codex    그게 codex인가
   runby is ci github-actions
   runby is remote tmux
+  runby is unattended     아무도 출력을 보고 있지 않은가 — 스피너·프롬프트를
+                          끌지 정하는 질문으로, 라이브러리의 Unattended()와
+                          같은 규칙(probable 에이전트는 제외)으로 답합니다
 
   제품 이름은 -json에 나오는 슬러그와 같습니다. 오타는 거짓이 아니라
   사용법 오류(2)로 답하므로, 스크립트가 잘못된 분기를 타지 않습니다.
@@ -182,6 +185,12 @@ var axes = map[string]axis{
 	},
 	"tty": {
 		any: func(r runby.Result) bool { return r.TTY.Interactive },
+	},
+	// unattended is not an axis of Result but the one cross-axis question the
+	// library answers; exposing it here keeps shell scripts from restating the
+	// rule — and drifting from it — with is agent/is ci/is tty combinations.
+	"unattended": {
+		any: func(r runby.Result) bool { return r.Unattended() },
 	},
 }
 
