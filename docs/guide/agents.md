@@ -28,6 +28,7 @@ API 키와 일반 설정 변수는 에이전트가 프로세스를 실행했다�
 | Amp Orb / Orb 관리형 서비스 | `AgentAmp` | `harness` | `multi-vendor` | `AMP_ORB`, `AMP_THREAD_ID` |
 | OpenClaw | `AgentOpenClaw` | `harness` | `multi-vendor` | `OPENCLAW_SHELL` (값이 `Entrypoint`가 됨) |
 | Auggie (Augment Code) | `AgentAuggie` | `harness` | `multi-vendor` | `AUGMENT_AGENT` |
+| pi | `AgentPi` | `harness` | `multi-vendor` | `PI_SESSION_ID` (`PI_PROVIDER`·`PI_MODEL`은 `Extra`) |
 | Cline | `AgentCline` | `harness` | `multi-vendor` | `CLINE_ACTIVE` (보조 신호 — 아래 참조) |
 | OpenAI Codex | `AgentCodex` | `harness` | `first-party` | `CODEX_THREAD_ID`, `CODEX_SESSION_ID`, 샌드박스 관련 변수 |
 | Claude Code | `AgentClaudeCode` | `harness` | `first-party` | `CLAUDECODE`, `CLAUDE_CODE_SESSION_ID`, `AI_AGENT=claude-code*` |

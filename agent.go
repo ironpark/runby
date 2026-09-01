@@ -18,6 +18,7 @@ const (
 	AgentOpenClaw     AgentName = "openclaw"
 	AgentAuggie       AgentName = "auggie"
 	AgentGrokBuild    AgentName = "grok-build"
+	AgentPi           AgentName = "pi"
 )
 
 // A product on this axis is classified along two independent axes, because one
@@ -63,9 +64,11 @@ func (k Kind) String() string { return slug(k, KindUnknown) }
 //
 // It describes the product, not the model actually serving a given run. A
 // first-party harness can usually be pointed at another vendor's endpoint by
-// configuration, and no environment variable this package reads would say so.
-// Treat it as what the product is built around, never as a claim about which
-// model answered.
+// configuration, and almost no environment variable this package reads would
+// say so; the rare agent that does advertise the live model — pi stamps
+// PI_PROVIDER and PI_MODEL — surfaces it through Extra, not here. Treat this
+// as what the product is built around, never as a claim about which model
+// answered.
 type ModelSource string
 
 const (

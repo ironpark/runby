@@ -33,6 +33,7 @@ var builtinAgentDrivers = []AgentDriver{
 	{Agent: AgentAmp, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"amp"}, Detect: detectAmp},
 	{Agent: AgentOpenClaw, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"openclaw"}, Detect: detectOpenClaw},
 	{Agent: AgentAuggie, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"auggie"}, Detect: detectAuggie},
+	{Agent: AgentPi, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"pi"}, Detect: detectPi},
 	// Cline runs inside a code editor rather than as a binary of its own, so
 	// there is no ancestor name that would corroborate it.
 	{Agent: AgentCline, Kind: KindHarness, Models: ModelsMultiVendor, Detect: detectCline},
@@ -319,6 +320,39 @@ func detectOpenClaw(env Env) (Agent, bool) {
 	return Agent{
 		Entrypoint: strings.ToLower(entrypoint),
 		Axis:       Axis{Evidence: r.Evidence()},
+	}, true
+}
+
+// piExtra maps pi's context variables to their stable Extra keys. PI_PROVIDER
+// and PI_MODEL describe the model serving the session; pi is the rare agent
+// that advertises this, and it lands in Extra because ModelSource classifies
+// the product rather than the run.
+var piExtra = map[string]string{
+	"pi.provider":        "PI_PROVIDER",
+	"pi.model":           "PI_MODEL",
+	"pi.reasoning_level": "PI_REASONING_LEVEL",
+	"pi.session_file":    "PI_SESSION_FILE",
+}
+
+// detectPi identifies a command run by pi (github.com/badlogic/pi-mono). Its
+// bash and powershell tools stamp PI_SESSION_ID on every command they spawn —
+// cleared and re-set per spawn, on by default — so the marker is an execution
+// marker rather than ambient configuration. The context variables beside it
+// are never grounds for the detection: pi clears them before each spawn, but
+// only the session identifier is documented as always present. White-label
+// builds that rename the product change the prefix and are not detected.
+func detectPi(env Env) (Agent, bool) {
+	r := NewEnvReader(env)
+	sessionID, ok := r.Value("PI_SESSION_ID")
+	if !ok {
+		return Agent{}, false
+	}
+	return Agent{
+		SessionID: sessionID,
+		Axis: Axis{
+			Extra:    r.Extra(piExtra),
+			Evidence: r.Evidence(),
+		},
 	}, true
 }
 

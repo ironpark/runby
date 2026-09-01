@@ -656,6 +656,40 @@ func TestUnattendedIgnoresAnUninspectedTTY(t *testing.T) {
 //
 // This is a table of fmt.Stringer, so an enum added without a String method is
 // caught here rather than by a blank column in someone's logs.
+// pi stamps PI_SESSION_ID on every command its bash and powershell tools
+// spawn, so the session identifier alone decides; the model and session-file
+// variables beside it are context, never grounds.
+func TestPiDetection(t *testing.T) {
+	result := runby.Detect(runby.WithEnviron([]string{
+		"PI_SESSION_ID=sess-42",
+		"PI_PROVIDER=anthropic",
+		"PI_MODEL=claude-fable-5",
+		"PI_REASONING_LEVEL=high",
+		"PI_SESSION_FILE=/home/u/.pi/agent/sessions/sess-42.jsonl",
+	}))
+
+	pi, ok := result.Agent(runby.AgentPi)
+	if !ok || pi.SessionID != "sess-42" || pi.Confidence != runby.ConfidenceDefinite {
+		t.Fatalf("pi detection = %#v", pi)
+	}
+	if pi.Kind != runby.KindHarness || pi.Models != runby.ModelsMultiVendor {
+		t.Fatalf("pi classification = %#v", pi)
+	}
+	if pi.Extra["pi.provider"] != "anthropic" || pi.Extra["pi.model"] != "claude-fable-5" {
+		t.Fatalf("Extra = %#v", pi.Extra)
+	}
+	want := []string{"PI_MODEL", "PI_PROVIDER", "PI_REASONING_LEVEL", "PI_SESSION_FILE", "PI_SESSION_ID"}
+	if !reflect.DeepEqual(pi.Evidence, want) {
+		t.Fatalf("Evidence = %#v, want %#v", pi.Evidence, want)
+	}
+
+	// The context variables alone are not a detection: pi clears and re-sets
+	// them per spawn, but only the session identifier is the marker.
+	if got := runby.Detect(runby.WithEnviron([]string{"PI_MODEL=gpt-5.6"})); got.IsAgent() {
+		t.Fatalf("PI_MODEL alone detected: %#v", got.Agents)
+	}
+}
+
 func TestZeroEnumsRenderAsUnknown(t *testing.T) {
 	for _, value := range []fmt.Stringer{
 		runby.AgentName(""),
