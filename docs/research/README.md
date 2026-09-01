@@ -44,8 +44,14 @@
 | Grok Build | `GROK_PLUGIN_ROOT`, `GROK_PLUGIN_DATA` | Grok Build 플러그인이 실행한 프로세스 |
 | OpenClaw | `OPENCLAW_SHELL` | OpenClaw가 실행한 셸 |
 | Auggie | `AUGMENT_AGENT` | Auggie가 실행한 프로세스 |
+| Charm Crush | `CRUSH=1` | Crush가 실행한 모든 셸. `AGENT`·`AI_AGENT`는 값이 `crush`일 때만 보조 evidence |
+| Roo Code | `ROO_ACTIVE=true` | Roo Code가 만든 터미널. 사람 입력과 구분하지 못해 `probable` |
+| OpenHands | `AI_AGENT=openhands` | OpenHands terminal·hook subprocess. hook 컨텍스트는 `Extra` |
 | Cline | `CLINE_ACTIVE` | Cline이 실행한 셸. 에디터 안에서 돌므로 조상 실행 파일로는 확증할 수 없음 |
+| Qwen Code | `QWEN_CODE=1` | Qwen Code가 실행한 셸/PTY. 세션·프로젝트 변수는 컨텍스트 |
 | JetBrains Junie | 없음 | 공개 변수는 CLI 입력 설정용 |
+
+표준화 후보인 `AGENT=<agent-name>`·`AI_AGENT=<agent-name>`의 진행 상황과 알 수 없는 값의 generic 폴백을 구현하지 않는 이유는 [`agents/README.md`](agents/README.md)에 기록했다.
 
 ## CI 플랫폼별 조사
 
@@ -128,8 +134,22 @@ CI 감지는 "누가 명령을 요청했는가"가 아니라 "어디서 실행�
 - [Grok Build](agents/grok-build.md)
 - [OpenClaw](agents/openclaw.md)
 - [Auggie](agents/auggie.md)
+- [Charm Crush](agents/crush.md)
+- [Roo Code](agents/roo-code.md)
+- [OpenHands](agents/openhands.md)
 - [Cline](agents/cline.md)
+- [Qwen Code](agents/qwen-code.md)
 - [JetBrains Junie](agents/junie.md) — 감지하지 않는 이유
 - [Goose](agents/goose.md) — 감지하지 않는 이유
 - [Cowork](agents/cowork.md) — 감지하지 않는 이유
 - [Kimi CLI](agents/kimi-cli.md) — 감지하지 않는 이유
+- [Aider](agents/aider.md) — 감지하지 않는 이유
+- [Kilo Code](agents/kilo-code.md) — 감지하지 않는 이유
+- [Continue CLI](agents/continue-cli.md) — 감지하지 않는 이유
+- [Factory Droid](agents/factory-droid.md) — 감지하지 않는 이유
+- [Warp Agent](agents/warp-agent.md) — 감지하지 않는 이유
+- [Replit Agent](agents/replit-agent.md) — 감지하지 않는 이유
+- [Jules](agents/jules.md) — 감지하지 않는 이유
+- [Windsurf Cascade](agents/windsurf-cascade.md) — 감지하지 않는 이유
+- [Devin](agents/devin.md) — 감지하지 않는 이유
+- [Trae](agents/trae.md) — 공식 근거 없어 보류
