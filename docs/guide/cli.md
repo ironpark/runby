@@ -100,7 +100,7 @@ esac
 JSON은 `jq`로 바로 다룰 수 있습니다.
 
 ```sh
-runby -json | jq -r '.agents[] | select(.ancestor_pid != null) | .name'
+runby -json | jq -r '.agents[]? | select(.ancestor_pid != null) | .name'
 ```
 
 ## 환경변수 값은 출력하지 않습니다
@@ -121,7 +121,7 @@ runby -json | jq -r '.agents[] | select(.ancestor_pid != null) | .name'
 `-json`을 로그나 텔레메트리로 보낸다면 필요한 필드만 골라 쓰십시오.
 
 ```sh
-runby -json | jq '{chain: [.agents[].name] | join(">"), ci: .ci.provider, tty: .tty.interactive}'
+runby -json | jq '{chain: [.agents[]?.name] | join(">"), ci: .ci.provider, tty: .tty.interactive}'
 ```
 
 ## 라이브러리와의 관계

@@ -26,7 +26,7 @@ type Agent struct {
 	Nested bool `json:"nested,omitempty"`
 
 	Sandbox Sandbox `json:"sandbox"`
-	Paths   Paths   `json:"paths"`
+	Paths   Paths   `json:"paths,omitzero"`
 
 	// AncestorPID is the PID of a running ancestor process whose executable
 	// belongs to this agent, or 0 when none was found.
@@ -60,7 +60,7 @@ type Result struct {
 	// Agents holds every detected agent, ordered from the most specific
 	// orchestrator to the underlying runtime. It is empty when nothing was
 	// detected.
-	Agents []Agent `json:"agents"`
+	Agents []Agent `json:"agents,omitempty"`
 	// TTY is the process-level standard stream status. It is present even
 	// when Agents is empty; see TTY.Inspected. It is the only field derived
 	// from system calls rather than from the environment.
@@ -82,13 +82,13 @@ type Result struct {
 	// script, a build recipe, a service manager. It is the half of "what
 	// launched this" that the other axes leave out, and like Remotes more than
 	// one can be present at once. See Runner for what it cannot detect.
-	Runners []Runner `json:"runners"`
+	Runners []Runner `json:"runners,omitempty"`
 	// Remotes holds every layer detected between the user and this process:
 	// multiplexers, SSH, and remote or isolated environments. More than one
 	// can be present at once, and the order is a detection order rather than
 	// a nesting order. See Remote for what a layer here implies about the
 	// other axes.
-	Remotes []Remote `json:"remotes"`
+	Remotes []Remote `json:"remotes,omitempty"`
 }
 
 // IsAgent reports whether any supported agent was detected, answering "was
