@@ -42,7 +42,7 @@ API 키와 일반 설정 변수는 에이전트가 프로세스를 실행했다�
 
 **Cline과 Roo Code는 `probable`입니다.** 두 마커 모두 프로세스가 아니라 각 제품이 만든 **터미널**에 붙어 있어, 사람이 그 터미널에 직접 타이핑한 명령도 같은 값을 받기 때문입니다. **Grok Build는 플러그인 훅에만** 마커가 주어지므로, 훅을 실행하지 않은 세션은 감지되지 않습니다. Crush의 일반 이름 `AGENT`·`AI_AGENT`는 제품명을 정확히 지목할 때만 보조 evidence로 쓰며, OpenHands도 `AI_AGENT=openhands`를 정확히 매칭합니다. Qwen Code는 기본적으로 Qwen 모델을 대상으로 하지만 OpenAI 호환 endpoint 설정도 지원하므로, `Models`는 제품 성격인 `first-party`를 나타냅니다.
 
-Antigravity CLI, GitHub Copilot CLI, Junie, Goose, Kimi CLI, Claude Cowork와 Aider, Kilo Code, Continue CLI, Factory Droid, Warp Agent, Replit Agent, Jules, Windsurf Cascade, Devin은 공식적으로 확인된 범용 자식 프로세스 실행 마커가 없어 감지하지 않습니다. Trae의 `TRAE_AI_SHELL_ID`도 공식 근거가 없어 보류합니다. 각 제품을 왜 감지하지 않기로 했는지는 [`docs/research/agents/`](../research/agents/)에 제품별로 기록되어 있습니다 — 설정 변수를 마커로 오인한 사례(Goose의 `GOOSE_PROVIDER`)와 공식 문서에 없는 내부 변수(Cowork의 `CLAUDE_CODE_IS_COWORK`)를 포함합니다.
+Antigravity CLI, GitHub Copilot CLI, Junie, Goose, Kimi CLI, Claude Cowork와 Aider, Kilo Code, Continue CLI, Factory Droid, Warp Agent, Replit Agent, Jules, Windsurf Cascade, Devin은 공식적으로 확인된 범용 자식 프로세스 실행 마커가 없어 감지하지 않습니다. Trae의 `TRAE_AI_SHELL_ID`도 공식 근거가 없어 보류합니다. 각 제품을 왜 감지하지 않기로 했는지는 [`docs/research/agents/`](../../research/agents/)에 제품별로 기록되어 있습니다 — 설정 변수를 마커로 오인한 사례(Goose의 `GOOSE_PROVIDER`)와 공식 문서에 없는 내부 변수(Cowork의 `CLAUDE_CODE_IS_COWORK`)를 포함합니다.
 
 ## 분류: Kind, Models
 
@@ -68,7 +68,7 @@ if primary, ok := result.Primary(); ok {
 
 터미널을 소유한다는 사실은 에이전트 실행의 증거가 아닙니다. Zed는 Agent 전용 신호가 없어 이 축이 아니라 [터미널 축](terminal.md)(`Terminal.Program == TerminalZed`)으로 보고합니다.
 
-`Kind`와 `Models`는 환경이 알려줄 수 없는 사실이라 드라이버 테이블에 손으로 적고 [`docs/research/agents/`](../research/agents/)의 `product_type`·`model_source`에도 손으로 적습니다. 두 곳이 어긋나지 않도록 `TestKindsMatchDocs`가 잠급니다.
+`Kind`와 `Models`는 환경이 알려줄 수 없는 사실이라 드라이버 테이블에 손으로 적고 [`docs/research/agents/`](../../research/agents/)의 `product_type`·`model_source`에도 손으로 적습니다. 두 곳이 어긋나지 않도록 `TestKindsMatchDocs`가 잠급니다.
 
 ## 계층은 여러 개일 수 있습니다
 

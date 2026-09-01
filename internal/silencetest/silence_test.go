@@ -1,7 +1,7 @@
 // Package silencetest holds the one test that must not share a test binary
 // with the rest of the suite. The driver registry is process-wide, so a
 // driver registered to silence a built-in stays silenced for every other test
-// in the same binary — the hazard docs/guide/drivers.md warns about, and the
+// in the same binary — the hazard docs/en/guide/drivers.md warns about, and the
 // reason WithOnlyDrivers exists.
 package silencetest_test
 

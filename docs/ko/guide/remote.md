@@ -45,4 +45,4 @@ tmux와 Screen은 실패 방향이 정반대입니다. tmux는 `TERM_PROGRAM`을
 - **`WINDOW`** (Screen) — 무조건 설정되지만 다른 소프트웨어와 이름이 겹치기 쉬워 `STY`와 함께일 때만 컨텍스트로 씁니다.
 - **`LC_TERMINAL`** — 배포판이 배포하는 `SendEnv LC_*` 설정에 걸려 SSH를 건너가므로 다른 머신의 터미널을 가리킬 수 있습니다.
 
-조사 근거는 [`docs/research/remote/`](../research/remote/)에 있습니다.
+조사 근거는 [`docs/research/remote/`](../../research/remote/)에 있습니다.

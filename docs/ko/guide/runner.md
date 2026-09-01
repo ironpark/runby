@@ -93,4 +93,4 @@ CI 잡 안에서 `npm test`를 돌리면 두 축이 함께 잡힙니다. `CI`는
 - **`npm_lifecycle_script`은 읽지 않습니다.** 스크립트 본문 전체가 들어 있어 인라인 자격증명을 포함할 수 있습니다. `Evidence`에도 `Extra`에도 넣지 않습니다.
 - **부재는 부정이 아닙니다.** `PRE_COMMIT`은 pre-commit 2.5.0부터이고, 스크립트가 `env -i`로 환경을 비우면 어떤 마커도 남지 않습니다.
 
-조사 근거는 [`docs/research/runners/`](../research/runners/)에 있습니다.
+조사 근거는 [`docs/research/runners/`](../../research/runners/)에 있습니다.

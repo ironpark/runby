@@ -77,7 +77,7 @@ runby is runner npm
 runby is terminal ghostty
 ```
 
-제품 이름은 `-json`에 나오는 슬러그와 **같습니다** — `claude-code`, `github-actions`, `gnu-make`처럼요. 사용 가능한 목록은 [지원 범위](../../README.md#지원-범위)에 있고, 오타를 냈을 때 stderr에도 전부 출력됩니다.
+제품 이름은 `-json`에 나오는 슬러그와 **같습니다** — `claude-code`, `github-actions`, `gnu-make`처럼요. 사용 가능한 목록은 [지원 범위](../../../README.ko.md#지원-범위)에 있고, 오타를 냈을 때 stderr에도 전부 출력됩니다.
 
 에이전트·원격·실행 도구 축은 계층이 여럿일 수 있으므로 **어느 계층에든 있으면 참**입니다. Paseo가 Codex를 구동했다면 `runby is agent paseo`와 `runby is agent codex`가 둘 다 0입니다.
 

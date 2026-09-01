@@ -1,26 +1,12 @@
-# runby 문서
+# runby documentation
 
-사용법을 찾고 있다면 [사용자 가이드](guide/)로, 특정 감지 규칙이 왜 존재하는지 확인하려면 [조사 문서](research/)로 이동하세요.
+Choose a language for the user guide:
 
-| 문서 | 대상 | 내용 |
-|---|---|---|
-| [루트 README](../README.md) | 처음 방문한 사용자 | 기능 요약, 설치, 빠른 예제 |
-| [시작하기](guide/getting-started.md) | 처음 도입하는 개발자 | 핵심 API 선택, 첫 구현, 테스트 |
-| [활용 예제](guide/recipes.md) | 기능을 적용하는 개발자 | 프롬프트, 로그, CI, 진단 패턴 |
-| [사용자 가이드](guide/) | 상세 정보가 필요한 사용자 | CLI, API, 축별 동작, 드라이버 확장 |
-| [조사 문서](research/) | 기여자와 유지보수자 | 공식 출처, 검증 기록, 제외 사유 |
+- [English](en/guide/)
+- [한국어](ko/guide/)
+- [日本語](ja/guide/)
 
-## 사용자 문서와 조사 문서를 나눈 이유
+Detection research, source verification, and exclusion rationale are maintained in Korean and are not translated:
 
-`guide/`는 공개 API를 **어떻게 사용하는지** 설명합니다. `research/`는 환경변수가 실제로 해당 제품의 실행 신호인지 **무엇으로 확인했는지** 기록합니다. 일반 사용자는 조사 과정을 읽지 않아도 되지만, 오탐 가능성을 평가하거나 새 제품을 기여할 때는 이 근거가 필요합니다.
-
-제품의 환경변수 계약이 바뀌면 조사 문서와 감지 코드도 함께 갱신해야 합니다. 테스트는 `runby`가 보고하는 각 식별자에 대응하는 조사 문서가 존재하고 `slug`가 일치하는지 검사합니다.
-
-## 조사 문서 찾아보기
-
-- [작성 규칙과 front matter](research/README.md)
-- [에이전트](research/agents/)
-- [CI 플랫폼](research/ci/)
-- [실행 도구](research/runners/)
-- [원격 환경과 멀티플렉서](research/remote/)
-- [터미널 에뮬레이터](research/terminals/)
+- [Research documents](research/)
+- [Contribution format and front matter](research/README.md)

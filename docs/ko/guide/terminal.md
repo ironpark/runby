@@ -47,7 +47,7 @@ term.Confidence   // 멀티플렉서가 감지되면 probable로 낮아짐
 - **VS Code와 JetBrains도 같은 이유로 `probable`입니다.** `TERM_PROGRAM=vscode`는 공유 소스에 박힌 리터럴이라 Cursor·Windsurf 같은 포크가 그대로 내보내고, `JetBrains-JediTerm`은 IDE가 아니라 터미널 엔진 이름이라 Android Studio 같은 서드파티 IntelliJ 플랫폼 IDE도 포함합니다. 두 값 모두 **엔진**을 증명하지 제품을 증명하지 않습니다.
 - **`TERM_SESSION_ID`는 두 제품이 공유합니다.** Apple Terminal과 JetBrains가 같은 이름을 서로 다른 형식으로 씁니다. 그래서 이 변수는 어느 쪽에서도 마커가 아니며, 각 축의 마커가 결정된 **뒤에만** 세션 식별자로 읽힙니다.
 
-터미널별 조사 근거는 [`docs/research/terminals/`](../research/terminals/)에, 멀티플렉서와 원격 실행 계층은 [`docs/research/remote/`](../research/remote/)에 있습니다.
+터미널별 조사 근거는 [`docs/research/terminals/`](../../research/terminals/)에, 멀티플렉서와 원격 실행 계층은 [`docs/research/remote/`](../../research/remote/)에 있습니다.
 
 ## `HasTerminal()`이지 `IsTerminal()`이 아닙니다
 

@@ -4,11 +4,40 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/ironpark/runby"
 )
+
+// TestGuideLocalesHaveSameFiles keeps every translated user guide navigable.
+// Content can evolve independently while a translation is in progress, but a
+// new page must never disappear silently from another locale's guide index.
+func TestGuideLocalesHaveSameFiles(t *testing.T) {
+	locales := []string{"en", "ko", "ja"}
+	var want []string
+	for _, locale := range locales {
+		entries, err := os.ReadDir(filepath.Join("docs", locale, "guide"))
+		if err != nil {
+			t.Fatalf("read %s guide: %v", locale, err)
+		}
+		var names []string
+		for _, entry := range entries {
+			if !entry.IsDir() && filepath.Ext(entry.Name()) == ".md" {
+				names = append(names, entry.Name())
+			}
+		}
+		slices.Sort(names)
+		if want == nil {
+			want = names
+			continue
+		}
+		if !slices.Equal(names, want) {
+			t.Errorf("%s guide files = %v, want %v", locale, names, want)
+		}
+	}
+}
 
 // docFields reads the YAML front matter of a research document as a flat map.
 // The front matter is a fixed set of scalar keys, so it is read line by line

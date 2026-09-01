@@ -4,7 +4,7 @@
 
 CI 여부만 필요하면 `IsCI()`, 플랫폼이나 재시도 회차가 필요할 때 `CI`의 상세 필드를 사용하세요.
 
-현재 내장 감지 제공자는 GitHub Actions, Forgejo Actions, Gitea Actions, GitLab CI/CD, CircleCI, Travis CI, Buildkite, Azure Pipelines, Bitbucket Pipelines, Jenkins, Vercel, Netlify, TeamCity, Drone, AppVeyor, Semaphore, Cirrus CI, AWS CodeBuild, Google Cloud Build, Xcode Cloud, Cloudflare Pages, Cloudflare Workers Builds, Woodpecker CI, Bitrise, Render, Harness CI, Bamboo, GoCD, Taskcluster, Sourcehut, Codefresh, Codemagic, Buddy, Screwdriver, Vela와 일반 CI 관례입니다. 감지 순서와 제품별 근거는 [`docs/research/ci/`](../research/ci/)에 있습니다.
+현재 내장 감지 제공자는 GitHub Actions, Forgejo Actions, Gitea Actions, GitLab CI/CD, CircleCI, Travis CI, Buildkite, Azure Pipelines, Bitbucket Pipelines, Jenkins, Vercel, Netlify, TeamCity, Drone, AppVeyor, Semaphore, Cirrus CI, AWS CodeBuild, Google Cloud Build, Xcode Cloud, Cloudflare Pages, Cloudflare Workers Builds, Woodpecker CI, Bitrise, Render, Harness CI, Bamboo, GoCD, Taskcluster, Sourcehut, Codefresh, Codemagic, Buddy, Screwdriver, Vela와 일반 CI 관례입니다. 감지 순서와 제품별 근거는 [`docs/research/ci/`](../../research/ci/)에 있습니다.
 
 ```go
 result := runby.Detect()
@@ -42,7 +42,7 @@ PR/MR 감지는 플랫폼별 직접 신호만 사용합니다. 예를 들어 `BU
 
 Forgejo Actions는 Runner v7+에서 모든 `FORGEJO_*`를 `GITHUB_*` 별칭으로도 제공하므로 GitHub Actions보다 **먼저** 검사합니다. v7 미만 Runner는 `GITHUB_*`만 제공해 환경변수로는 구별할 수 없어 GitHub Actions로 보고됩니다.
 
-플랫폼별 조사 근거는 [`docs/research/ci/`](../research/ci/)에 있습니다. 지원하지 않는 플랫폼은 [드라이버](drivers.md)를 만들어 추가할 수 있습니다.
+플랫폼별 조사 근거는 [`docs/research/ci/`](../../research/ci/)에 있습니다. 지원하지 않는 플랫폼은 [드라이버](drivers.md)를 만들어 추가할 수 있습니다.
 
 ```go
 acme := runby.CIDriver{
