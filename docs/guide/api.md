@@ -2,9 +2,10 @@
 
 처음 사용하는 경우에는 이 레퍼런스보다 [시작하기](getting-started.md)를 먼저 읽는 편이 빠릅니다. 여기서는 공개 옵션과 결과 구조 전체를 설명합니다.
 
-진입점은 `Detect(opts ...Option) Result` 하나입니다.
+일반 애플리케이션의 진입점은 캐시된 `Current()`이고, 매번 새로 감지하거나 옵션을 적용할 때는 `Detect(opts ...Option) Result`를 사용합니다. 프로세스 전체에 커스텀 드라이버를 추가하는 `Register()`도 별도로 제공합니다.
 
 ```go
+result := runby.Current()                                  // 현재 프로세스, 최초 1회 감지 후 캐시
 result := runby.Detect()                                   // 현재 프로세스
 result := runby.Detect(runby.WithEnviron(environ))         // 명시적 환경
 result := runby.Detect(runby.WithoutTTY())                 // TTY 시스템콜 생략

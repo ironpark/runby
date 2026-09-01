@@ -4,7 +4,7 @@
 
 ## 1. 설치하기
 
-기존 Go 모듈에서 다음 명령을 실행합니다.
+Go 1.24 이상이 필요합니다. 기존 Go 모듈에서 다음 명령을 실행합니다.
 
 ```sh
 go get github.com/ironpark/runby

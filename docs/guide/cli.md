@@ -12,6 +12,7 @@ go install github.com/ironpark/runby/cmd/runby@latest
 runby [-json] [-v]     사람이 읽는 요약, 또는 Result 전체 JSON
 runby is <축> [제품]   종료 코드로만 답
 runby chain            "paseo>codex" 한 줄. 감지 실패 시 "unknown"
+runby help             도움말 출력 (`runby -h`와 같음)
 ```
 
 | 축 | 제품을 덧붙일 수 있나 |
