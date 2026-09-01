@@ -73,3 +73,7 @@ Docker·Podman·LXC·host 등 Runner 실행 방식은 격리와 경로에 영향
 - [Forgejo Actions reference — env 및 runner context](https://forgejo.org/docs/latest/user/actions/reference/#env)
 - [Forgejo Runner installation](https://forgejo.org/docs/latest/admin/actions/installation/)
 - [Forgejo Runner 공식 소스](https://code.forgejo.org/forgejo/runner)
+
+## Pull/merge request 감지
+
+`FORGEJO_EVENT_NAME=pull_request`이면 `runby`는 `CI.PullRequest`를 참으로 보고합니다. Forgejo가 이 이벤트명을 step 환경에 주입한다고 문서화하므로, 별도의 payload 파일을 읽지 않고도 요청 종류를 판정할 수 있습니다. Forgejo의 기본 환경변수 목록에는 PR 번호를 별도 문자열 변수로 제공한다는 계약이 없으므로 `PullRequestID`는 비워 둡니다. 판정에 사용한 `FORGEJO_EVENT_NAME`은 `Evidence`에 이름만 기록합니다.

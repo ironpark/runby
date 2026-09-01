@@ -79,3 +79,7 @@ CircleCI는 모든 job 컨테이너에 `CI`, `CIRCLECI`를 포함한 빌트인 �
 - [Trigger options](https://circleci.com/docs/guides/orchestrate/triggers-overview/)
 - [Pipeline values and parameters](https://circleci.com/docs/guides/orchestrate/pipeline-variables/)
 - [Introduction to environment variables](https://circleci.com/docs/guides/security/env-vars/)
+
+## Pull request 감지
+
+공식 빌트인 변수 `CIRCLE_PULL_REQUEST`는 PR 빌드에서 PR URL을 제공하므로, 값이 있으면 `PullRequest=true`로 보고 URL 전체를 `PullRequestID`에 보존합니다. CircleCI가 모든 VCS에 대해 숫자 ID만 별도로 보장하지는 않으므로 URL에서 숫자를 추출해 임의로 정규화하지 않습니다. `CIRCLE_PULL_REQUEST`는 `Evidence`에 이름만 기록합니다.

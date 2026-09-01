@@ -71,3 +71,7 @@ Travis CI 공식 문서는 모든 빌드에 주입되는 "default/built-in envir
 - [API Developer Documentation — env_vars](https://developer.travis-ci.com/resource/env_vars)
 - [Travis CI Status](https://www.traviscistatus.com/)
 - [공식 저장소 (`travis-ci/travis-ci`)](https://github.com/travis-ci/travis-ci)
+
+## Pull request 감지
+
+`TRAVIS_PULL_REQUEST`는 일반 빌드에서 문자열 `false`, PR 빌드에서 PR 번호를 제공한다고 공식 문서가 명시합니다. 따라서 `runby`는 값이 비어 있지 않고 대소문자 무관하게 `false`가 아니면 `PullRequest=true`로 보고하고, 그 값을 `PullRequestID`로 옮깁니다. 판정에 사용한 변수 이름은 `Evidence`에 기록하며 번호 값은 기록하지 않습니다.

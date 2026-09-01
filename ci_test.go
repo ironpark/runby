@@ -259,6 +259,124 @@ func TestCIEvidenceIsNamesOnly(t *testing.T) {
 	}
 }
 
+func TestCIExistingProvidersDetectPullRequests(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider runby.CIProvider
+		env      []string
+		id       string
+		marker   string
+	}{
+		{
+			name:     "forgejo",
+			provider: runby.CIForgejo,
+			env: []string{
+				"FORGEJO_ACTIONS=true", "FORGEJO_EVENT_NAME=pull_request",
+			},
+			marker: "FORGEJO_EVENT_NAME",
+		},
+		{
+			name:     "github-actions",
+			provider: runby.CIGitHubActions,
+			env:      []string{"GITHUB_ACTIONS=true", "GITHUB_EVENT_NAME=pull_request"},
+			marker:   "GITHUB_EVENT_NAME",
+		},
+		{
+			name:     "gitlab-ci",
+			provider: runby.CIGitLab,
+			env:      []string{"GITLAB_CI=true", "CI_MERGE_REQUEST_ID=42"},
+			id:       "42",
+			marker:   "CI_MERGE_REQUEST_ID",
+		},
+		{
+			name:     "circleci",
+			provider: runby.CICircleCI,
+			env:      []string{"CIRCLECI=true", "CIRCLE_PULL_REQUEST=https://github.com/acme/app/pull/42"},
+			id:       "https://github.com/acme/app/pull/42",
+			marker:   "CIRCLE_PULL_REQUEST",
+		},
+		{
+			name:     "travis-ci",
+			provider: runby.CITravis,
+			env:      []string{"TRAVIS=true", "TRAVIS_PULL_REQUEST=42"},
+			id:       "42",
+			marker:   "TRAVIS_PULL_REQUEST",
+		},
+		{
+			name:     "buildkite",
+			provider: runby.CIBuildkite,
+			env:      []string{"BUILDKITE=true", "BUILDKITE_PULL_REQUEST=42"},
+			id:       "42",
+			marker:   "BUILDKITE_PULL_REQUEST",
+		},
+		{
+			name:     "azure-pipelines",
+			provider: runby.CIAzurePipelines,
+			env:      []string{"TF_BUILD=true", "BUILD_REASON=PullRequest", "SYSTEM_PULLREQUEST_PULLREQUESTID=42"},
+			id:       "42",
+			marker:   "BUILD_REASON",
+		},
+		{
+			name:     "bitbucket-pipelines",
+			provider: runby.CIBitbucket,
+			env:      []string{"BITBUCKET_BUILD_NUMBER=1", "BITBUCKET_PIPELINE_UUID=p-1", "BITBUCKET_PR_ID=42"},
+			id:       "42",
+			marker:   "BITBUCKET_PR_ID",
+		},
+		{
+			name:     "jenkins",
+			provider: runby.CIJenkins,
+			env:      []string{"BUILD_NUMBER=1", "JENKINS_HOME=/var/lib/jenkins", "CHANGE_ID=42"},
+			id:       "42",
+			marker:   "CHANGE_ID",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			env := append([]string{"CI=true"}, test.env...)
+			ci := runby.Detect(runby.WithEnviron(env)).CI
+			if ci.Provider != test.provider || !ci.PullRequest {
+				t.Fatalf("CI = %#v, want %q pull request", ci, test.provider)
+			}
+			if ci.PullRequestID != test.id {
+				t.Fatalf("PullRequestID = %q, want %q", ci.PullRequestID, test.id)
+			}
+			found := false
+			for _, name := range ci.Evidence {
+				if name == test.marker {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("Evidence = %#v, want %q", ci.Evidence, test.marker)
+			}
+		})
+	}
+}
+
+func TestCIExistingProvidersRejectNonPullRequestValues(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider runby.CIProvider
+		env      []string
+	}{
+		{name: "travis", provider: runby.CITravis, env: []string{"TRAVIS=true", "TRAVIS_PULL_REQUEST=false"}},
+		{name: "buildkite", provider: runby.CIBuildkite, env: []string{"BUILDKITE=true", "BUILDKITE_PULL_REQUEST=false"}},
+		{name: "azure", provider: runby.CIAzurePipelines, env: []string{"TF_BUILD=true", "BUILD_REASON=Manual"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ci := runby.Detect(runby.WithEnviron(append([]string{"CI=true"}, test.env...))).CI
+			if ci.Provider != test.provider || ci.PullRequest {
+				t.Fatalf("CI = %#v, want %q without pull request", ci, test.provider)
+			}
+		})
+	}
+}
+
 func TestCustomCIDriverOutranksTheGenericConvention(t *testing.T) {
 	driver := runby.CIDriver{
 		Provider: "acme-ci",

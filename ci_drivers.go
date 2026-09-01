@@ -14,11 +14,34 @@ type ciSpec struct {
 	jobName     string
 	trigger     string
 	runner      string
+	pullRequest ciPRSpec
 
 	// attempt names the retry counter, and attemptOffset normalizes a
 	// 0-based retry count to the 1-based CI.Attempt form.
 	attempt       string
 	attemptOffset int
+}
+
+// ciPRSpec describes the optional pull/merge-request signal for a CI
+// platform. A platform may advertise only the request kind, or both the kind
+// and one or more identifiers. The names are kept separately because a
+// condition such as BUILD_REASON=PullRequest is not itself an identifier.
+type ciPRSpec struct {
+	marker      marker
+	markerNames []string
+	idNames     []string
+}
+
+func ciPR(name string) ciPRSpec {
+	return ciPRSpec{marker: markerSet(name), markerNames: []string{name}, idNames: []string{name}}
+}
+
+func ciPRAny(names ...string) ciPRSpec {
+	return ciPRSpec{marker: func(env Env) bool { return anyPresent(env, names...) }, markerNames: names, idNames: names}
+}
+
+func ciPRWhen(m marker, markerNames []string, idNames ...string) ciPRSpec {
+	return ciPRSpec{marker: m, markerNames: markerNames, idNames: idNames}
 }
 
 // ciSpecs is ordered so that a specific platform is reported ahead of the
@@ -47,6 +70,7 @@ var ciSpecs = []ciSpec{
 		buildNumber: "FORGEJO_RUN_NUMBER",
 		jobID:       "FORGEJO_JOB",
 		trigger:     "FORGEJO_EVENT_NAME",
+		pullRequest: ciPRWhen(markerEquals("FORGEJO_EVENT_NAME", "pull_request"), []string{"FORGEJO_EVENT_NAME"}),
 		// FORGEJO_RUN_ATTEMPT already counts from 1.
 		attempt: "FORGEJO_RUN_ATTEMPT",
 	},
@@ -68,6 +92,7 @@ var ciSpecs = []ciSpec{
 		jobID:       "GITHUB_JOB",
 		trigger:     "GITHUB_EVENT_NAME",
 		runner:      "RUNNER_NAME",
+		pullRequest: ciPRWhen(markerEquals("GITHUB_EVENT_NAME", "pull_request"), []string{"GITHUB_EVENT_NAME"}),
 		attempt:     "GITHUB_RUN_ATTEMPT",
 	},
 	{
@@ -88,6 +113,7 @@ var ciSpecs = []ciSpec{
 		jobName:     "CI_JOB_NAME",
 		trigger:     "CI_PIPELINE_SOURCE",
 		runner:      "CI_RUNNER_ID",
+		pullRequest: ciPR("CI_MERGE_REQUEST_ID"),
 		// CI_JOB_RETRY_COUNT was added in GitLab 19.3 and counts from 0, so
 		// it is absent on older instances and Attempt stays 0 there.
 		attempt:       "CI_JOB_RETRY_COUNT",
@@ -112,6 +138,7 @@ var ciSpecs = []ciSpec{
 		buildNumber: "CIRCLE_BUILD_NUM",
 		jobID:       "CIRCLE_WORKFLOW_JOB_ID",
 		jobName:     "CIRCLE_JOB",
+		pullRequest: ciPR("CIRCLE_PULL_REQUEST"),
 	},
 	{
 		provider: CITravis,
@@ -131,6 +158,7 @@ var ciSpecs = []ciSpec{
 		jobID:       "TRAVIS_JOB_ID",
 		jobName:     "TRAVIS_JOB_NAME",
 		trigger:     "TRAVIS_EVENT_TYPE",
+		pullRequest: ciPRWhen(markerNotEquals("TRAVIS_PULL_REQUEST", "false"), []string{"TRAVIS_PULL_REQUEST"}, "TRAVIS_PULL_REQUEST"),
 	},
 	{
 		provider: CIBuildkite,
@@ -154,6 +182,7 @@ var ciSpecs = []ciSpec{
 		jobName:       "BUILDKITE_LABEL",
 		trigger:       "BUILDKITE_SOURCE",
 		runner:        "BUILDKITE_AGENT_NAME",
+		pullRequest:   ciPRWhen(markerNotEquals("BUILDKITE_PULL_REQUEST", "false"), []string{"BUILDKITE_PULL_REQUEST"}, "BUILDKITE_PULL_REQUEST"),
 		attempt:       "BUILDKITE_RETRY_COUNT",
 		attemptOffset: 1, // Buildkite counts retries from 0; Attempt is 1-based.
 	},
@@ -179,6 +208,7 @@ var ciSpecs = []ciSpec{
 		jobName:     "SYSTEM_JOBDISPLAYNAME",
 		trigger:     "BUILD_REASON",
 		runner:      "AGENT_NAME",
+		pullRequest: ciPRWhen(markerEquals("BUILD_REASON", "PullRequest"), []string{"BUILD_REASON"}, "SYSTEM_PULLREQUEST_PULLREQUESTID"),
 		attempt:     "SYSTEM_JOBATTEMPT",
 	},
 	{
@@ -209,6 +239,7 @@ var ciSpecs = []ciSpec{
 		pipelineID:  "BITBUCKET_PIPELINE_UUID",
 		buildNumber: "BITBUCKET_BUILD_NUMBER",
 		jobID:       "BITBUCKET_STEP_UUID",
+		pullRequest: ciPR("BITBUCKET_PR_ID"),
 		// BITBUCKET_STEP_RUN_NUMBER already counts from 1.
 		attempt: "BITBUCKET_STEP_RUN_NUMBER",
 	},
@@ -251,6 +282,7 @@ var ciSpecs = []ciSpec{
 		buildNumber: "BUILD_NUMBER",
 		jobName:     "JOB_NAME",
 		runner:      "NODE_NAME",
+		pullRequest: ciPRAny("ghprbPullId", "CHANGE_ID"),
 	},
 	{
 		provider: CIGeneric,
@@ -283,6 +315,18 @@ func (spec ciSpec) detect(env Env) (CI, bool) {
 	// rather than copied.
 	result.Attempt = parseAttempt(env, spec.attempt, spec.attemptOffset)
 	values.add(spec.attempt)
+
+	if spec.pullRequest.marker != nil {
+		values.add(spec.pullRequest.markerNames...)
+		values.add(spec.pullRequest.idNames...)
+		result.PullRequest = spec.pullRequest.marker(env)
+		for _, name := range spec.pullRequest.idNames {
+			if value, ok := envValue(env, name); ok {
+				result.PullRequestID = value
+				break
+			}
+		}
+	}
 
 	values.apply(env, &result.Axis)
 	return result, true

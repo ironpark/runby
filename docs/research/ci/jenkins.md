@@ -95,3 +95,7 @@ Jenkins에는 다른 CI 도구들의 `GITHUB_ACTIONS`, `CIRCLECI`처럼 Jenkins 
 - [공식 소스: `Job.java`](https://github.com/jenkinsci/jenkins/blob/982bc91d866ed90aa135b87a2cb4ac1e68c2412e/core/src/main/java/hudson/model/Job.java)
 - [공식 소스: `AbstractBuild.java`](https://github.com/jenkinsci/jenkins/blob/982bc91d866ed90aa135b87a2cb4ac1e68c2412e/core/src/main/java/hudson/model/AbstractBuild.java)
 - [공식 소스: `Jenkins.java` (`getSelfLabel`)](https://github.com/jenkinsci/jenkins/blob/982bc91d866ed90aa135b87a2cb4ac1e68c2412e/core/src/main/java/jenkins/model/Jenkins.java)
+
+## Pull request 감지
+
+Jenkins 코어는 PR 기능을 직접 제공하지 않으며, 플러그인이 `ghprbPullId`(GitHub Pull Request Builder) 또는 `CHANGE_ID`(Multibranch Pipeline)를 주입합니다. 이 두 변수 중 하나가 존재하면 플러그인이 현재 실행을 PR로 표시한 것이므로 `PullRequest=true`로 보고하고, 먼저 발견되는 값을 `PullRequestID`로 보존합니다. 두 변수 이름은 `Evidence`에 기록하되 값은 기록하지 않습니다.

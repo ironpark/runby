@@ -89,6 +89,32 @@ func envEqualsFold(env Env, name, want string) bool {
 	return ok && strings.EqualFold(value, want)
 }
 
+// markerEquals matches when name holds want, ignoring case. It is useful for
+// platform-owned enumerations whose value, rather than mere presence, is the
+// execution signal.
+func markerEquals(name, want string) marker {
+	return func(env Env) bool { return envEqualsFold(env, name, want) }
+}
+
+// markerNotEquals matches when name is set to anything other than unwanted,
+// ignoring case. Several CI platforms publish a request number on PR runs and
+// the literal string "false" on other runs.
+func markerNotEquals(name, unwanted string) marker {
+	return func(env Env) bool {
+		value, ok := envValue(env, name)
+		return ok && !strings.EqualFold(value, unwanted)
+	}
+}
+
+// markerHasPrefix matches when name starts with prefix, ignoring case. It is
+// used for event families such as CodeBuild's PULL_REQUEST_* values.
+func markerHasPrefix(name, prefix string) marker {
+	return func(env Env) bool {
+		value, ok := envValue(env, name)
+		return ok && strings.HasPrefix(strings.ToUpper(value), strings.ToUpper(prefix))
+	}
+}
+
 // collectExtra returns the values of the given variables keyed by the stable
 // Extra key each maps to, skipping the ones that are not set. It returns nil
 // when none are present, so a detection carrying no context carries no map.

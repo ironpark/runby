@@ -70,3 +70,7 @@ Bitbucket Pipelines에는 다른 플랫폼의 `XXX_CI=true`류 전용 불리언 
 - [How to access environment variables in Windows Runners on Bitbucket cloud pipelines?](https://support.atlassian.com/bitbucket-cloud/kb/how-to-access-environment-variables-in-windows-runners-on-bitbucket-cloud-pipelines/)
 - [Runners](https://support.atlassian.com/bitbucket-cloud/docs/runners/)
 - [Step options](https://support.atlassian.com/bitbucket-cloud/docs/step-options/)
+
+## Pull request 감지
+
+`BITBUCKET_PR_ID`는 PR로 트리거된 파이프라인에서만 제공되는 PR 번호입니다. 따라서 존재하면 `PullRequest=true`, 값은 `PullRequestID`로 보고합니다. Bitbucket Pipelines는 별도의 트리거 enum을 보장하지 않으므로 이 직접적인 PR 변수만 사용하며, 변수 이름은 `Evidence`에 기록합니다.

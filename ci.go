@@ -64,6 +64,14 @@ type CI struct {
 	Trigger string `json:"trigger,omitempty"`
 	// Runner names the machine or agent executing the job.
 	Runner string `json:"runner,omitempty"`
+	// PullRequest reports that the run was triggered by a pull or merge request,
+	// when the platform advertises it. It is false when the platform does not
+	// expose a reliable signal for this distinction.
+	PullRequest bool `json:"pull_request,omitempty"`
+	// PullRequestID is the platform's identifier for that request, when
+	// advertised. It may be empty even when PullRequest is true if the platform
+	// only exposes the request kind.
+	PullRequestID string `json:"pull_request_id,omitempty"`
 }
 
 // CIDriver detects one CI platform. It is the unit of extension for this

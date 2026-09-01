@@ -78,3 +78,7 @@ Buildkite 에이전트는 원래 사용자가 직접 프로비저닝하는 self-
 - [Buildkite agent configuration (v3)](https://buildkite.com/docs/agent/v3/configuration)
 - [공식 `buildkite-agent` 소스 저장소 (`buildkite/agent`)](https://github.com/buildkite/agent)
 - [공식 소스: 에이전트 등록 시 PID 주입 (`agent/register.go`)](https://github.com/buildkite/agent/blob/main/agent/register.go)
+
+## Pull request 감지
+
+`BUILDKITE_PULL_REQUEST`는 PR가 아닌 빌드에서 `false`, PR 빌드에서 요청 번호를 제공하는 Buildkite 기본 변수입니다. `runby`는 값이 `false`가 아니면 `PullRequest=true`로 보고하고, 그 값을 `PullRequestID`로 보존합니다. 이 변수 이름은 `Evidence`에 기록하지만 번호 자체는 기록하지 않습니다.

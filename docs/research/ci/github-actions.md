@@ -65,3 +65,7 @@ GitHub Actions는 워크플로 실행 중 모든 스텝에 `GITHUB_*`와 `RUNNER
 - [Variables reference (Default environment variables)](https://docs.github.com/en/actions/reference/workflows-and-actions/variables#default-environment-variables)
 - [Store information in variables](https://docs.github.com/en/actions/learn-github-actions/environment-variables)
 - [Contexts reference](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts)
+
+## Pull request 감지
+
+`GITHUB_EVENT_NAME`이 `pull_request`일 때 `runby`는 `PullRequest=true`로 정규화합니다. 이 변수는 이벤트 종류만 광고하고 PR 번호를 기본 환경변수로 직접 제공하지 않으므로 `PullRequestID`는 비워 둡니다. `GITHUB_EVENT_PATH`의 JSON payload를 추가로 읽지 않는 이유는 파일 경로와 payload가 실행 식별 변수 계약보다 불안정하고, 현재 요구 범위를 넘기 때문입니다. 이벤트 변수 이름은 `Evidence`에 기록하되 값은 기록하지 않습니다.

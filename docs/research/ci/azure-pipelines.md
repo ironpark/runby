@@ -85,3 +85,7 @@ Microsoft Learn 문서는 YAML에서 변수를 `Build.BuildId`, `System.JobId`�
 - [Deployment jobs — Azure Pipelines](https://learn.microsoft.com/en-us/azure/devops/pipelines/process/deployment-jobs?view=azure-devops)
 - [Use variables in Classic release pipelines](https://learn.microsoft.com/en-us/azure/devops/pipelines/release/variables?view=azure-devops)
 - [microsoft/azure-pipelines-agent (공식 소스)](https://github.com/microsoft/azure-pipelines-agent)
+
+## Pull request 감지
+
+`BUILD_REASON`의 공식 값이 `PullRequest`이면 `runby`는 `PullRequest=true`로 정규화합니다. PR ID가 초기화되는 경우에는 `SYSTEM_PULLREQUEST_PULLREQUESTID`를 `PullRequestID`로 사용하지만, 이 변수는 모든 PR 실행 형태에서 보장되는 것은 아니므로 값이 없어도 요청 판정은 유지합니다. `BUILD_REASON`과 ID 변수는 `Evidence`에 이름만 기록합니다.

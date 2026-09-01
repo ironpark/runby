@@ -107,3 +107,7 @@ GitLab 공식 문서가 열거하는 값은 다음과 같습니다.
 - [Downstream pipelines](https://docs.gitlab.com/ci/pipelines/downstream_pipelines/)
 - [GitLab 19.3 release notes](https://docs.gitlab.com/releases/19/gitlab-19-3-released/)
 - [GitLab 공식 소스 저장소 (`gitlab-org/gitlab`)](https://gitlab.com/gitlab-org/gitlab)
+
+## Merge request 감지
+
+`CI_MERGE_REQUEST_ID`는 merge request 파이프라인에서만 제공되는 사전 정의 변수이므로 존재하면 `PullRequest=true`, 값은 `PullRequestID`로 옮깁니다. `CI_PIPELINE_SOURCE=merge_request_event`도 트리거 종류를 설명하지만, 실행이 merge request 파이프라인이라는 직접 식별자는 ID 변수에 있으므로 ID가 없는 경우에는 PR로 추정하지 않습니다. `CI_MERGE_REQUEST_ID`는 `Evidence`에 이름만 남깁니다.
