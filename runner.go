@@ -20,7 +20,7 @@ const (
 // and its serialized output.
 func (t RunnerTool) String() string { return slug(t, RunnerUnknown) }
 
-// RunnerTools returns every built-in tool in detection order. As with Agents,
+// RunnerTools returns every built-in tool in detection order. As with AgentNames,
 // registered drivers are not included.
 func RunnerTools() []RunnerTool {
 	return mapSlice(builtinRunnerDrivers, func(d RunnerDriver) RunnerTool { return d.Tool })

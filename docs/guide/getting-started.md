@@ -124,7 +124,7 @@ func TestGitHubActions(t *testing.T) {
 		"GITHUB_RUN_ID=1234",
 	}))
 
-	if !result.IsCI() || result.CI.Provider != runby.CIProviderGitHubActions {
+	if !result.IsCI() || result.CI.Provider != runby.CIGitHubActions {
 		t.Fatalf("unexpected result: %#v", result.CI)
 	}
 }

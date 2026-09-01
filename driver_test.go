@@ -152,7 +152,7 @@ func TestBuiltinDriversAreCopied(t *testing.T) {
 	// Every built-in product is present, on every axis. The internal table
 	// tests pin each axis to its identity list; this pins that BuiltinDrivers
 	// actually reaches all five, which adding a sixth axis would break.
-	want := len(runby.Agents()) + len(runby.CIProviders()) + len(runby.TerminalPrograms()) +
+	want := len(runby.AgentNames()) + len(runby.CIProviders()) + len(runby.TerminalPrograms()) +
 		len(runby.RemotePlatforms()) + len(runby.RunnerTools())
 	if got := len(runby.BuiltinDrivers()); got != want {
 		t.Fatalf("BuiltinDrivers has %d drivers, the identity lists name %d products", got, want)

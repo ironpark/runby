@@ -6,28 +6,28 @@ import "strconv"
 type CIProvider string
 
 const (
-	CIProviderUnknown CIProvider = "unknown"
-	// CIProviderGeneric is a platform that advertises only the conventional
+	CIUnknown CIProvider = "unknown"
+	// CIGeneric is a platform that advertises only the conventional
 	// CI variable, without a marker this package recognizes.
-	CIProviderGeneric CIProvider = "generic"
+	CIGeneric CIProvider = "generic"
 
-	CIProviderGitHubActions  CIProvider = "github-actions"
-	CIProviderForgejo        CIProvider = "forgejo-runner"
-	CIProviderGitLab         CIProvider = "gitlab-ci"
-	CIProviderCircleCI       CIProvider = "circleci"
-	CIProviderTravis         CIProvider = "travis-ci"
-	CIProviderBuildkite      CIProvider = "buildkite"
-	CIProviderAzurePipelines CIProvider = "azure-pipelines"
-	CIProviderBitbucket      CIProvider = "bitbucket-pipelines"
-	CIProviderJenkins        CIProvider = "jenkins"
+	CIGitHubActions  CIProvider = "github-actions"
+	CIForgejo        CIProvider = "forgejo-runner"
+	CIGitLab         CIProvider = "gitlab-ci"
+	CICircleCI       CIProvider = "circleci"
+	CITravis         CIProvider = "travis-ci"
+	CIBuildkite      CIProvider = "buildkite"
+	CIAzurePipelines CIProvider = "azure-pipelines"
+	CIBitbucket      CIProvider = "bitbucket-pipelines"
+	CIJenkins        CIProvider = "jenkins"
 )
 
 // String returns the stable slug used across this package, its documentation,
 // and its serialized output.
-func (p CIProvider) String() string { return slug(p, CIProviderUnknown) }
+func (p CIProvider) String() string { return slug(p, CIUnknown) }
 
 // CIProviders returns every built-in provider in detection precedence order.
-// CIProviderGeneric is last because it is the fallback. As with Agents,
+// CIGeneric is last because it is the fallback. As with AgentNames,
 // registered drivers are not included.
 func CIProviders() []CIProvider {
 	return mapSlice(builtinCIDrivers, func(d CIDriver) CIProvider { return d.Provider })

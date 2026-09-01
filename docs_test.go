@@ -64,7 +64,7 @@ func TestSlugsMatchDocs(t *testing.T) {
 			name: "agents",
 			dir:  "docs/research/agents",
 			slugs: func() (s []string) {
-				for _, a := range runby.Agents() {
+				for _, a := range runby.AgentNames() {
 					s = append(s, string(a))
 				}
 				return
@@ -80,7 +80,7 @@ func TestSlugsMatchDocs(t *testing.T) {
 				return
 			}(),
 			exempt: map[string]string{
-				string(runby.CIProviderGeneric): "the bare CI convention belongs to no product",
+				string(runby.CIGeneric): "the bare CI convention belongs to no product",
 			},
 		},
 		{

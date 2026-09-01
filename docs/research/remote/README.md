@@ -94,7 +94,7 @@ Windows Terminal이 `WT_SESSION`·`WT_PROFILE_ID`를 **플래그 없이** 추가
 
 ### 클라우드 개발 환경은 CI가 아닙니다
 
-`runby`는 `CI=true`만 있으면 `CIProviderGeneric`으로 보고하므로, 대화형 클라우드 개발 환경이 CI 잡으로 오보고되면 실제 결함입니다.
+`runby`는 `CI=true`만 있으면 `CIGeneric`으로 보고하므로, 대화형 클라우드 개발 환경이 CI 잡으로 오보고되면 실제 결함입니다.
 
 | | 마커 | `CI` | `GITHUB_ACTIONS` |
 |---|---|---|---|

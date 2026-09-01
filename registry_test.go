@@ -146,9 +146,9 @@ func TestWithOnlyIgnoresRegistry(t *testing.T) {
 // on: every name these return has a research document in this repository, so a
 // third-party driver must not appear in them.
 func TestIdentityListsStayBuiltIn(t *testing.T) {
-	for _, agent := range runby.Agents() {
+	for _, agent := range runby.AgentNames() {
 		if agent == "acme-orchestrator" || agent == "acme-harness" {
-			t.Errorf("Agents() returned the registered %s", agent)
+			t.Errorf("AgentNames() returned the registered %s", agent)
 		}
 	}
 	for _, tool := range runby.RunnerTools() {

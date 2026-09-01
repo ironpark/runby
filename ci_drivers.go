@@ -30,7 +30,7 @@ var ciSpecs = []ciSpec{
 		// Forgejo job is misreported as a GitHub one. Runners older than v7
 		// define only the GITHUB_* names and are indistinguishable from
 		// GitHub Actions by environment alone; they fall through on purpose.
-		provider: CIProviderForgejo,
+		provider: CIForgejo,
 		specCore: specCore{
 			marker:      markerTrue("FORGEJO_ACTIONS"),
 			markerNames: []string{"FORGEJO_ACTIONS"},
@@ -51,7 +51,7 @@ var ciSpecs = []ciSpec{
 		attempt: "FORGEJO_RUN_ATTEMPT",
 	},
 	{
-		provider: CIProviderGitHubActions,
+		provider: CIGitHubActions,
 		specCore: specCore{
 			marker:      markerTrue("GITHUB_ACTIONS"),
 			markerNames: []string{"GITHUB_ACTIONS"},
@@ -71,7 +71,7 @@ var ciSpecs = []ciSpec{
 		attempt:     "GITHUB_RUN_ATTEMPT",
 	},
 	{
-		provider: CIProviderGitLab,
+		provider: CIGitLab,
 		specCore: specCore{
 			marker:      markerTrue("GITLAB_CI"),
 			markerNames: []string{"GITLAB_CI"},
@@ -94,7 +94,7 @@ var ciSpecs = []ciSpec{
 		attemptOffset: 1,
 	},
 	{
-		provider: CIProviderCircleCI,
+		provider: CICircleCI,
 		specCore: specCore{
 			marker:      markerTrue("CIRCLECI"),
 			markerNames: []string{"CIRCLECI"},
@@ -114,7 +114,7 @@ var ciSpecs = []ciSpec{
 		jobName:     "CIRCLE_JOB",
 	},
 	{
-		provider: CIProviderTravis,
+		provider: CITravis,
 		specCore: specCore{
 			marker:      markerTrue("TRAVIS"),
 			markerNames: []string{"TRAVIS"},
@@ -133,7 +133,7 @@ var ciSpecs = []ciSpec{
 		trigger:     "TRAVIS_EVENT_TYPE",
 	},
 	{
-		provider: CIProviderBuildkite,
+		provider: CIBuildkite,
 		specCore: specCore{
 			marker:      markerTrue("BUILDKITE"),
 			markerNames: []string{"BUILDKITE"},
@@ -158,7 +158,7 @@ var ciSpecs = []ciSpec{
 		attemptOffset: 1, // Buildkite counts retries from 0; Attempt is 1-based.
 	},
 	{
-		provider: CIProviderAzurePipelines,
+		provider: CIAzurePipelines,
 		specCore: specCore{
 			// The documented value is "True"; IsTrue parses case-insensitively.
 			marker:      markerTrue("TF_BUILD"),
@@ -182,7 +182,7 @@ var ciSpecs = []ciSpec{
 		attempt:     "SYSTEM_JOBATTEMPT",
 	},
 	{
-		provider: CIProviderBitbucket,
+		provider: CIBitbucket,
 		specCore: specCore{
 			// Bitbucket Pipelines has no dedicated boolean marker, so the always
 			// present build number doubles as one. A second signal is required so
@@ -213,7 +213,7 @@ var ciSpecs = []ciSpec{
 		attempt: "BITBUCKET_STEP_RUN_NUMBER",
 	},
 	{
-		provider: CIProviderJenkins,
+		provider: CIJenkins,
 		specCore: specCore{
 			// Jenkins has no boolean marker either, and BUILD_NUMBER alone is far
 			// too generic a name, so a Jenkins-owned variable is required as
@@ -253,7 +253,7 @@ var ciSpecs = []ciSpec{
 		runner:      "NODE_NAME",
 	},
 	{
-		provider: CIProviderGeneric,
+		provider: CIGeneric,
 		specCore: specCore{
 			// The bare CI convention is widely honored but is owned by no
 			// platform, and local tooling sets it too, so it is only probable.

@@ -120,11 +120,11 @@ type AgentDriver struct {
 // and its serialized output.
 func (a AgentName) String() string { return slug(a, AgentUnknown) }
 
-// Agents returns every built-in agent in detection precedence order. Drivers
+// AgentNames returns every built-in agent in detection precedence order. Drivers
 // added through Register or WithOnlyDrivers are deliberately not included:
 // every name returned here has a research document in this repository
 // justifying it, and TestSlugsMatchDocs enforces that.
-func Agents() []AgentName {
+func AgentNames() []AgentName {
 	return mapSlice(builtinAgentDrivers, func(d AgentDriver) AgentName { return d.Agent })
 }
 

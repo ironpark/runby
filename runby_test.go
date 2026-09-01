@@ -315,9 +315,9 @@ func TestCustomAgentDriverReplacesABuiltin(t *testing.T) {
 }
 
 func TestAgentsAndKinds(t *testing.T) {
-	agents := runby.Agents()
+	agents := runby.AgentNames()
 	if len(agents) == 0 || agents[0] != runby.AgentPaseo {
-		t.Fatalf("Agents() = %#v", agents)
+		t.Fatalf("AgentNames() = %#v", agents)
 	}
 	for _, driver := range runby.BuiltinDrivers() {
 		if agent, ok := driver.(runby.AgentDriver); ok && agent.Kind == runby.KindUnknown {

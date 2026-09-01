@@ -44,6 +44,6 @@ Forgejo Runner v7 이상은 모든 `FORGEJO_*` 변수를 같은 suffix의 `GITHU
 
 ## 공통 주의사항
 
-`CI=true`는 사실상의 업계 관행이지만 어느 플랫폼의 소유도 아니며 로컬 도구도 설정하므로, 플랫폼을 특정하지 못했을 때만 `CIProviderGeneric`으로 보고하고 `ConfidenceProbable`을 넘지 않습니다.
+`CI=true`는 사실상의 업계 관행이지만 어느 플랫폼의 소유도 아니며 로컬 도구도 설정하므로, 플랫폼을 특정하지 못했을 때만 `CIGeneric`으로 보고하고 `ConfidenceProbable`을 넘지 않습니다.
 
 환경변수는 자식 프로세스에 상속되고 사용자가 위조할 수 있으므로 신뢰 경계가 아닙니다. CI 감지는 실행 컨텍스트를 알리는 용도이며 권한 판단의 근거로 쓰면 안 됩니다.

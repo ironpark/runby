@@ -11,14 +11,14 @@ import "testing"
 // lists derived from them: a table is the single place a product is
 // registered, so the two cannot disagree about what exists or in what order.
 func TestDriverTablesMatchTheirIdentityLists(t *testing.T) {
-	agents := Agents()
+	agents := AgentNames()
 	drivers := builtinAgentDrivers
 	if len(agents) != len(drivers) {
-		t.Fatalf("Agents() has %d entries, the table has %d", len(agents), len(drivers))
+		t.Fatalf("AgentNames() has %d entries, the table has %d", len(agents), len(drivers))
 	}
 	for i, driver := range drivers {
 		if driver.Agent != agents[i] {
-			t.Errorf("driver %d is %q, Agents()[%d] is %q", i, driver.Agent, i, agents[i])
+			t.Errorf("driver %d is %q, AgentNames()[%d] is %q", i, driver.Agent, i, agents[i])
 		}
 		if driver.Detect == nil {
 			t.Errorf("%q has no Detect", driver.Agent)

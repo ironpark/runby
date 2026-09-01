@@ -209,7 +209,7 @@ func TestIsNamedProductMatchesTheLibrary(t *testing.T) {
 		}
 	}
 
-	for _, agent := range runby.Agents() {
+	for _, agent := range runby.AgentNames() {
 		_, want := result.Agent(agent)
 		check("agent", string(agent), want)
 	}
@@ -243,7 +243,7 @@ func TestIsRefusesAnUnknownProduct(t *testing.T) {
 	if !strings.Contains(stderr, "codexx") {
 		t.Errorf("stderr does not name the typo:\n%s", stderr)
 	}
-	for _, agent := range runby.Agents() {
+	for _, agent := range runby.AgentNames() {
 		if !strings.Contains(stderr, string(agent)) {
 			t.Errorf("stderr omits %q from the valid set:\n%s", agent, stderr)
 		}

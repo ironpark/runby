@@ -135,7 +135,7 @@ runby -json | jq '{chain: [.agents[]?.name] | join(">"), ci: .ci.provider, tty: 
 | `runby is runner` | `result.HasRunner()` |
 | `runby is runner npm` | `_, ok := result.Runner(runby.RunnerNPM)` |
 | `runby is ci` | `result.IsCI()` |
-| `runby is ci github-actions` | `result.CI.Provider == runby.CIProviderGitHubActions` |
+| `runby is ci github-actions` | `result.CI.Provider == runby.CIGitHubActions` |
 | `runby is terminal` | `result.HasTerminal()` |
 | `runby is terminal ghostty` | `result.Terminal.Program == runby.TerminalGhostty` |
 | `runby is remote` | `result.IsRemote()` |

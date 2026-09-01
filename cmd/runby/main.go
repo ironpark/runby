@@ -151,7 +151,7 @@ var axes = map[string]axis{
 			_, ok := r.Agent(runby.AgentName(name))
 			return ok
 		},
-		products: slugs(runby.Agents()),
+		products: slugs(runby.AgentNames()),
 	},
 	"ci": {
 		any: func(r runby.Result) bool { return r.IsCI() },

@@ -12,7 +12,7 @@ func TestCINotDetected(t *testing.T) {
 	if result.IsCI() || result.CI.Detected {
 		t.Fatalf("CI = %#v, want undetected", result.CI)
 	}
-	if result.CI.Provider != runby.CIProviderUnknown || result.CI.Confidence != runby.ConfidenceUnknown {
+	if result.CI.Provider != runby.CIUnknown || result.CI.Confidence != runby.ConfidenceUnknown {
 		t.Fatalf("CI = %#v", result.CI)
 	}
 }
@@ -32,7 +32,7 @@ func TestCIGitHubActions(t *testing.T) {
 	}))
 
 	ci := result.CI
-	if !result.IsCI() || ci.Provider != runby.CIProviderGitHubActions {
+	if !result.IsCI() || ci.Provider != runby.CIGitHubActions {
 		t.Fatalf("CI = %#v", ci)
 	}
 	if ci.PipelineID != "1658821493" || ci.BuildNumber != "3" || ci.JobID != "build" {
@@ -63,7 +63,7 @@ func TestCIGitLab(t *testing.T) {
 	}))
 
 	ci := result.CI
-	if ci.Provider != runby.CIProviderGitLab || ci.PipelineID != "1000" || ci.JobID != "2000" {
+	if ci.Provider != runby.CIGitLab || ci.PipelineID != "1000" || ci.JobID != "2000" {
 		t.Fatalf("CI = %#v", ci)
 	}
 	if ci.BuildNumber != "7" || ci.JobName != "test" || ci.Runner != "42" {
@@ -96,7 +96,7 @@ func TestCIBuildkiteNormalizesRetryCount(t *testing.T) {
 		"BUILDKITE_SOURCE=schedule",
 		"BUILDKITE_AGENT_PID=1234",
 	}))
-	if first.CI.Provider != runby.CIProviderBuildkite || first.CI.Attempt != 1 {
+	if first.CI.Provider != runby.CIBuildkite || first.CI.Attempt != 1 {
 		t.Fatalf("CI = %#v", first.CI)
 	}
 	if first.CI.Trigger != "schedule" {
@@ -126,7 +126,7 @@ func TestCIBitbucketTrimsUUIDBraces(t *testing.T) {
 	}))
 
 	ci := result.CI
-	if ci.Provider != runby.CIProviderBitbucket {
+	if ci.Provider != runby.CIBitbucket {
 		t.Fatalf("Provider = %q", ci.Provider)
 	}
 	if ci.PipelineID != "11d87b82-13c6-47a3-8e28-73a2bc378675" {
@@ -143,12 +143,12 @@ func TestCIBitbucketTrimsUUIDBraces(t *testing.T) {
 func TestCIBitbucketNeedsASecondSignal(t *testing.T) {
 	// BITBUCKET_BUILD_NUMBER alone is a bare identifier, not a marker.
 	only := runby.Detect(runby.WithEnviron([]string{"BITBUCKET_BUILD_NUMBER=59"}))
-	if only.CI.Provider == runby.CIProviderBitbucket {
+	if only.CI.Provider == runby.CIBitbucket {
 		t.Fatalf("CI = %#v, want no Bitbucket match", only.CI)
 	}
 	// CI=true is accepted as that second signal when the UUID is absent.
 	withCI := runby.Detect(runby.WithEnviron([]string{"BITBUCKET_BUILD_NUMBER=59", "CI=true"}))
-	if withCI.CI.Provider != runby.CIProviderBitbucket {
+	if withCI.CI.Provider != runby.CIBitbucket {
 		t.Fatalf("CI = %#v, want Bitbucket", withCI.CI)
 	}
 }
@@ -157,7 +157,7 @@ func TestCIJenkinsRequiresAJenkinsOwnedVariable(t *testing.T) {
 	// BUILD_NUMBER and JOB_NAME are generic names that other tools also set,
 	// so a Jenkins-owned variable must be present too.
 	generic := runby.Detect(runby.WithEnviron([]string{"BUILD_NUMBER=17", "JOB_NAME=nightly"}))
-	if generic.CI.Provider == runby.CIProviderJenkins {
+	if generic.CI.Provider == runby.CIJenkins {
 		t.Fatalf("CI = %#v, want no Jenkins match", generic.CI)
 	}
 	// JENKINS_URL is only injected when an administrator configured the root
@@ -165,7 +165,7 @@ func TestCIJenkinsRequiresAJenkinsOwnedVariable(t *testing.T) {
 	home := runby.Detect(runby.WithEnviron([]string{
 		"BUILD_NUMBER=17", "JENKINS_HOME=/var/lib/jenkins", "CI=true",
 	}))
-	if home.CI.Provider != runby.CIProviderJenkins {
+	if home.CI.Provider != runby.CIJenkins {
 		t.Fatalf("CI = %#v, want Jenkins", home.CI)
 	}
 
@@ -178,7 +178,7 @@ func TestCIJenkinsRequiresAJenkinsOwnedVariable(t *testing.T) {
 		"NODE_NAME=built-in",
 	}))
 	ci := result.CI
-	if ci.Provider != runby.CIProviderJenkins || ci.PipelineID != "17" || ci.JobName != "nightly" {
+	if ci.Provider != runby.CIJenkins || ci.PipelineID != "17" || ci.JobName != "nightly" {
 		t.Fatalf("CI = %#v", ci)
 	}
 	if ci.Runner != "built-in" || ci.Extra["jenkins.build_tag"] != "jenkins-nightly-17" {
@@ -192,7 +192,7 @@ func TestCIJenkinsRequiresAJenkinsOwnedVariable(t *testing.T) {
 
 func TestCIGenericFallback(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron([]string{"CI=true"}))
-	if !result.IsCI() || result.CI.Provider != runby.CIProviderGeneric {
+	if !result.IsCI() || result.CI.Provider != runby.CIGeneric {
 		t.Fatalf("CI = %#v", result.CI)
 	}
 	// The bare convention is not owned by any platform and local tooling sets
@@ -211,7 +211,7 @@ func TestCIGenericFallback(t *testing.T) {
 func TestCISpecificPlatformBeatsGeneric(t *testing.T) {
 	// Every platform also sets CI, so only the most specific one is reported.
 	result := runby.Detect(runby.WithEnviron([]string{"CI=true", "CIRCLECI=true", "CIRCLE_PIPELINE_ID=p-1"}))
-	if result.CI.Provider != runby.CIProviderCircleCI || result.CI.PipelineID != "p-1" {
+	if result.CI.Provider != runby.CICircleCI || result.CI.PipelineID != "p-1" {
 		t.Fatalf("CI = %#v", result.CI)
 	}
 }
@@ -229,7 +229,7 @@ func TestCIAgentAndCIAreIndependentAxes(t *testing.T) {
 	if !result.IsAgent() || primaryAgent(result) != runby.AgentClaudeCode {
 		t.Fatalf("agent = %#v", result.Agents)
 	}
-	if !result.IsCI() || result.CI.Provider != runby.CIProviderGitHubActions {
+	if !result.IsCI() || result.CI.Provider != runby.CIGitHubActions {
 		t.Fatalf("CI = %#v", result.CI)
 	}
 	// Chain describes who requested the command, not where it runs.
@@ -297,11 +297,11 @@ func TestCIProvidersAreOrderedAndGenericIsLast(t *testing.T) {
 	}
 	// Forgejo leads because its GITHUB_* aliases would otherwise be claimed
 	// by the GitHub Actions detector; see TestCIForgejoBeatsGitHubActions.
-	if providers[0] != runby.CIProviderForgejo {
+	if providers[0] != runby.CIForgejo {
 		t.Fatalf("providers[0] = %q", providers[0])
 	}
-	if last := providers[len(providers)-1]; last != runby.CIProviderGeneric {
-		t.Fatalf("last provider = %q, want %q", last, runby.CIProviderGeneric)
+	if last := providers[len(providers)-1]; last != runby.CIGeneric {
+		t.Fatalf("last provider = %q, want %q", last, runby.CIGeneric)
 	}
 	if runby.CIProvider("").String() != "unknown" {
 		t.Fatalf(`CIProvider("").String() = %q`, runby.CIProvider("").String())
@@ -324,8 +324,8 @@ func TestCIForgejoBeatsGitHubActions(t *testing.T) {
 	}))
 
 	ci := result.CI
-	if ci.Provider != runby.CIProviderForgejo {
-		t.Fatalf("Provider = %q, want %q", ci.Provider, runby.CIProviderForgejo)
+	if ci.Provider != runby.CIForgejo {
+		t.Fatalf("Provider = %q, want %q", ci.Provider, runby.CIForgejo)
 	}
 	if ci.PipelineID != "42" || ci.BuildNumber != "7" || ci.JobID != "build" {
 		t.Fatalf("identity = %#v", ci)
@@ -346,8 +346,8 @@ func TestCIOldForgejoRunnerIsIndistinguishableFromGitHub(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron([]string{
 		"CI=true", "GITHUB_ACTIONS=true", "GITHUB_RUN_ID=42",
 	}))
-	if result.CI.Provider != runby.CIProviderGitHubActions {
-		t.Fatalf("Provider = %q, want %q", result.CI.Provider, runby.CIProviderGitHubActions)
+	if result.CI.Provider != runby.CIGitHubActions {
+		t.Fatalf("Provider = %q, want %q", result.CI.Provider, runby.CIGitHubActions)
 	}
 }
 
@@ -356,9 +356,9 @@ func TestCIForgejoPrecedesGitHubInRegistry(t *testing.T) {
 	forgejo, github := -1, -1
 	for i, p := range providers {
 		switch p {
-		case runby.CIProviderForgejo:
+		case runby.CIForgejo:
 			forgejo = i
-		case runby.CIProviderGitHubActions:
+		case runby.CIGitHubActions:
 			github = i
 		}
 	}

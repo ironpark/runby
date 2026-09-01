@@ -64,7 +64,7 @@ func TestExecutablesCoverEveryProduct(t *testing.T) {
 	}
 
 	var products []string
-	for _, a := range Agents() {
+	for _, a := range AgentNames() {
 		products = append(products, string(a))
 	}
 	for _, x := range TerminalPrograms() {

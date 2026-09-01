@@ -355,7 +355,7 @@ func detectCI(config options) CI {
 		ci.applyDefaults()
 		return ci
 	}
-	return CI{Provider: CIProviderUnknown, Axis: Axis{Confidence: ConfidenceUnknown}}
+	return CI{Provider: CIUnknown, Axis: Axis{Confidence: ConfidenceUnknown}}
 }
 
 // detectRemote reports every layer between the user and this process. Unlike
