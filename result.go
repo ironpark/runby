@@ -204,8 +204,13 @@ func (r Result) HasRunner() bool { return len(r.Runners) > 0 }
 // reported per axis on purpose, because the axes are independent facts, so the
 // rule here is pinned rather than left implied. Any of these makes it true:
 //
-//   - IsAgent. An agent can allocate a PTY, so the streams may well look
-//     interactive, but no person is behind them.
+//   - An agent layer of ConfidenceDefinite. An agent can allocate a PTY, so
+//     the streams may well look interactive, but no person is behind them.
+//     Probable layers do not count on their own: probable is what a driver
+//     reports when the product owns the environment but a person could still
+//     be the one typing — an Orca pane, a Cline terminal, an agent marker
+//     seen through a multiplexer that may have outlived its session — and
+//     silencing a prompt a person is waiting on is the worse mistake.
 //   - IsCI. A CI job's log is read afterwards, if it is read at all.
 //   - A runner of RunnerKindService. A service manager started this, so the
 //     output goes to a journal and nobody is waiting on it.
@@ -220,9 +225,15 @@ func (r Result) HasRunner() bool { return len(r.Runners) > 0 }
 // Treat it as the default for a presentation decision, never as a trust
 // boundary. Read the axes directly when the policy differs — a program that
 // wants to keep prompting under an agent, say, wants IsCI and TTY rather than
-// this.
+// this, and one that wants to go quiet on any agent evidence at all wants
+// IsAgent.
 func (r Result) Unattended() bool {
-	if r.IsAgent() || r.IsCI() {
+	for _, agent := range r.Agents {
+		if agent.Confidence == ConfidenceDefinite {
+			return true
+		}
+	}
+	if r.IsCI() {
 		return true
 	}
 	if _, ok := r.RunnerOfKind(RunnerKindService); ok {

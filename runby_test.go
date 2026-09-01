@@ -566,12 +566,22 @@ func TestUnattended(t *testing.T) {
 	}{
 		{"a person at a terminal", nil, interactive, false},
 		{"output redirected", nil, piped, true},
-		{"an agent that allocated a pty", []string{"CODEX_SANDBOX=seatbelt"}, interactive, true},
+		{"an agent that allocated a pty", []string{"CODEX_THREAD_ID=t-1"}, interactive, true},
 		{"CI with a pty", []string{"GITHUB_ACTIONS=true"}, interactive, true},
 		{"a systemd unit", []string{"INVOCATION_ID=abc"}, interactive, true},
 		// A script runner is not a reason on its own: `npm test` typed at a
 		// prompt still has a person in front of it.
 		{"an npm script at a terminal", []string{"npm_config_user_agent=npm/10.0.0 node/v22"}, interactive, false},
+		// A probable layer is not a reason on its own either: probable is what
+		// a driver reports when a person could be the one typing — Codex's
+		// sandbox variable without a thread, an Orca-owned pane — and
+		// silencing a prompt a person is waiting on is the worse mistake.
+		{"a probable agent marker at a terminal", []string{"CODEX_SANDBOX=seatbelt"}, interactive, false},
+		{"an orca pane at a terminal", []string{"ORCA_PANE_KEY=p1", "ORCA_TAB_ID=t1"}, interactive, false},
+		// A definite marker seen through a multiplexer may be stale, so with
+		// no live ancestor to corroborate it the layer is downgraded and no
+		// longer unattended on its own.
+		{"a definite agent marker behind tmux", []string{"CODEX_THREAD_ID=t-1", "TMUX=/tmp/t,1,0"}, interactive, false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			result := runby.Detect(runby.WithEnviron(test.environ), runby.WithTTY(test.tty))
@@ -579,6 +589,50 @@ func TestUnattended(t *testing.T) {
 				t.Errorf("Unattended() = %v, want %v: %#v", got, test.want, result)
 			}
 		})
+	}
+}
+
+// A multiplexer server keeps the environment of whichever client started it,
+// so a definite marker seen through one may be stale. The downgrade mirrors
+// the one detectTerminal has always applied to the terminal identity, and a
+// live ancestor lifts it the same way.
+func TestMultiplexerWeakensEnvironmentLayers(t *testing.T) {
+	environ := []string{
+		"CODEX_THREAD_ID=t-1",
+		"npm_config_user_agent=npm/10.0.0 node/v22", "npm_lifecycle_event=test",
+		"TMUX=/tmp/t,1,0",
+	}
+
+	muxed := runby.Detect(runby.WithEnviron(environ))
+	codex, _ := muxed.Agent(runby.AgentCodex)
+	if codex.Confidence != runby.ConfidenceProbable {
+		t.Errorf("agent confidence = %s behind tmux, want probable", codex.Confidence)
+	}
+	npm, _ := muxed.Runner(runby.RunnerNPM)
+	if npm.Confidence != runby.ConfidenceProbable {
+		t.Errorf("runner confidence = %s behind tmux, want probable", npm.Confidence)
+	}
+
+	// A live ancestor proves the layer is running now, so its confidence
+	// stands even inside the multiplexer.
+	corroborated := runby.Detect(runby.WithEnviron(environ), runby.WithProcessTree(runby.ProcessTree{
+		Inspected: true,
+		Supported: true,
+		Ancestors: []runby.Process{{PID: 100, PPID: 200, Name: "codex", Agent: runby.AgentCodex}},
+	}))
+	codex, _ = corroborated.Agent(runby.AgentCodex)
+	if codex.Confidence != runby.ConfidenceDefinite {
+		t.Errorf("corroborated agent confidence = %s, want definite", codex.Confidence)
+	}
+	if !corroborated.Unattended() {
+		t.Error("Unattended() = false with a live, definite agent ancestor")
+	}
+
+	// Without the multiplexer nothing is downgraded.
+	plain := runby.Detect(runby.WithEnviron(environ[:len(environ)-1]))
+	codex, _ = plain.Agent(runby.AgentCodex)
+	if codex.Confidence != runby.ConfidenceDefinite {
+		t.Errorf("agent confidence = %s without tmux, want definite", codex.Confidence)
 	}
 }
 

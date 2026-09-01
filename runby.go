@@ -241,8 +241,37 @@ func Detect(opts ...Option) Result {
 	result.CI = detectCI(config)
 	result.Remotes = detectRemote(config, result.Process)
 	result.Runners = detectRunners(config, result.Process)
+	applyMultiplexerStaleness(&result)
 	result.Terminal = detectTerminal(config, result)
 	return result
+}
+
+// applyMultiplexerStaleness weakens the environment-derived layers when a
+// terminal multiplexer is present. A multiplexer server keeps the environment
+// of whichever client started it and cannot refresh a running pane, so an
+// agent or runner marker seen through one may have been left by a session that
+// has since ended. That is the same caveat detectTerminal applies to the
+// terminal identity, moved onto the layers it equally affects.
+//
+// A live ancestor settles the question the other way, exactly as it does for
+// the terminal: a layer corroborated by AncestorPID is running now, so its
+// confidence stands. The CI axis is left alone because a CI job is not run
+// through a multiplexer's stored environment, and the remote axis is left
+// alone because the multiplexer is itself one of its layers.
+func applyMultiplexerStaleness(result *Result) {
+	if _, muxed := result.Multiplexer(); !muxed {
+		return
+	}
+	for i := range result.Agents {
+		if result.Agents[i].AncestorPID == 0 && result.Agents[i].Confidence == ConfidenceDefinite {
+			result.Agents[i].Confidence = ConfidenceProbable
+		}
+	}
+	for i := range result.Runners {
+		if result.Runners[i].AncestorPID == 0 && result.Runners[i].Confidence == ConfidenceDefinite {
+			result.Runners[i].Confidence = ConfidenceProbable
+		}
+	}
 }
 
 // executableLabels gathers the name-to-product mapping from every configured
