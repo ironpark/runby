@@ -377,6 +377,167 @@ func TestCIExistingProvidersRejectNonPullRequestValues(t *testing.T) {
 	}
 }
 
+func TestCINewProvidersDetectAndReject(t *testing.T) {
+	tests := []struct {
+		name      string
+		provider  runby.CIProvider
+		marker    string
+		env       []string
+		negative  []string
+		pull      bool
+		requestID string
+	}{
+		{
+			name:     "gitea-actions",
+			provider: runby.CIGiteaActions,
+			marker:   "GITEA_ACTIONS",
+			env: []string{
+				"GITEA_ACTIONS=true", "GITHUB_ACTIONS=true",
+				"GITHUB_RUN_ID=run-1", "GITHUB_EVENT_NAME=pull_request",
+			},
+			negative: []string{"GITEA_ACTIONS=false"},
+			pull:     true,
+		},
+		{
+			name:      "vercel",
+			provider:  runby.CIVercel,
+			marker:    "VERCEL",
+			env:       []string{"VERCEL=1", "VERCEL_DEPLOYMENT_ID=d-1", "VERCEL_GIT_PULL_REQUEST_ID=42"},
+			negative:  []string{"NOW_BUILDER="},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:     "netlify",
+			provider: runby.CINetlify,
+			marker:   "NETLIFY",
+			env:      []string{"NETLIFY=true", "PULL_REQUEST=true"},
+			negative: []string{"NETLIFY="},
+			pull:     true,
+		},
+		{
+			name:     "teamcity",
+			provider: runby.CITeamCity,
+			marker:   "TEAMCITY_VERSION",
+			env:      []string{"TEAMCITY_VERSION=2026.1", "BUILD_ID=build-1"},
+			negative: []string{"TEAMCITY_VERSION="},
+		},
+		{
+			name:      "drone",
+			provider:  runby.CIDrone,
+			marker:    "DRONE",
+			env:       []string{"DRONE=true", "DRONE_BUILD_EVENT=pull_request", "DRONE_PULL_REQUEST=42"},
+			negative:  []string{"DRONE=false"},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:      "appveyor",
+			provider:  runby.CIAppVeyor,
+			marker:    "APPVEYOR",
+			env:       []string{"APPVEYOR=true", "APPVEYOR_BUILD_ID=b-1", "APPVEYOR_PULL_REQUEST_NUMBER=42"},
+			negative:  []string{"APPVEYOR=false"},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:      "semaphore",
+			provider:  runby.CISemaphore,
+			marker:    "SEMAPHORE",
+			env:       []string{"SEMAPHORE=true", "SEMAPHORE_PIPELINE_ID=p-1", "PULL_REQUEST_NUMBER=42"},
+			negative:  []string{"SEMAPHORE=false"},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:      "cirrus-ci",
+			provider:  runby.CICirrus,
+			marker:    "CIRRUS_CI",
+			env:       []string{"CIRRUS_CI=true", "CIRRUS_PR=42"},
+			negative:  []string{"CIRRUS_CI="},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:     "aws-codebuild",
+			provider: runby.CIAWSCodeBuild,
+			marker:   "CODEBUILD_BUILD_ARN",
+			env:      []string{"CODEBUILD_BUILD_ARN=arn:aws:codebuild:us-east-1:1:build/a", "CODEBUILD_WEBHOOK_EVENT=PULL_REQUEST_UPDATED"},
+			negative: []string{"CODEBUILD_BUILD_ARN="},
+			pull:     true,
+		},
+		{
+			name:     "google-cloud-build",
+			provider: runby.CIGoogleCloudBuild,
+			marker:   "BUILDER_OUTPUT",
+			env:      []string{"BUILDER_OUTPUT=/workspace/out"},
+			negative: []string{"BUILDER_OUTPUT="},
+		},
+		{
+			name:      "xcode-cloud",
+			provider:  runby.CIXcodeCloud,
+			marker:    "CI_XCODE_PROJECT",
+			env:       []string{"CI_XCODE_PROJECT=App.xcodeproj", "CI_PULL_REQUEST_NUMBER=42"},
+			negative:  []string{"CI_XCODE_PROJECT="},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:     "cloudflare-pages",
+			provider: runby.CICloudflarePages,
+			marker:   "CF_PAGES",
+			env:      []string{"CF_PAGES=1", "CF_PAGES_BRANCH=main"},
+			negative: []string{"CF_PAGES="},
+		},
+		{
+			name:     "cloudflare-workers",
+			provider: runby.CICloudflareWorkers,
+			marker:   "WORKERS_CI",
+			env:      []string{"WORKERS_CI=1", "WORKERS_CI_BUILD_UUID=build-1"},
+			negative: []string{"WORKERS_CI="},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ci := runby.Detect(runby.WithEnviron(append([]string{"CI=true"}, test.env...))).CI
+			if ci.Provider != test.provider || ci.PullRequest != test.pull {
+				t.Fatalf("CI = %#v, want provider %q and PullRequest=%t", ci, test.provider, test.pull)
+			}
+			if ci.PullRequestID != test.requestID {
+				t.Fatalf("PullRequestID = %q, want %q", ci.PullRequestID, test.requestID)
+			}
+			if !hasName(ci.Evidence, test.marker) {
+				t.Fatalf("Evidence = %#v, want %q", ci.Evidence, test.marker)
+			}
+
+			negativeEnv := append([]string{"CI=true"}, test.negative...)
+			negative := runby.Detect(runby.WithEnviron(negativeEnv)).CI
+			if negative.Provider == test.provider {
+				t.Fatalf("negative CI = %#v, want no %q match", negative, test.provider)
+			}
+		})
+	}
+
+	// Netlify advertises PULL_REQUEST=false on non-PR builds. The provider
+	// still matches, but the normalized request flag must be false.
+	netlify := runby.Detect(runby.WithEnviron([]string{
+		"CI=true", "NETLIFY=true", "PULL_REQUEST=false",
+	})).CI
+	if netlify.Provider != runby.CINetlify || netlify.PullRequest {
+		t.Fatalf("Netlify non-PR CI = %#v", netlify)
+	}
+}
+
+func hasName(names []string, want string) bool {
+	for _, name := range names {
+		if name == want {
+			return true
+		}
+	}
+	return false
+}
+
 func TestCustomCIDriverOutranksTheGenericConvention(t *testing.T) {
 	driver := runby.CIDriver{
 		Provider: "acme-ci",

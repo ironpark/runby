@@ -75,6 +75,27 @@ var ciSpecs = []ciSpec{
 		attempt: "FORGEJO_RUN_ATTEMPT",
 	},
 	{
+		provider: CIGiteaActions,
+		specCore: specCore{
+			// Gitea publishes GitHub-compatible aliases as well as its own
+			// marker. Keep it ahead of GitHub Actions for the same reason Forgejo
+			// is ahead of GitHub.
+			marker:      markerTrue("GITEA_ACTIONS"),
+			markerNames: []string{"GITEA_ACTIONS"},
+			extra: map[string]string{
+				"gitea-actions.runner_version": "GITEA_ACTIONS_RUNNER_VERSION",
+				"gitea-actions.repository":     "GITHUB_REPOSITORY",
+			},
+			evidence: []string{"CI"},
+		},
+		pipelineID:  "GITHUB_RUN_ID",
+		buildNumber: "GITHUB_RUN_NUMBER",
+		jobID:       "GITHUB_JOB",
+		trigger:     "GITHUB_EVENT_NAME",
+		runner:      "RUNNER_NAME",
+		pullRequest: ciPRWhen(markerEquals("GITHUB_EVENT_NAME", "pull_request"), []string{"GITHUB_EVENT_NAME"}),
+	},
+	{
 		provider: CIGitHubActions,
 		specCore: specCore{
 			marker:      markerTrue("GITHUB_ACTIONS"),
@@ -283,6 +304,169 @@ var ciSpecs = []ciSpec{
 		jobName:     "JOB_NAME",
 		runner:      "NODE_NAME",
 		pullRequest: ciPRAny("ghprbPullId", "CHANGE_ID"),
+	},
+	{
+		provider: CIVercel,
+		specCore: specCore{
+			marker:      func(env Env) bool { return anyPresent(env, "VERCEL", "NOW_BUILDER") },
+			markerNames: []string{"VERCEL", "NOW_BUILDER"},
+			extra: map[string]string{
+				"vercel.environment":    "VERCEL_ENV",
+				"vercel.url":            "VERCEL_URL",
+				"vercel.git_repo_slug":  "VERCEL_GIT_REPO_SLUG",
+				"vercel.git_commit_ref": "VERCEL_GIT_COMMIT_REF",
+				"vercel.git_commit_sha": "VERCEL_GIT_COMMIT_SHA",
+			},
+		},
+		pipelineID:  "VERCEL_DEPLOYMENT_ID",
+		pullRequest: ciPR("VERCEL_GIT_PULL_REQUEST_ID"),
+	},
+	{
+		provider: CINetlify,
+		specCore: specCore{
+			marker:      markerSet("NETLIFY"),
+			markerNames: []string{"NETLIFY"},
+			extra: map[string]string{
+				"netlify.url":    "URL",
+				"netlify.branch": "BRANCH",
+			},
+		},
+		pipelineID:  "DEPLOY_ID",
+		jobID:       "BUILD_ID",
+		trigger:     "CONTEXT",
+		pullRequest: ciPRWhen(markerNotEquals("PULL_REQUEST", "false"), []string{"PULL_REQUEST"}),
+	},
+	{
+		provider: CITeamCity,
+		specCore: specCore{
+			marker:      markerSet("TEAMCITY_VERSION"),
+			markerNames: []string{"TEAMCITY_VERSION"},
+			extra:       map[string]string{"teamcity.version": "TEAMCITY_VERSION"},
+		},
+		pipelineID:  "BUILD_ID",
+		buildNumber: "BUILD_NUMBER",
+		jobName:     "TEAMCITY_BUILDCONF_NAME",
+	},
+	{
+		provider: CIDrone,
+		specCore: specCore{
+			marker:      markerTrue("DRONE"),
+			markerNames: []string{"DRONE"},
+			extra: map[string]string{
+				"drone.repository": "DRONE_REPO",
+				"drone.system":     "DRONE_SYSTEM_HOST",
+			},
+			evidence: []string{"CI"},
+		},
+		pipelineID:  "DRONE_BUILD_NUMBER",
+		buildNumber: "DRONE_BUILD_NUMBER",
+		jobID:       "DRONE_STAGE_NUMBER",
+		jobName:     "DRONE_STEP_NAME",
+		trigger:     "DRONE_BUILD_EVENT",
+		runner:      "DRONE_SYSTEM_HOSTNAME",
+		pullRequest: ciPRWhen(markerEquals("DRONE_BUILD_EVENT", "pull_request"), []string{"DRONE_BUILD_EVENT"}, "DRONE_PULL_REQUEST"),
+	},
+	{
+		provider: CIAppVeyor,
+		specCore: specCore{
+			marker:      markerTrue("APPVEYOR"),
+			markerNames: []string{"APPVEYOR"},
+			evidence:    []string{"CI"},
+		},
+		pipelineID:  "APPVEYOR_BUILD_ID",
+		buildNumber: "APPVEYOR_BUILD_NUMBER",
+		jobID:       "APPVEYOR_JOB_ID",
+		jobName:     "APPVEYOR_JOB_NAME",
+		runner:      "APPVEYOR_BUILD_WORKER_IMAGE",
+		pullRequest: ciPR("APPVEYOR_PULL_REQUEST_NUMBER"),
+	},
+	{
+		provider: CISemaphore,
+		specCore: specCore{
+			marker:      markerTrue("SEMAPHORE"),
+			markerNames: []string{"SEMAPHORE"},
+			evidence:    []string{"CI"},
+		},
+		pipelineID:  "SEMAPHORE_PIPELINE_ID",
+		buildNumber: "SEMAPHORE_WORKFLOW_NUMBER",
+		jobID:       "SEMAPHORE_JOB_ID",
+		jobName:     "SEMAPHORE_JOB_NAME",
+		trigger:     "SEMAPHORE_GIT_REF_TYPE",
+		pullRequest: ciPRAny("PULL_REQUEST_NUMBER", "SEMAPHORE_GIT_PR_NUMBER"),
+	},
+	{
+		provider: CICirrus,
+		specCore: specCore{
+			marker:      markerSet("CIRRUS_CI"),
+			markerNames: []string{"CIRRUS_CI"},
+			evidence:    []string{"CI", "CONTINUOUS_INTEGRATION"},
+		},
+		pipelineID:  "CIRRUS_BUILD_ID",
+		jobID:       "CIRRUS_TASK_ID",
+		jobName:     "CIRRUS_TASK_NAME",
+		runner:      "CIRRUS_OS",
+		pullRequest: ciPR("CIRRUS_PR"),
+	},
+	{
+		provider: CIAWSCodeBuild,
+		specCore: specCore{
+			marker:      markerSet("CODEBUILD_BUILD_ARN"),
+			markerNames: []string{"CODEBUILD_BUILD_ARN"},
+		},
+		pipelineID:  "CODEBUILD_BUILD_ARN",
+		buildNumber: "CODEBUILD_BUILD_NUMBER",
+		jobID:       "CODEBUILD_BUILD_ID",
+		trigger:     "CODEBUILD_WEBHOOK_EVENT",
+		pullRequest: ciPRWhen(markerHasPrefix("CODEBUILD_WEBHOOK_EVENT", "PULL_REQUEST_"), []string{"CODEBUILD_WEBHOOK_EVENT"}),
+	},
+	{
+		provider: CIGoogleCloudBuild,
+		specCore: specCore{
+			// BUILDER_OUTPUT is exported by Google's Cloud Build builder
+			// environment. It is a product-specific marker, unlike generic
+			// BUILD_ID or the user-defined env entries in a build config.
+			marker:      markerSet("BUILDER_OUTPUT"),
+			markerNames: []string{"BUILDER_OUTPUT"},
+		},
+	},
+	{
+		provider: CIXcodeCloud,
+		specCore: specCore{
+			marker:      markerSet("CI_XCODE_PROJECT"),
+			markerNames: []string{"CI_XCODE_PROJECT"},
+			evidence:    []string{"CI"},
+		},
+		pipelineID:  "CI_BUILD_ID",
+		buildNumber: "CI_BUILD_NUMBER",
+		jobID:       "CI_WORKFLOW_ID",
+		jobName:     "CI_XCODE_SCHEME",
+		pullRequest: ciPR("CI_PULL_REQUEST_NUMBER"),
+	},
+	{
+		provider: CICloudflarePages,
+		specCore: specCore{
+			marker:      markerSet("CF_PAGES"),
+			markerNames: []string{"CF_PAGES"},
+			evidence:    []string{"CI"},
+			extra: map[string]string{
+				"cloudflare-pages.branch":     "CF_PAGES_BRANCH",
+				"cloudflare-pages.commit_sha": "CF_PAGES_COMMIT_SHA",
+				"cloudflare-pages.url":        "CF_PAGES_URL",
+			},
+		},
+	},
+	{
+		provider: CICloudflareWorkers,
+		specCore: specCore{
+			marker:      markerSet("WORKERS_CI"),
+			markerNames: []string{"WORKERS_CI"},
+			evidence:    []string{"CI"},
+			extra: map[string]string{
+				"cloudflare-workers.branch":     "WORKERS_CI_BRANCH",
+				"cloudflare-workers.commit_sha": "WORKERS_CI_COMMIT_SHA",
+			},
+		},
+		pipelineID: "WORKERS_CI_BUILD_UUID",
 	},
 	{
 		provider: CIGeneric,
