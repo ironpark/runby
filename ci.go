@@ -7,8 +7,8 @@ type CIProvider string
 
 const (
 	CIUnknown CIProvider = "unknown"
-	// CIGeneric is a platform that advertises only the conventional
-	// CI variable, without a marker this package recognizes.
+	// CIGeneric is a run that advertises only a generic CI convention, without
+	// a platform marker this package recognizes.
 	CIGeneric CIProvider = "generic"
 
 	CIGitHubActions     CIProvider = "github-actions"

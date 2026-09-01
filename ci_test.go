@@ -208,6 +208,40 @@ func TestCIGenericFallback(t *testing.T) {
 	}
 }
 
+func TestCIGenericRecognizesAcceptedConventions(t *testing.T) {
+	tests := []struct {
+		name   string
+		env    []string
+		marker string
+	}{
+		{name: "continuous integration", env: []string{"CONTINUOUS_INTEGRATION=true"}, marker: "CONTINUOUS_INTEGRATION"},
+		{name: "ci name", env: []string{"CI_NAME=codeship"}, marker: "CI_NAME"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ci := runby.Detect(runby.WithEnviron(test.env)).CI
+			if ci.Provider != runby.CIGeneric || ci.Confidence != runby.ConfidenceProbable {
+				t.Fatalf("CI = %#v, want probable generic", ci)
+			}
+			if !hasName(ci.Evidence, test.marker) {
+				t.Fatalf("Evidence = %#v, want %q", ci.Evidence, test.marker)
+			}
+		})
+	}
+}
+
+func TestCIGenericRejectsCommonBuildCounters(t *testing.T) {
+	for _, name := range []string{"BUILD_ID", "BUILD_NUMBER", "RUN_ID"} {
+		t.Run(name, func(t *testing.T) {
+			result := runby.Detect(runby.WithEnviron([]string{name + "=17"}))
+			if result.IsCI() {
+				t.Fatalf("%s detected CI: %#v", name, result.CI)
+			}
+		})
+	}
+}
+
 func TestCISpecificPlatformBeatsGeneric(t *testing.T) {
 	// Every platform also sets CI, so only the most specific one is reported.
 	result := runby.Detect(runby.WithEnviron([]string{"CI=true", "CIRCLECI=true", "CIRCLE_PIPELINE_ID=p-1"}))

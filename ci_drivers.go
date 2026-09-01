@@ -653,10 +653,17 @@ var ciSpecs = []ciSpec{
 	{
 		provider: CIGeneric,
 		specCore: specCore{
-			// The bare CI convention is widely honored but is owned by no
-			// platform, and local tooling sets it too, so it is only probable.
-			marker:      markerTrue("CI"),
-			markerNames: []string{"CI"},
+			// These conventions are useful when a platform has no recognized
+			// marker, but none names an execution product reliably. BUILD_ID,
+			// BUILD_NUMBER, and RUN_ID are deliberately not accepted alone:
+			// they are common in ordinary build scripts and overlap with
+			// platform-specific variables.
+			marker: func(env Env) bool {
+				return envIsTrue(env, "CI") ||
+					envIsTrue(env, "CONTINUOUS_INTEGRATION") ||
+					anyPresent(env, "CI_NAME")
+			},
+			markerNames: []string{"CI", "CONTINUOUS_INTEGRATION", "CI_NAME"},
 			confidence:  ConfidenceProbable,
 		},
 	},
