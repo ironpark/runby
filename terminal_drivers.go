@@ -17,11 +17,11 @@ type terminalSpec struct {
 	pid       string
 }
 
-// MarkerTermProgram matches TERM_PROGRAM against value, case-insensitively.
+// markerTermProgram matches TERM_PROGRAM against value, case-insensitively.
 // Casing differs across terminals (Apple_Terminal, iTerm.app, WezTerm,
 // ghostty, WarpTerminal), and matching loosely avoids depending on it.
-func MarkerTermProgram(value string) Marker {
-	return func(env Env) bool { return EqualsFold(env, "TERM_PROGRAM", value) }
+func markerTermProgram(value string) marker {
+	return func(env Env) bool { return envEqualsFold(env, "TERM_PROGRAM", value) }
 }
 
 // terminalSpecs is ordered so that a product-specific terminal is reported
@@ -33,7 +33,7 @@ var terminalSpecs = []terminalSpec{
 		program:     TerminalZed,
 		executables: []string{"zed"},
 		specCore: specCore{
-			marker:      func(env Env) bool { return IsTrue(env, "ZED_TERM") && EqualsFold(env, "TERM_PROGRAM", "zed") },
+			marker:      func(env Env) bool { return envIsTrue(env, "ZED_TERM") && envEqualsFold(env, "TERM_PROGRAM", "zed") },
 			markerNames: []string{"ZED_TERM", "TERM_PROGRAM"},
 		},
 		version: "TERM_PROGRAM_VERSION",
@@ -53,7 +53,7 @@ var terminalSpecs = []terminalSpec{
 		// package avoids. See docs/research/terminals/vscode.md.
 		program: TerminalVSCode,
 		specCore: specCore{
-			marker:      MarkerTermProgram("vscode"),
+			marker:      markerTermProgram("vscode"),
 			markerNames: []string{"TERM_PROGRAM"},
 			confidence:  ConfidenceProbable,
 			extra: map[string]string{
@@ -74,7 +74,7 @@ var terminalSpecs = []terminalSpec{
 		// identifier. See docs/research/terminals/jetbrains.md.
 		program: TerminalJetBrains,
 		specCore: specCore{
-			marker:      func(env Env) bool { return EqualsFold(env, "TERMINAL_EMULATOR", "JetBrains-JediTerm") },
+			marker:      func(env Env) bool { return envEqualsFold(env, "TERMINAL_EMULATOR", "JetBrains-JediTerm") },
 			markerNames: []string{"TERMINAL_EMULATOR"},
 			confidence:  ConfidenceProbable,
 		},
@@ -84,7 +84,7 @@ var terminalSpecs = []terminalSpec{
 		program:     TerminalITerm2,
 		executables: []string{"iterm2"},
 		specCore: specCore{
-			marker:      MarkerTermProgram("iTerm.app"),
+			marker:      markerTermProgram("iTerm.app"),
 			markerNames: []string{"TERM_PROGRAM"},
 			extra:       map[string]string{"iterm2.profile": "ITERM_PROFILE"},
 		},
@@ -99,7 +99,7 @@ var terminalSpecs = []terminalSpec{
 	{
 		program: TerminalAppleTerminal,
 		specCore: specCore{
-			marker:      MarkerTermProgram("Apple_Terminal"),
+			marker:      markerTermProgram("Apple_Terminal"),
 			markerNames: []string{"TERM_PROGRAM"},
 		},
 		version:   "TERM_PROGRAM_VERSION",
@@ -109,7 +109,7 @@ var terminalSpecs = []terminalSpec{
 		program:     TerminalWezTerm,
 		executables: []string{"wezterm", "wezterm-gui"},
 		specCore: specCore{
-			marker:      MarkerTermProgram("WezTerm"),
+			marker:      markerTermProgram("WezTerm"),
 			markerNames: []string{"TERM_PROGRAM"},
 			extra:       map[string]string{"wezterm.executable": "WEZTERM_EXECUTABLE"},
 		},
@@ -122,7 +122,7 @@ var terminalSpecs = []terminalSpec{
 		program:     TerminalGhostty,
 		executables: []string{"ghostty"},
 		specCore: specCore{
-			marker:      MarkerTermProgram("ghostty"),
+			marker:      markerTermProgram("ghostty"),
 			markerNames: []string{"TERM_PROGRAM"},
 			// Ghostty advertises no window, tab, or pane identifier.
 			extra: map[string]string{"ghostty.resources_dir": "GHOSTTY_RESOURCES_DIR"},
@@ -133,7 +133,7 @@ var terminalSpecs = []terminalSpec{
 		program:     TerminalWarp,
 		executables: []string{"warp"},
 		specCore: specCore{
-			marker:      MarkerTermProgram("WarpTerminal"),
+			marker:      markerTermProgram("WarpTerminal"),
 			markerNames: []string{"TERM_PROGRAM"},
 			// WARP_IS_LOCAL_SHELL_SESSION appears only in an unanswered issue,
 			// not in Warp's documentation, and Warp is closed source, so it is
@@ -148,7 +148,7 @@ var terminalSpecs = []terminalSpec{
 		program:     TerminalKitty,
 		executables: []string{"kitty"},
 		specCore: specCore{
-			marker:      MarkerSet("KITTY_WINDOW_ID"),
+			marker:      markerSet("KITTY_WINDOW_ID"),
 			markerNames: []string{"KITTY_WINDOW_ID"},
 			extra:       map[string]string{"kitty.installation_dir": "KITTY_INSTALLATION_DIR"},
 		},
@@ -161,7 +161,7 @@ var terminalSpecs = []terminalSpec{
 		program:     TerminalWindowsTerminal,
 		executables: []string{"windowsterminal"},
 		specCore: specCore{
-			marker:      MarkerSet("WT_SESSION"),
+			marker:      markerSet("WT_SESSION"),
 			markerNames: []string{"WT_SESSION"},
 			trimBraces:  true, // WT_PROFILE_ID carries braces; WT_SESSION does not.
 			extra:       map[string]string{"windows-terminal.profile_id": "WT_PROFILE_ID"},
@@ -176,7 +176,7 @@ var terminalSpecs = []terminalSpec{
 		program:     TerminalAlacritty,
 		executables: []string{"alacritty"},
 		specCore: specCore{
-			marker:      MarkerSet("ALACRITTY_LOG"),
+			marker:      markerSet("ALACRITTY_LOG"),
 			markerNames: []string{"ALACRITTY_LOG"},
 			extra:       map[string]string{"alacritty.socket": "ALACRITTY_SOCKET"},
 		},
@@ -195,10 +195,10 @@ var terminalSpecs = []terminalSpec{
 		specCore: specCore{
 			confidence: ConfidenceProbable,
 			marker: func(env Env) bool {
-				if _, ok := Value(env, "KONSOLE_VERSION"); ok {
+				if _, ok := envValue(env, "KONSOLE_VERSION"); ok {
 					return true
 				}
-				_, ok := Value(env, "KONSOLE_DBUS_SESSION")
+				_, ok := envValue(env, "KONSOLE_DBUS_SESSION")
 				return ok
 			},
 			markerNames: []string{"KONSOLE_VERSION", "KONSOLE_DBUS_SESSION"},
@@ -216,7 +216,7 @@ var terminalSpecs = []terminalSpec{
 		program:     TerminalGNOMETerminal,
 		executables: []string{"gnome-terminal-server"},
 		specCore: specCore{
-			marker:      MarkerSet("GNOME_TERMINAL_SCREEN"),
+			marker:      markerSet("GNOME_TERMINAL_SCREEN"),
 			markerNames: []string{"GNOME_TERMINAL_SCREEN"},
 			extra: map[string]string{
 				"gnome-terminal.dbus_service": "GNOME_TERMINAL_SERVICE",
@@ -232,7 +232,7 @@ var terminalSpecs = []terminalSpec{
 		// product, so this runs last, after GNOME Terminal has had its turn.
 		program: TerminalVTE,
 		specCore: specCore{
-			marker:      MarkerSet("VTE_VERSION"),
+			marker:      markerSet("VTE_VERSION"),
 			markerNames: []string{"VTE_VERSION"},
 			confidence:  ConfidenceProbable,
 		},
@@ -258,7 +258,7 @@ func (spec terminalSpec) detect(env Env) (Terminal, bool) {
 
 	// TERM is context only. It is reported after the marker has already
 	// decided, never as part of deciding.
-	result.Term, _ = Value(env, "TERM")
+	result.Term, _ = envValue(env, "TERM")
 	values.add("TERM")
 
 	values.apply(env, &result.Axis)

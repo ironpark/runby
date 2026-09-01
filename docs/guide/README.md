@@ -26,14 +26,14 @@
 
 | 문서 | 답하는 질문 | 주요 결과 |
 |---|---|---|
-| [에이전트](agents.md) | AI 에이전트가 실행했으며 계층은 무엇인가? | `Layers`, `Chain()` |
+| [에이전트](agents.md) | AI 에이전트가 실행했으며 계층은 무엇인가? | `Agents`, `Chain()` |
 | [CI](ci.md) | 어느 CI 플랫폼과 잡에서 실행 중인가? | `CI` |
 | [실행 도구](runner.md) | npm·make·systemd 같은 무엇이 실행했나? | `Runners` |
 | [원격 환경](remote.md) | SSH·tmux·개발 컨테이너를 거쳤나? | `Remotes` |
 | [터미널과 TTY](terminal.md) | 환경을 만든 앱은 무엇이고, 지금 대화형인가? | `Terminal`, `TTY` |
 | [상위 프로세스](process.md) | 감지된 실행 주체가 현재도 조상으로 살아 있나? | `Process`, `AncestorPID` |
 
-여러 축은 동시에 참일 수 있습니다. 예를 들어 Claude Code가 GitHub Actions 안에서 `npm test`를 실행하면 `Layers`, `CI`, `Runners`가 모두 채워집니다. 하나의 “실행 모드”를 찾기보다, 필요한 질문에 해당하는 필드를 선택하세요.
+여러 축은 동시에 참일 수 있습니다. 예를 들어 Claude Code가 GitHub Actions 안에서 `npm test`를 실행하면 `Agents`, `CI`, `Runners`가 모두 채워집니다. 하나의 “실행 모드”를 찾기보다, 필요한 질문에 해당하는 필드를 선택하세요.
 
 ## 해석할 때 지킬 원칙
 

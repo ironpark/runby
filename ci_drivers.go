@@ -32,7 +32,7 @@ var ciSpecs = []ciSpec{
 		// GitHub Actions by environment alone; they fall through on purpose.
 		provider: CIProviderForgejo,
 		specCore: specCore{
-			marker:      MarkerTrue("FORGEJO_ACTIONS"),
+			marker:      markerTrue("FORGEJO_ACTIONS"),
 			markerNames: []string{"FORGEJO_ACTIONS"},
 			extra: map[string]string{
 				"forgejo-runner.repository":   "FORGEJO_REPOSITORY",
@@ -53,7 +53,7 @@ var ciSpecs = []ciSpec{
 	{
 		provider: CIProviderGitHubActions,
 		specCore: specCore{
-			marker:      MarkerTrue("GITHUB_ACTIONS"),
+			marker:      markerTrue("GITHUB_ACTIONS"),
 			markerNames: []string{"GITHUB_ACTIONS"},
 			extra: map[string]string{
 				"github-actions.action":             "GITHUB_ACTION",
@@ -73,7 +73,7 @@ var ciSpecs = []ciSpec{
 	{
 		provider: CIProviderGitLab,
 		specCore: specCore{
-			marker:      MarkerTrue("GITLAB_CI"),
+			marker:      markerTrue("GITLAB_CI"),
 			markerNames: []string{"GITLAB_CI"},
 			extra: map[string]string{
 				"gitlab-ci.project_path": "CI_PROJECT_PATH",
@@ -96,7 +96,7 @@ var ciSpecs = []ciSpec{
 	{
 		provider: CIProviderCircleCI,
 		specCore: specCore{
-			marker:      MarkerTrue("CIRCLECI"),
+			marker:      markerTrue("CIRCLECI"),
 			markerNames: []string{"CIRCLECI"},
 			// CircleCI documents no rerun counter, and its trigger source is a
 			// config-time pipeline value rather than a job environment variable.
@@ -116,7 +116,7 @@ var ciSpecs = []ciSpec{
 	{
 		provider: CIProviderTravis,
 		specCore: specCore{
-			marker:      MarkerTrue("TRAVIS"),
+			marker:      markerTrue("TRAVIS"),
 			markerNames: []string{"TRAVIS"},
 			// Travis documents no numeric attempt counter, only a restart flag.
 			extra: map[string]string{
@@ -135,7 +135,7 @@ var ciSpecs = []ciSpec{
 	{
 		provider: CIProviderBuildkite,
 		specCore: specCore{
-			marker:      MarkerTrue("BUILDKITE"),
+			marker:      markerTrue("BUILDKITE"),
 			markerNames: []string{"BUILDKITE"},
 			extra: map[string]string{
 				"buildkite.pipeline_slug":     "BUILDKITE_PIPELINE_SLUG",
@@ -161,7 +161,7 @@ var ciSpecs = []ciSpec{
 		provider: CIProviderAzurePipelines,
 		specCore: specCore{
 			// The documented value is "True"; IsTrue parses case-insensitively.
-			marker:      MarkerTrue("TF_BUILD"),
+			marker:      markerTrue("TF_BUILD"),
 			markerNames: []string{"TF_BUILD"},
 			extra: map[string]string{
 				// Azure documents no stage ID, only a stage name.
@@ -188,11 +188,11 @@ var ciSpecs = []ciSpec{
 			// present build number doubles as one. A second signal is required so
 			// that a stray BITBUCKET_BUILD_NUMBER alone does not match.
 			marker: func(env Env) bool {
-				if _, ok := Value(env, "BITBUCKET_BUILD_NUMBER"); !ok {
+				if _, ok := envValue(env, "BITBUCKET_BUILD_NUMBER"); !ok {
 					return false
 				}
-				_, hasUUID := Value(env, "BITBUCKET_PIPELINE_UUID")
-				return hasUUID || IsTrue(env, "CI")
+				_, hasUUID := envValue(env, "BITBUCKET_PIPELINE_UUID")
+				return hasUUID || envIsTrue(env, "CI")
 			},
 			markerNames: []string{"BITBUCKET_BUILD_NUMBER", "BITBUCKET_PIPELINE_UUID", "CI"},
 			// Bitbucket wraps its UUID values in curly braces.
@@ -221,11 +221,11 @@ var ciSpecs = []ciSpec{
 			// when an administrator has configured the Jenkins root URL, while
 			// JENKINS_HOME is always set. HUDSON_* are core legacy aliases.
 			marker: func(env Env) bool {
-				if _, ok := Value(env, "BUILD_NUMBER"); !ok {
+				if _, ok := envValue(env, "BUILD_NUMBER"); !ok {
 					return false
 				}
 				for _, name := range []string{"JENKINS_URL", "JENKINS_HOME", "HUDSON_URL", "HUDSON_HOME"} {
-					if _, ok := Value(env, name); ok {
+					if _, ok := envValue(env, name); ok {
 						return true
 					}
 				}
@@ -257,7 +257,7 @@ var ciSpecs = []ciSpec{
 		specCore: specCore{
 			// The bare CI convention is widely honored but is owned by no
 			// platform, and local tooling sets it too, so it is only probable.
-			marker:      MarkerTrue("CI"),
+			marker:      markerTrue("CI"),
 			markerNames: []string{"CI"},
 			confidence:  ConfidenceProbable,
 		},

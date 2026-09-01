@@ -42,7 +42,7 @@ if _, ok := result.RunnerOfKind(runby.RunnerKindHook); ok {
 
 ## 에이전트별 동작 바꾸기
 
-에이전트가 하나라도 있는지만 확인하려면 `IsAgent()`, 특정 제품의 상세 정보가 필요하면 `Layer()`를 사용합니다.
+에이전트가 하나라도 있는지만 확인하려면 `IsAgent()`, 특정 제품의 상세 정보가 필요하면 `Agent()`를 사용합니다.
 
 ```go
 result := runby.Current()
@@ -51,13 +51,13 @@ if result.IsAgent() {
 	disableSpinner()
 }
 
-if codex, ok := result.Layer(runby.AgentCodex); ok &&
+if codex, ok := result.Agent(runby.AgentCodex); ok &&
 	codex.Sandbox.Network == runby.NetworkDisabled {
 	skipNetworkChecks()
 }
 ```
 
-중첩된 실행에서는 여러 에이전트가 함께 감지될 수 있습니다. `result.Agent()`는 가장 바깥의 대표 계층을, `result.Chain()`은 전체 계층을 반환합니다.
+중첩된 실행에서는 여러 에이전트가 함께 감지될 수 있습니다. `result.Primary()`는 가장 바깥의 대표 계층을 `(Agent, bool)`로, `result.Chain()`은 전체 계층을 반환합니다.
 
 ## 실행 맥락을 로그로 남기기
 

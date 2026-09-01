@@ -226,8 +226,8 @@ func TestCIAgentAndCIAreIndependentAxes(t *testing.T) {
 		"GITHUB_RUN_ID=99",
 	}))
 
-	if !result.IsAgent() || result.Agent() != runby.AgentClaudeCode {
-		t.Fatalf("agent = %#v", result.Layers)
+	if !result.IsAgent() || primaryAgent(result) != runby.AgentClaudeCode {
+		t.Fatalf("agent = %#v", result.Agents)
 	}
 	if !result.IsCI() || result.CI.Provider != runby.CIProviderGitHubActions {
 		t.Fatalf("CI = %#v", result.CI)
@@ -263,11 +263,11 @@ func TestCustomCIDriverOutranksTheGenericConvention(t *testing.T) {
 	driver := runby.CIDriver{
 		Provider: "acme-ci",
 		Detect: func(env runby.Env) (runby.CI, bool) {
-			id, ok := runby.Value(env, "ACME_CI_BUILD")
+			id, ok := runby.NewEnvReader(env).Value("ACME_CI_BUILD")
 			if !ok {
 				return runby.CI{}, false
 			}
-			return runby.CI{PipelineID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_CI_BUILD")}}, true
+			return runby.CI{PipelineID: id, Axis: runby.Axis{Evidence: []string{"ACME_CI_BUILD"}}}, true
 		},
 	}
 

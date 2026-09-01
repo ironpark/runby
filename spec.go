@@ -29,7 +29,7 @@ import "strings"
 // product, and the context and evidence that recognition carries.
 type specCore struct {
 	// marker reports whether the environment shows this product.
-	marker Marker
+	marker marker
 	// markerNames lists the variables marker consults, so that they are
 	// reported as evidence alongside the fields read below.
 	markerNames []string
@@ -80,7 +80,7 @@ func (v *specValues) add(names ...string) {
 func (v *specValues) apply(env Env, axis *Axis) {
 	axis.Confidence = v.confidence
 	axis.Extra = v.extra
-	axis.Evidence = PresentNames(env, v.names...)
+	axis.Evidence = presentNames(env, v.names...)
 }
 
 // read checks the marker and, when it matches, fills fields from env and
@@ -103,13 +103,13 @@ func (core specCore) read(env Env, fields ...specField) (specValues, bool) {
 			continue
 		}
 		values.add(field.name)
-		value, _ := Value(env, field.name)
+		value, _ := envValue(env, field.name)
 		*field.into = core.trim(value)
 	}
 
 	for key, name := range core.extra {
 		values.add(name)
-		value, ok := Value(env, name)
+		value, ok := envValue(env, name)
 		if !ok {
 			continue
 		}

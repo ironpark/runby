@@ -52,7 +52,7 @@ runby.Register(myDriver)                                   // 사내 드라이�
 
 `WithDrivers`와 `WithOnlyDrivers` 모두 **한 호출 안에** 같은 축·같은 식별자를 둘 넘기면 panic합니다. `WithDrivers`가 기존 세트의 항목을 교체하는 것은 이와 별개이며 panic하지 않습니다.
 
-CI·터미널 축은 **첫 매치가 이깁니다.** 커스텀 드라이버가 내장보다 우선해야 한다면 슬라이스 앞에 두십시오. 에이전트 축은 순서와 무관하게 항상 사다리(`l3`→`l2`→`l1`)로 정렬되고, remote·runner 축은 매치 전부를 보고하므로 순서가 결과 순서일 뿐입니다.
+CI·터미널 축은 **첫 매치가 이깁니다.** 커스텀 드라이버가 내장보다 우선해야 한다면 슬라이스 앞에 두십시오. 에이전트 축은 순서와 무관하게 항상 오케스트레이터 → 멀티 벤더 하네스 → 자사 모델 하네스 순으로 정렬되고, remote·runner 축은 매치 전부를 보고하므로 순서가 결과 순서일 뿐입니다.
 
 ### 무엇이 꺼지는가
 
@@ -74,11 +74,11 @@ runby.Detect(runby.WithOnlyDrivers())                   // 환경 기반 축 전
 
 ```go
 type Result struct {
-	Layers   []Layer     // 가장 구체적인 오케스트레이터 → 하위 런타임 순
+	Agents   []Agent     // 가장 구체적인 오케스트레이터 → 하위 런타임 순
 	TTY      TTY         // 표준 스트림 상태 (시스템콜 기반)
 	Process  ProcessTree // 상위 프로세스 체인 (커널에서 읽음)
-	CI       CI          // Layers와 독립된 축
-	Terminal Terminal    // Layers와 독립된 축
+	CI       CI          // Agents와 독립된 축
+	Terminal Terminal    // Agents와 독립된 축
 	Remotes  []Remote    // 동시에 여러 계층이 존재할 수 있음
 	Runners  []Runner    // 무엇이 직접 실행했는가. 중첩이 정상
 }
@@ -95,7 +95,7 @@ result.Unattended()                    // IsAgent ∨ IsCI ∨ service 러너 �
 
 // 특정 제품이 계층에 있는지는 다른 질문입니다. 셋 다 축 이름을 그대로 쓰고
 // (값, ok)를 돌려주므로, 존재 여부만 필요하면 값을 버리면 됩니다.
-result.Layer(runby.AgentCodex)         // (Layer, bool)
+result.Agent(runby.AgentCodex)         // (Agent, bool)
 result.Remote(runby.RemoteTmux)        // (Remote, bool)
 result.Runner(runby.RunnerNPM)         // (Runner, bool)
 result.RunnerOfKind(runby.RunnerKindService) // (Runner, bool) — 데몬인가
@@ -107,8 +107,7 @@ if _, ok := result.Remote(runby.RemoteSSH); ok {
 result.SessionID()                     // (Identifier, bool) — 값과 그 값을 광고한 에이전트
 result.AgentID()                       // (Identifier, bool) — 논리적 에이전트 식별자, 같은 방식
 
-result.Agent()                         // 최상위 레이어의 Agent, 없으면 AgentUnknown
-result.Primary()                       // (Layer, bool) — 없으면 제로 Layer, ok로 판단
+result.Primary()                       // (Agent, bool) — 없으면 제로 Agent, ok로 판단
 result.Unattended()                    // 아무도 출력을 보고 있지 않은가 (아래 참고)
 result.Chain()                         // "paseo>codex", 감지 실패 시 "unknown"
 result.Multiplexer()                   // (Remote, bool) — 잔존 위험의 주 원인
@@ -120,8 +119,8 @@ result.Multiplexer()                   // (Remote, bool) — 잔존 위험의 �
 
 ```go
 type Identifier struct {
-	Value string `json:"value"`
-	Agent Agent  `json:"agent"`
+	Value string    `json:"value"`
+	Agent AgentName `json:"agent"`
 }
 
 if session, ok := result.SessionID(); ok {
@@ -146,7 +145,7 @@ if session, ok := result.SessionID(); ok {
 
 표시 방식을 정하는 기본값으로 쓰십시오. **신뢰 경계로 쓰면 안 됩니다.** 정책이 다르면 축을 직접 읽으십시오.
 
-## Layer
+## Agent
 
 ```go
 // Axis는 다섯 축의 결과가 공통으로 지니는 부분이며, 임베드되어 있습니다.
@@ -157,11 +156,10 @@ type Axis struct {
 	Evidence   []string          // 감지에 사용한 변수 "이름"만
 }
 
-type Layer struct {
-	Agent  Agent
+type Agent struct {
+	Name   AgentName
 	Kind   Kind        // orchestrator | harness — 무엇을 구동하는가
 	Models ModelSource // first-party | multi-vendor | delegated — 지능의 출처
-	Level  Level       // l1 | l2 | l3 — 위 둘에서 파생된 사다리
 	Axis
 
 	SessionID  string // 대화/스레드 식별자
@@ -182,7 +180,7 @@ type Layer struct {
 
 `Extra`는 한 제품만 광고하는 값을 담아 공용 필드가 무한정 늘어나지 않게 합니다. 현재 키는 `codex.ci`와 `orca.*` 계열입니다.
 
-이 패키지의 **모든 enum은 제로값을 `"unknown"`으로 렌더링합니다** — `Agent`, `Kind`, `ModelSource`, `Level`, `Confidence`, `Network`, `CIProvider`, `TerminalProgram`, `RemotePlatform`, `RemoteKind`, `RunnerTool`, `RunnerKind`. `Primary()`·`Layer()`·`Runner()`·`Remote()`가 미스에서 돌려주는 제로 구조체를 `ok` 확인 없이 그대로 로그에 찍어도 빈 칸이 아니라 `unknown`이 남습니다.
+이 패키지의 **모든 enum은 제로값을 `"unknown"`으로 렌더링합니다** — `AgentName`, `Kind`, `ModelSource`, `Confidence`, `Network`, `CIProvider`, `TerminalProgram`, `RemotePlatform`, `RemoteKind`, `RunnerTool`, `RunnerKind`. `Primary()`·`Agent()`·`Runner()`·`Remote()`가 미스에서 돌려주는 제로 구조체를 `ok` 확인 없이 그대로 로그에 찍어도 빈 칸이 아니라 `unknown`이 남습니다.
 
 **`Evidence`에는 변수 이름만 들어갑니다.** 값은 민감할 수 있으므로 어떤 경우에도 복사하지 않습니다. 이 규칙은 다섯 축 전부에 동일하게 적용됩니다.
 
@@ -224,13 +222,13 @@ acme := runby.AgentDriver{
 	Kind:        runby.KindOrchestrator,
 	Models:      runby.ModelsDelegated,
 	Executables: []string{"acme-run"}, // 살아 있는 조상 프로세스로 확증
-	Detect: func(env runby.Env) (runby.Layer, bool) {
+	Detect: func(env runby.Env) (runby.Agent, bool) {
 		r := runby.NewEnvReader(env)
 		id, ok := r.Value("ACME_RUN_ID")
 		if !ok {
-			return runby.Layer{}, false
+			return runby.Agent{}, false
 		}
-		return runby.Layer{AgentID: id, Axis: runby.Axis{Evidence: r.Evidence()}}, true
+		return runby.Agent{AgentID: id, Axis: runby.Axis{Evidence: r.Evidence()}}, true
 	},
 }
 
@@ -240,9 +238,9 @@ result := runby.Detect(runby.WithDrivers(acme))
 runby.Register(acme)
 ```
 
-에이전트 축의 순서는 추가 순서가 아니라 **`Kind`와 `Models`에서 파생된 `Level`**로 정해집니다(`l3` → `l2` → `l1`). 사내 오케스트레이터는 그것이 구동한 런타임보다 언제나 앞서고, 둘 다 선언하지 않은 드라이버는 사다리에 자리가 없어 맨 뒤로 갑니다.
+에이전트 축의 순서는 추가 순서가 아니라 **`Kind`와 `Models`에서 파생**됩니다 — 오케스트레이터, 그다음 멀티 벤더 하네스, 그다음 자사 모델 하네스 순. 사내 오케스트레이터는 그것이 구동한 런타임보다 언제나 앞서고, 둘 다 선언하지 않은 드라이버는 사다리에 자리가 없어 맨 뒤로 갑니다.
 
-`Agent`·`Kind`·`Models`는 드라이버가 제공하므로 `Detect` 안에서 다시 쓸 필요가 없고, `Level`은 그 둘에서 내장 에이전트와 **같은 규칙으로** 파생됩니다. `Confidence`와 `Sandbox.Network`는 비워두면 기본값이 채워집니다.
+`Name`·`Kind`·`Models`는 드라이버가 제공하므로 `Detect` 안에서 다시 쓸 필요가 없습니다. `Confidence`와 `Sandbox.Network`는 비워두면 기본값이 채워집니다.
 
 | 축 | 드라이버 | 식별자 | 축위 | 실행 파일 |
 |---|---|---|---|---|
@@ -266,10 +264,10 @@ remote 드라이버의 `Kind`를 `RemoteKindMultiplexer`로 두면 `Result.Multi
 r := runby.NewEnvReader(env)
 id, ok := r.Value("ACME_RUN_ID")     // 읽고 기록
 if !ok {
-	return runby.Layer{}, false      // 조기 반환. 기록만 하고 보고는 없음
+	return runby.Agent{}, false      // 조기 반환. 기록만 하고 보고는 없음
 }
 home := r.First("ACME_HOME", "ACME_ROOT") // 선호 소스 + 폴백, 둘 다 기록
-return runby.Layer{
+return runby.Agent{
 	SessionID: id,
 	Paths:     runby.Paths{DataDirectory: home},
 	Axis:      runby.Axis{Evidence: r.Evidence()},
@@ -289,19 +287,7 @@ return runby.Layer{
 
 `EnvReader`는 동시 사용에 안전하지 않습니다. `Detect` 호출마다 하나 만들고 호출 밖으로 넘기지 마십시오.
 
-### 저작 헬퍼
-
-`EnvReader`를 쓰지 않는 경우(대개 CI·터미널·remote처럼 규칙이 단순한 축)를 위해 같은 파싱 규칙이 함수로도 공개되어 있습니다.
-
-| 헬퍼 | 용도 |
-|---|---|
-| `Value` / `Bool` / `IsTrue` / `EqualsFold` | 변수 하나 읽기 |
-| `AnyPresent(env, names...)` | 여러 후보 중 하나라도 설정됐는지 |
-| `MarkerSet` / `MarkerTrue` / `MarkerTermProgram` | `Marker`(= `func(Env) bool`) 생성 |
-| `CollectExtra(env, keys)` | `Extra` 맵 구성. 설정되지 않은 키는 건너뜀 |
-| `PresentNames(env, names...)` | `Evidence` 구성. 정렬·중복 제거, **이름만** |
-
-`Evidence`에는 값이 절대 들어가지 않습니다. `EnvReader.Evidence()`도 `PresentNames`도 이름만 돌려줍니다.
+`Evidence`에는 값이 절대 들어가지 않습니다. `EnvReader.Evidence()`는 이름만 돌려줍니다.
 
 ### 드라이버가 환경을 바꿀 수 없는 이유
 

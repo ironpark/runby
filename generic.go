@@ -23,17 +23,6 @@ func mapSlice[T, R any](s []T, fn func(T) R) []R {
 	return out
 }
 
-// indexBy builds a lookup from a driver table, so that a product is registered
-// in exactly one place and its facts are derived rather than restated.
-func indexBy[T any, K comparable, V any](s []T, fn func(T) (K, V)) map[K]V {
-	out := make(map[K]V, len(s))
-	for _, item := range s {
-		key, value := fn(item)
-		out[key] = value
-	}
-	return out
-}
-
 // slug renders a product identity as its stable string, mapping the zero value
 // to the axis's unknown constant so the output is never empty.
 func slug[T ~string](value, unknown T) string {

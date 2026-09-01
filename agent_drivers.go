@@ -6,7 +6,7 @@ import (
 )
 
 // builtinAgentDrivers is ordered from the outermost layer to the innermost:
-// Level3 orchestrators, then Level2 harnesses, then Level1. Result.Primary
+// orchestrators, then multi-vendor harnesses, then first-party. Result.Primary
 // reports the first match, so this order is the precedence contract, and it
 // follows the ladder because an outer layer is the more specific answer to
 // "what launched this".
@@ -16,7 +16,7 @@ import (
 // what it drives, whose models are behind it, and which binaries it runs as.
 // TestKindsMatchDocs holds Kind and Models to the research documents.
 var builtinAgentDrivers = []AgentDriver{
-	// Level 3 — drives other agent harnesses.
+	// Orchestrators — drive other agent harnesses.
 	{Agent: AgentPaseo, Kind: KindOrchestrator, Models: ModelsDelegated, Executables: []string{"paseo"}, Detect: detectPaseo},
 	// Orca's binary shares its name with the GNOME screen reader, so an
 	// ancestor running it is not evidence of this orchestrator.
@@ -27,7 +27,7 @@ var builtinAgentDrivers = []AgentDriver{
 	// is nothing safe to match in the ancestor chain.
 	{Agent: AgentAntigravity2, Kind: KindOrchestrator, Models: ModelsFirstParty, Detect: detectAntigravity2},
 
-	// Level 2 — a harness of their own, reaching other vendors' models.
+	// Multi-vendor — a harness of their own, reaching other vendors' models.
 	{Agent: AgentCursor, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"cursor-agent"}, Detect: detectCursor},
 	{Agent: AgentOpenCode, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"opencode"}, Detect: detectOpenCode},
 	{Agent: AgentAmp, Kind: KindHarness, Models: ModelsMultiVendor, Executables: []string{"amp"}, Detect: detectAmp},
@@ -37,7 +37,7 @@ var builtinAgentDrivers = []AgentDriver{
 	// there is no ancestor name that would corroborate it.
 	{Agent: AgentCline, Kind: KindHarness, Models: ModelsMultiVendor, Detect: detectCline},
 
-	// Level 1 — a harness built around its own vendor's model.
+	// First-party — a harness built around its own vendor's model.
 	{Agent: AgentCodex, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"codex"}, Detect: detectCodex},
 	{Agent: AgentClaudeCode, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"claude"}, Detect: detectClaudeCode},
 	{Agent: AgentGeminiCLI, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"gemini"}, Detect: detectGeminiCLI},
@@ -46,15 +46,15 @@ var builtinAgentDrivers = []AgentDriver{
 
 // detectPaseo identifies a process launched by a Paseo agent. PASEO_AGENT_ID is
 // set per agent, so it names the logical agent rather than a single session.
-func detectPaseo(env Env) (Layer, bool) {
+func detectPaseo(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	agentID, ok := r.Value("PASEO_AGENT_ID")
 	if !ok {
-		return Layer{}, false
+		return Agent{}, false
 	}
 
 	workingDirectory, _ := r.Value("PASEO_AGENT_CWD")
-	return Layer{
+	return Agent{
 		AgentID: agentID,
 		Paths:   Paths{WorkingDirectory: workingDirectory},
 		Axis:    Axis{Evidence: r.Evidence()},
@@ -96,10 +96,10 @@ var orcaExtra = map[string]string{
 // terminal but not that an agent rather than a person typed the command, so
 // the confidence is never definite. When Orca did launch an agent, that agent
 // sets its own marker and is reported as its own layer.
-func detectOrca(env Env) (Layer, bool) {
+func detectOrca(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	if !r.Any(orcaMarkers.owner...) || !r.Any(orcaMarkers.location...) {
-		return Layer{}, false
+		return Agent{}, false
 	}
 
 	// The pane key identifies the pane a session runs in, which is the closest
@@ -110,7 +110,7 @@ func detectOrca(env Env) (Layer, bool) {
 	workingDirectory := r.First("ORCA_WORKTREE_PATH", "ORCA_ROOT_PATH")
 	dataDirectory, _ := r.Value("ORCA_USER_DATA_PATH")
 
-	return Layer{
+	return Agent{
 		SessionID: sessionID,
 		Paths: Paths{
 			WorkingDirectory: workingDirectory,
@@ -124,7 +124,7 @@ func detectOrca(env Env) (Layer, bool) {
 	}, true
 }
 
-func detectCodex(env Env) (Layer, bool) {
+func detectCodex(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	_, hasThreadID := r.Peek("CODEX_THREAD_ID")
 	_, hasSessionID := r.Peek("CODEX_SESSION_ID")
@@ -134,7 +134,7 @@ func detectCodex(env Env) (Layer, bool) {
 	ci, hasCI := r.Bool("CODEX_CI")
 	networkDisabled, hasNetwork := r.Bool("CODEX_SANDBOX_NETWORK_DISABLED")
 	if !hasThreadID && !hasSessionID && !hasSandbox && !(hasCI && ci) {
-		return Layer{}, false
+		return Agent{}, false
 	}
 
 	// A thread or session identifier is set per Codex conversation, so it is an
@@ -160,7 +160,7 @@ func detectCodex(env Env) (Layer, bool) {
 		extra = map[string]string{"codex.ci": strconv.FormatBool(ci)}
 	}
 
-	return Layer{
+	return Agent{
 		SessionID: threadID,
 		Sandbox:   Sandbox{Mode: sandbox, Network: network},
 		Axis: Axis{
@@ -171,7 +171,7 @@ func detectCodex(env Env) (Layer, bool) {
 	}, true
 }
 
-func detectClaudeCode(env Env) (Layer, bool) {
+func detectClaudeCode(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	claudeCode := r.IsTrue("CLAUDECODE")
 	sessionID, hasSessionID := r.Value("CLAUDE_CODE_SESSION_ID")
@@ -184,12 +184,12 @@ func detectClaudeCode(env Env) (Layer, bool) {
 		r.Record("AI_AGENT")
 	}
 	if !claudeCode && !hasSessionID && !isAIAgent {
-		return Layer{}, false
+		return Agent{}, false
 	}
 
 	entrypoint, _ := r.Value("CLAUDE_CODE_ENTRYPOINT")
 	nested, _ := r.Bool("CLAUDE_CODE_CHILD_SESSION")
-	return Layer{
+	return Agent{
 		SessionID:  sessionID,
 		Entrypoint: entrypoint,
 		Nested:     nested,
@@ -197,12 +197,12 @@ func detectClaudeCode(env Env) (Layer, bool) {
 	}, true
 }
 
-func detectCursor(env Env) (Layer, bool) {
+func detectCursor(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	if _, ok := r.Value("CURSOR_AGENT"); !ok {
-		return Layer{}, false
+		return Agent{}, false
 	}
-	return Layer{Axis: Axis{Evidence: r.Evidence()}}, true
+	return Agent{Axis: Axis{Evidence: r.Evidence()}}, true
 }
 
 // detectOpenCode identifies a process OpenCode launched. OPENCODE is set on
@@ -216,15 +216,15 @@ func detectCursor(env Env) (Layer, bool) {
 //
 // AGENT is set alongside OPENCODE and is deliberately ignored: the name
 // belongs to no vendor, and Goose sets it too.
-func detectOpenCode(env Env) (Layer, bool) {
+func detectOpenCode(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	launched := r.IsTrue("OPENCODE")
 	acp := r.EqualsFold("OPENCODE_CLIENT", "acp")
 	if !launched && !acp {
-		return Layer{}, false
+		return Agent{}, false
 	}
 
-	detection := Layer{}
+	detection := Agent{}
 	if acp {
 		detection.Entrypoint = "acp"
 	}
@@ -237,19 +237,19 @@ func detectOpenCode(env Env) (Layer, bool) {
 	return detection, true
 }
 
-func detectAmp(env Env) (Layer, bool) {
+func detectAmp(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	orb := r.IsTrue("AMP_ORB")
 	threadID, hasThreadID := r.Value("AMP_THREAD_ID")
 	if !orb && !hasThreadID {
-		return Layer{}, false
+		return Agent{}, false
 	}
 
 	entrypoint := "orb"
 	if hasThreadID {
 		entrypoint = "orb-service"
 	}
-	return Layer{
+	return Agent{
 		SessionID:  threadID,
 		Entrypoint: entrypoint,
 		Axis:       Axis{Evidence: r.Evidence()},
@@ -258,13 +258,13 @@ func detectAmp(env Env) (Layer, bool) {
 
 // detectAntigravity2 identifies a sidecar whose lifecycle Antigravity 2.0
 // manages. Antigravity CLI sets no general execution marker and is not detected.
-func detectAntigravity2(env Env) (Layer, bool) {
+func detectAntigravity2(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	dataDirectory, ok := r.Value("ANTIGRAVITY_EXECUTABLE_DATA_DIR")
 	if !ok {
-		return Layer{}, false
+		return Agent{}, false
 	}
-	return Layer{
+	return Agent{
 		Entrypoint: "sidecar",
 		Paths:      Paths{DataDirectory: dataDirectory},
 		Axis:       Axis{Evidence: r.Evidence()},
@@ -275,23 +275,23 @@ func detectAntigravity2(env Env) (Layer, bool) {
 // variable its identification marker in source and sets it on every shell
 // command and stdio MCP server it starts, so its presence is proof rather than
 // a supporting signal.
-func detectGeminiCLI(env Env) (Layer, bool) {
+func detectGeminiCLI(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	if !r.IsTrue("GEMINI_CLI") {
-		return Layer{}, false
+		return Agent{}, false
 	}
-	return Layer{Axis: Axis{Evidence: r.Evidence()}}, true
+	return Agent{Axis: Axis{Evidence: r.Evidence()}}, true
 }
 
 // detectGrokBuild identifies a Grok Build plugin hook. The documented scope is
 // narrow — only hooks receive these variables, not the shell commands the agent
 // runs — so a Grok Build session that never fires a hook is not reported.
-func detectGrokBuild(env Env) (Layer, bool) {
+func detectGrokBuild(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	if !r.Any("GROK_PLUGIN_ROOT", "GROK_PLUGIN_DATA") {
-		return Layer{}, false
+		return Agent{}, false
 	}
-	return Layer{
+	return Agent{
 		Entrypoint: "plugin-hook",
 		Axis:       Axis{Evidence: r.Evidence()},
 	}, true
@@ -299,24 +299,24 @@ func detectGrokBuild(env Env) (Layer, bool) {
 
 // detectAuggie identifies a command Auggie ran through its launch-process tool.
 // The official reference documents the variable for exactly this purpose.
-func detectAuggie(env Env) (Layer, bool) {
+func detectAuggie(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	if !r.IsTrue("AUGMENT_AGENT") {
-		return Layer{}, false
+		return Agent{}, false
 	}
-	return Layer{Axis: Axis{Evidence: r.Evidence()}}, true
+	return Agent{Axis: Axis{Evidence: r.Evidence()}}, true
 }
 
 // detectOpenClaw identifies a process OpenClaw spawned. The variable carries
 // which runtime started it, so the value becomes the entrypoint rather than
 // being discarded.
-func detectOpenClaw(env Env) (Layer, bool) {
+func detectOpenClaw(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	entrypoint, ok := r.Value("OPENCLAW_SHELL")
 	if !ok {
-		return Layer{}, false
+		return Agent{}, false
 	}
-	return Layer{
+	return Agent{
 		Entrypoint: strings.ToLower(entrypoint),
 		Axis:       Axis{Evidence: r.Evidence()},
 	}, true
@@ -326,12 +326,12 @@ func detectOpenClaw(env Env) (Layer, bool) {
 // terminals it opens to run its commands, but a human can type into the same
 // terminal, so this is a supporting signal rather than proof that the agent
 // issued the command.
-func detectCline(env Env) (Layer, bool) {
+func detectCline(env Env) (Agent, bool) {
 	r := NewEnvReader(env)
 	if !r.IsTrue("CLINE_ACTIVE") {
-		return Layer{}, false
+		return Agent{}, false
 	}
-	return Layer{
+	return Agent{
 		Axis: Axis{
 			Confidence: ConfidenceProbable,
 			Evidence:   r.Evidence(),

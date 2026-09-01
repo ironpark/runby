@@ -25,17 +25,17 @@ corroboration:
 
 ## 교차 검증
 
-에이전트가 감지되고 그 실행 파일이 조상으로 살아 있으면 `Layer.AncestorPID`가 채워집니다.
+에이전트가 감지되고 그 실행 파일이 조상으로 살아 있으면 `Agent.AncestorPID`가 채워집니다.
 
 ```go
-for _, layer := range runby.Current().Layers {
-	if layer.AncestorPID != 0 {
+for _, agent := range runby.Current().Agents {
+	if agent.AncestorPID != 0 {
 		// 환경변수가 이 에이전트를 말했고, 그 에이전트가 지금도 조상으로 살아 있음
 	}
 }
 ```
 
-세 축 모두 확증을 받습니다 — `Layer.AncestorPID`, `Terminal.AncestorPID`, `Remote[].AncestorPID`.
+세 축 모두 확증을 받습니다 — `Agent.AncestorPID`, `Terminal.AncestorPID`, `Remote[].AncestorPID`.
 
 ### 살아 있는 터미널 조상은 멀티플렉서 강등을 취소합니다
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -120,7 +121,7 @@ func TestVerboseAddsEvidenceNamesAndNeverValues(t *testing.T) {
 
 	result := runby.Current()
 	var names []string
-	for _, layer := range result.Layers {
+	for _, layer := range result.Agents {
 		names = append(names, layer.Evidence...)
 	}
 	names = append(names, result.CI.Evidence...)
@@ -134,7 +135,7 @@ func TestVerboseAddsEvidenceNamesAndNeverValues(t *testing.T) {
 			t.Errorf("-v omits evidence variable %q", name)
 		}
 		// The name is printed, so the value must not be.
-		value, ok := runby.Value(runby.Environ(), name)
+		value, ok := runby.NewEnvReader(runby.EnvironEnv(os.Environ())).Value(name)
 		if !ok || len(value) < 12 {
 			// Short values collide with ordinary words; skip them rather than
 			// assert something the report cannot control.
@@ -180,7 +181,7 @@ func TestIsNamedProductMatchesTheLibrary(t *testing.T) {
 	}
 
 	for _, agent := range runby.Agents() {
-		_, want := result.Layer(agent)
+		_, want := result.Agent(agent)
 		check("agent", string(agent), want)
 	}
 	for _, provider := range runby.CIProviders() {

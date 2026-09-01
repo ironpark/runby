@@ -34,14 +34,14 @@ func ExampleResult_HasTerminal() {
 	// Output: false true zed
 }
 
-func ExampleResult_Layer() {
+func ExampleResult_Agent() {
 	result := runby.Detect(runby.WithEnviron([]string{
 		"CODEX_THREAD_ID=thread-123",
 		"CODEX_SANDBOX=workspace-write",
 		"CODEX_SANDBOX_NETWORK_DISABLED=true",
 	}))
 
-	if codex, ok := result.Layer(runby.AgentCodex); ok {
+	if codex, ok := result.Agent(runby.AgentCodex); ok {
 		fmt.Println(codex.SessionID, codex.Sandbox.Mode, codex.Sandbox.Network)
 	}
 	// Output: thread-123 workspace-write disabled
@@ -56,12 +56,13 @@ func ExampleWithOnlyDrivers() {
 		Agent:       "acme-orchestrator",
 		Kind:        runby.KindOrchestrator,
 		Executables: []string{"acme-run"},
-		Detect: func(env runby.Env) (runby.Layer, bool) {
-			id, ok := runby.Value(env, "ACME_RUN_ID")
+		Detect: func(env runby.Env) (runby.Agent, bool) {
+			r := runby.NewEnvReader(env)
+			id, ok := r.Value("ACME_RUN_ID")
 			if !ok {
-				return runby.Layer{}, false
+				return runby.Agent{}, false
 			}
-			return runby.Layer{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
+			return runby.Agent{AgentID: id, Axis: runby.Axis{Evidence: r.Evidence()}}, true
 		},
 	}
 
@@ -148,8 +149,8 @@ func ExampleProcessTree() {
 		}),
 	)
 
-	for _, layer := range result.Layers {
-		fmt.Println(layer.Agent, layer.AncestorPID)
+	for _, layer := range result.Agents {
+		fmt.Println(layer.Name, layer.AncestorPID)
 	}
 	// Output:
 	// paseo 300

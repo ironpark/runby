@@ -145,7 +145,7 @@ var axes = map[string]axis{
 	"agent": {
 		any: func(r runby.Result) bool { return r.IsAgent() },
 		named: func(r runby.Result, name string) bool {
-			_, ok := r.Layer(runby.Agent(name))
+			_, ok := r.Agent(runby.AgentName(name))
 			return ok
 		},
 		products: slugs(runby.Agents()),
@@ -245,13 +245,13 @@ func report(w io.Writer, result runby.Result, verbose bool) {
 		line("agent", "감지되지 않음", nil)
 	} else {
 		line("agent", result.Chain(), nil)
-		for _, layer := range result.Layers {
+		for _, layer := range result.Agents {
 			live := ""
 			if layer.AncestorPID != 0 {
 				live = fmt.Sprintf("  살아 있는 조상 pid=%d", layer.AncestorPID)
 			}
-			fmt.Fprintf(w, "%-9s   %-14s %-3s %-13s %-13s %s%s\n", "",
-				layer.Agent, layer.Level, layer.Kind, layer.Models, layer.Confidence, live)
+			fmt.Fprintf(w, "%-9s   %-14s %-13s %-13s %s%s\n", "",
+				layer.Name, layer.Kind, layer.Models, layer.Confidence, live)
 			if verbose && len(layer.Evidence) > 0 {
 				fmt.Fprintf(w, "%-9s     ← %s\n", "", strings.Join(layer.Evidence, " "))
 			}

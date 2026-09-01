@@ -30,7 +30,7 @@ var remoteSpecs = []remoteSpec{
 		kind:        RemoteKindMultiplexer,
 		executables: []string{"tmux"},
 		specCore: specCore{
-			marker:      MarkerSet("TMUX"),
+			marker:      markerSet("TMUX"),
 			markerNames: []string{"TMUX"},
 			extra:       map[string]string{"tmux.pane": "TMUX_PANE"},
 		},
@@ -42,7 +42,7 @@ var remoteSpecs = []remoteSpec{
 		kind:        RemoteKindMultiplexer,
 		executables: []string{"screen"},
 		specCore: specCore{
-			marker:      MarkerSet("STY"),
+			marker:      markerSet("STY"),
 			markerNames: []string{"STY"},
 			// WINDOW is set unconditionally but is a very generic name that other
 			// software also uses, so it is context and never part of the marker.
@@ -58,7 +58,7 @@ var remoteSpecs = []remoteSpec{
 		kind:        RemoteKindMultiplexer,
 		executables: []string{"zellij"},
 		specCore: specCore{
-			marker:      MarkerSet("ZELLIJ"),
+			marker:      markerSet("ZELLIJ"),
 			markerNames: []string{"ZELLIJ"},
 			extra:       map[string]string{"zellij.pane_id": "ZELLIJ_PANE_ID"},
 		},
@@ -75,7 +75,7 @@ var remoteSpecs = []remoteSpec{
 		kind:        RemoteKindEnvironment,
 		executables: []string{"sshd", "sshd-session"},
 		specCore: specCore{
-			marker:      MarkerSet("SSH_CONNECTION"),
+			marker:      markerSet("SSH_CONNECTION"),
 			markerNames: []string{"SSH_CONNECTION"},
 			extra: map[string]string{
 				// SSH_TTY exists only when a pty was allocated, so its presence
@@ -94,10 +94,10 @@ var remoteSpecs = []remoteSpec{
 		kind:     RemoteKindEnvironment,
 		specCore: specCore{
 			marker: func(env Env) bool {
-				if _, ok := Value(env, "WSL_DISTRO_NAME"); ok {
+				if _, ok := envValue(env, "WSL_DISTRO_NAME"); ok {
 					return true
 				}
-				_, ok := Value(env, "WSL_INTEROP")
+				_, ok := envValue(env, "WSL_INTEROP")
 				return ok
 			},
 			markerNames: []string{"WSL_DISTRO_NAME", "WSL_INTEROP"},
@@ -113,7 +113,7 @@ var remoteSpecs = []remoteSpec{
 		platform: RemoteCodespaces,
 		kind:     RemoteKindEnvironment,
 		specCore: specCore{
-			marker:      MarkerTrue("CODESPACES"),
+			marker:      markerTrue("CODESPACES"),
 			markerNames: []string{"CODESPACES"},
 			extra:       map[string]string{"github-codespaces.repository": "GITHUB_REPOSITORY"},
 		},
@@ -126,7 +126,7 @@ var remoteSpecs = []remoteSpec{
 		platform: RemoteGitpod,
 		kind:     RemoteKindEnvironment,
 		specCore: specCore{
-			marker:      MarkerSet("GITPOD_WORKSPACE_ID"),
+			marker:      markerSet("GITPOD_WORKSPACE_ID"),
 			markerNames: []string{"GITPOD_WORKSPACE_ID"},
 			extra: map[string]string{
 				"gitpod.workspace_url": "GITPOD_WORKSPACE_URL",
@@ -146,10 +146,10 @@ var remoteSpecs = []remoteSpec{
 		kind:     RemoteKindEnvironment,
 		specCore: specCore{
 			marker: func(env Env) bool {
-				if IsTrue(env, "REMOTE_CONTAINERS") {
+				if envIsTrue(env, "REMOTE_CONTAINERS") {
 					return true
 				}
-				return IsTrue(env, "DEVCONTAINER")
+				return envIsTrue(env, "DEVCONTAINER")
 			},
 			markerNames: []string{"REMOTE_CONTAINERS", "DEVCONTAINER"},
 			confidence:  ConfidenceProbable,

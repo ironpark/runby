@@ -26,7 +26,7 @@ type Process struct {
 
 	// Agent, Terminal, Remote, and Runner name the product this executable is
 	// known to belong to, when it is recognized. At most one is set.
-	Agent    Agent           `json:"agent,omitempty"`
+	Agent    AgentName       `json:"agent,omitempty"`
 	Terminal TerminalProgram `json:"terminal,omitempty"`
 	Remote   RemotePlatform  `json:"remote,omitempty"`
 	Runner   RunnerTool      `json:"runner,omitempty"`
@@ -59,7 +59,7 @@ func (t ProcessTree) Find(match func(Process) bool) (Process, bool) {
 }
 
 // FindAgent returns the nearest ancestor running agent's executable.
-func (t ProcessTree) FindAgent(agent Agent) (Process, bool) {
+func (t ProcessTree) FindAgent(agent AgentName) (Process, bool) {
 	return t.Find(func(p Process) bool { return p.Agent == agent })
 }
 

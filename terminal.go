@@ -102,7 +102,7 @@ type Terminal struct {
 
 	// AncestorPID is the PID of a running ancestor process whose executable
 	// belongs to this terminal, or 0 when none was found. As with
-	// Layer.AncestorPID, a non-zero value confirms the environment
+	// Agent.AncestorPID, a non-zero value confirms the environment
 	// evidence against a live process, and zero is not a denial.
 	AncestorPID int `json:"ancestor_pid,omitempty"`
 }
@@ -130,7 +130,7 @@ type TerminalDriver struct {
 // parsePID reads an emulator process ID. Non-numeric and non-positive values
 // are reported as 0, meaning unknown.
 func parsePID(env Env, name string) int {
-	raw, ok := Value(env, name)
+	raw, ok := envValue(env, name)
 	if !ok {
 		return 0
 	}

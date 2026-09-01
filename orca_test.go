@@ -22,9 +22,9 @@ func TestOrcaLayersWithTheAgentItLaunched(t *testing.T) {
 		t.Fatalf("Chain() = %q, want the orchestrator outside the harness", result.Chain())
 	}
 
-	orca, ok := result.Layer(runby.AgentOrca)
-	if !ok || result.Agent() != runby.AgentOrca {
-		t.Fatalf("primary = %q, want %q", result.Agent(), runby.AgentOrca)
+	orca, ok := result.Agent(runby.AgentOrca)
+	if !ok || primaryAgent(result) != runby.AgentOrca {
+		t.Fatalf("primary = %q, want %q", primaryAgent(result), runby.AgentOrca)
 	}
 	if orca.Kind != runby.KindOrchestrator {
 		t.Fatalf("Kind = %q, want orchestrator", orca.Kind)
@@ -55,7 +55,7 @@ func TestOrcaLayersWithTheAgentItLaunched(t *testing.T) {
 	}
 
 	// The harness underneath is detected independently, at its own confidence.
-	codex, ok := result.Layer(runby.AgentCodex)
+	codex, ok := result.Agent(runby.AgentCodex)
 	if !ok || codex.SessionID != "thread-9" || codex.Confidence != runby.ConfidenceDefinite {
 		t.Fatalf("Codex layer = %#v", codex)
 	}
@@ -71,7 +71,7 @@ func TestOrcaFallsBackToTerminalHandleAndRootPath(t *testing.T) {
 		"ORCA_ROOT_PATH=/work/project",
 	}))
 
-	orca, ok := result.Layer(runby.AgentOrca)
+	orca, ok := result.Agent(runby.AgentOrca)
 	if !ok {
 		t.Fatal("Get(AgentOrca) = false")
 	}
@@ -97,7 +97,7 @@ func TestOrcaRequiresAnOwnerAndALocationMarker(t *testing.T) {
 		{"ORCA_WORKTREE_PATH=/work/trees/wt-42", "ORCA_WORKSPACE_NAME=demo"},
 		{"ORCA_USER_DATA_PATH=/home/dev/.orca", "ORCA_CODEX_HOME=/home/dev/.orca/codex"},
 	} {
-		if _, ok := runby.Detect(runby.WithEnviron(environ)).Layer(runby.AgentOrca); ok {
+		if _, ok := runby.Detect(runby.WithEnviron(environ)).Agent(runby.AgentOrca); ok {
 			t.Errorf("environ %v detected Orca, want no detection", environ)
 		}
 	}
@@ -109,7 +109,7 @@ func TestOrcaEvidenceNamesTheVariablesItRead(t *testing.T) {
 		"ORCA_WORKTREE_ID=wt-42",
 		"ORCA_ORCHESTRATION_COMPATIBILITY_HOST_KIND=wsl",
 		"ORCA_ORCHESTRATION_COMPATIBILITY_HOST_INCARNATION=Ubuntu-24.04",
-	})).Layer(runby.AgentOrca)
+	})).Agent(runby.AgentOrca)
 	if !ok {
 		t.Fatal("Get(AgentOrca) = false")
 	}

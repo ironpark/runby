@@ -47,10 +47,7 @@
 // through an EnvReader and the driver reports its own evidence.
 package runby
 
-import (
-	"os"
-	"sync"
-)
+import "sync"
 
 type options struct {
 	env             Env
@@ -161,7 +158,7 @@ func WithDrivers(drivers ...Driver) Option {
 	added.check()
 	return func(o *options) {
 		o.agentDrivers = merge(added.agents, o.agentDrivers,
-			func(d AgentDriver) Agent { return d.Agent })
+			func(d AgentDriver) AgentName { return d.Agent })
 		o.ciDrivers = merge(added.ci, o.ciDrivers,
 			func(d CIDriver) CIProvider { return d.Provider })
 		o.terminalDrivers = merge(added.terminals, o.terminalDrivers,
@@ -240,7 +237,7 @@ func Detect(opts ...Option) Result {
 		result.Process = labelProcessTree(config.process, labels)
 	}
 
-	result.Layers = detectAgents(config, result.Process)
+	result.Agents = detectAgents(config, result.Process)
 	result.CI = detectCI(config)
 	result.Remotes = detectRemote(config, result.Process)
 	result.Runners = detectRunners(config, result.Process)
@@ -268,8 +265,8 @@ func (config options) executableLabels() executableLabels {
 }
 
 // detectAgents reports every agent layer, most specific orchestrator first.
-func detectAgents(config options, tree ProcessTree) []Layer {
-	var layers []Layer
+func detectAgents(config options, tree ProcessTree) []Agent {
+	var layers []Agent
 	for _, driver := range config.agentDrivers {
 		detection, ok := driver.Detect(config.env)
 		if !ok {
@@ -277,7 +274,7 @@ func detectAgents(config options, tree ProcessTree) []Layer {
 		}
 		// Drivers fill in only what their agent advertises; the identity and
 		// the defaults shared by every detection are applied once, here.
-		detection.Agent = driver.Agent
+		detection.Name = driver.Agent
 		detection.Kind = driver.Kind
 		detection.Models = driver.Models
 		if detection.Kind == "" {
@@ -286,14 +283,13 @@ func detectAgents(config options, tree ProcessTree) []Layer {
 		if detection.Models == "" {
 			detection.Models = ModelsUnknown
 		}
-		detection.Level = level(detection.Kind, detection.Models)
 		if detection.Sandbox.Network == "" {
 			detection.Sandbox.Network = NetworkUnknown
 		}
 		detection.applyDefaults()
 		// An ancestor running this agent's executable proves it is still
 		// alive, which no environment variable can.
-		detection.AncestorPID = tree.pidOf(func(p Process) bool { return p.Agent == detection.Agent })
+		detection.AncestorPID = tree.pidOf(func(p Process) bool { return p.Agent == detection.Name })
 		layers = append(layers, detection)
 	}
 	return layers
@@ -380,7 +376,7 @@ func detectTerminal(config options, result Result) Terminal {
 	if !terminal.Detected {
 		terminal.Program = TerminalUnknown
 		terminal.Confidence = ConfidenceUnknown
-		terminal.Term, _ = Value(config.env, "TERM")
+		terminal.Term, _ = envValue(config.env, "TERM")
 		return terminal
 	}
 
@@ -427,7 +423,3 @@ func Current() Result {
 	})
 	return currentResult
 }
-
-// Environ returns the current process environment as an Env. It is a
-// convenience for callers that build their own driver pipelines.
-func Environ() Env { return EnvironEnv(os.Environ()) }

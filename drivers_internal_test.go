@@ -20,12 +20,6 @@ func TestDriverTablesMatchTheirIdentityLists(t *testing.T) {
 		if driver.Agent != agents[i] {
 			t.Errorf("driver %d is %q, Agents()[%d] is %q", i, driver.Agent, i, agents[i])
 		}
-		if driver.Kind != driver.Agent.Kind() {
-			t.Errorf("%q: driver Kind %q, Agent.Kind() %q", driver.Agent, driver.Kind, driver.Agent.Kind())
-		}
-		if driver.Models != driver.Agent.Models() {
-			t.Errorf("%q: driver Models %q, Agent.Models() %q", driver.Agent, driver.Models, driver.Agent.Models())
-		}
 		if driver.Detect == nil {
 			t.Errorf("%q has no Detect", driver.Agent)
 		}
@@ -35,16 +29,10 @@ func TestDriverTablesMatchTheirIdentityLists(t *testing.T) {
 		if got := RemotePlatforms()[i]; driver.Platform != got {
 			t.Errorf("driver %d is %q, RemotePlatforms()[%d] is %q", i, driver.Platform, i, got)
 		}
-		if driver.Kind != driver.Platform.Kind() {
-			t.Errorf("%q: driver Kind %q, Platform.Kind() %q", driver.Platform, driver.Kind, driver.Platform.Kind())
-		}
 	}
 	for i, driver := range builtinRunnerDrivers {
 		if got := RunnerTools()[i]; driver.Tool != got {
 			t.Errorf("driver %d is %q, RunnerTools()[%d] is %q", i, driver.Tool, i, got)
-		}
-		if driver.Kind != driver.Tool.Kind() {
-			t.Errorf("%q: driver Kind %q, Tool.Kind() %q", driver.Tool, driver.Kind, driver.Tool.Kind())
 		}
 	}
 	for i, driver := range builtinTerminalDrivers {
@@ -64,7 +52,7 @@ func TestDriverTablesMatchTheirIdentityLists(t *testing.T) {
 // checking a real order rather than a table of unplaceable drivers.
 func TestBuiltinAgentsHaveALadderPosition(t *testing.T) {
 	for _, driver := range builtinAgentDrivers {
-		if got := driver.Agent.Level(); got == LevelUnknown {
+		if ladderRank(driver) == 3 {
 			t.Errorf("%s has no ladder position; declare Kind and Models", driver.Agent)
 		}
 	}

@@ -42,14 +42,14 @@ func init() {
 			// 무관한 프로세스를 잘못 라벨링할 만큼 일반적인 이름
 			// (node, python, java)이면 비워 두십시오.
 			Executables: []string{"acme-run"},
-			Detect: func(env runby.Env) (runby.Layer, bool) {
+			Detect: func(env runby.Env) (runby.Agent, bool) {
 				// EnvReader로 읽으면 참조한 변수가 자동으로 근거가 됩니다.
 				r := runby.NewEnvReader(env)
 				id, ok := r.Value("ACME_RUN_ID")
 				if !ok {
-					return runby.Layer{}, false
+					return runby.Agent{}, false
 				}
-				return runby.Layer{
+				return runby.Agent{
 					AgentID: id,
 					Axis:    runby.Axis{Evidence: r.Evidence()},
 				}, true
@@ -87,9 +87,9 @@ func main() {
 
 ### 에이전트 축의 순서는 사다리가 정합니다
 
-패키지 초기화 순서는 드라이버 작성자가 통제할 수 없습니다. 그래서 에이전트 축은 등록 순서나 옵션 전달 순서가 아니라 **`Kind`와 `Models`에서 파생된 `Level`로 정렬**됩니다 — `l3` → `l2` → `l1`.
+패키지 초기화 순서는 드라이버 작성자가 통제할 수 없습니다. 그래서 에이전트 축은 등록 순서나 옵션 전달 순서가 아니라 **`Kind`와 `Models`에서 파생된 사다리로 정렬**됩니다 — 오케스트레이터, 그다음 멀티 벤더 하네스, 그다음 자사 모델 하네스.
 
-이게 없으면 등록된 `l1` 하네스가 내장 `l3` 오케스트레이터보다 앞서서, 오케스트레이터가 구동한 런타임이 `Primary()`가 되는 정반대 결과가 납니다.
+이게 없으면 등록된 자사 모델 하네스가 내장 오케스트레이터보다 앞서서, 오케스트레이터가 구동한 런타임이 `Primary()`가 되는 정반대 결과가 납니다.
 
 **`Kind`와 `Models`를 반드시 선언하십시오.** 둘 다 없으면 사다리에 자리가 없어 맨 뒤로 갑니다 — 이 패키지가 그것을 오케스트레이터라고 주장할 근거가 없기 때문입니다.
 
@@ -105,7 +105,7 @@ func main() {
 ```go
 runby.Register(runby.AgentDriver{
 	Agent: runby.AgentCodex, Kind: runby.KindHarness, Models: runby.ModelsFirstParty,
-	Detect: func(runby.Env) (runby.Layer, bool) { return runby.Layer{}, false },
+	Detect: func(runby.Env) (runby.Agent, bool) { return runby.Agent{}, false },
 })
 ```
 
@@ -152,17 +152,17 @@ result := runby.Detect(
 
 **`env`를 보관하지 마십시오.** 호출 이후에도 유효하다는 보장이 없습니다.
 
-**값이 아니라 이름만 `Evidence`에 넣으십시오.** 값은 토큰이나 경로일 수 있습니다. `PresentNames(env, names...)`가 설정된 것만 골라 정렬·중복 제거해 줍니다. 본문이 통째로 들어가는 변수(스크립트 소스 등)는 이름조차 넣지 마십시오.
+**값이 아니라 이름만 `Evidence`에 넣으십시오.** 값은 토큰이나 경로일 수 있습니다. `EnvReader.Evidence()`가 읽은 변수 중 설정된 것만 골라 정렬·중복 제거해 줍니다. 본문이 통째로 들어가는 변수(스크립트 소스 등)는 이름조차 넣지 마십시오.
 
 **설정 변수를 근거로 쓰지 마십시오.** API 키나 사용자가 넣는 설정값은 "그 제품이 이 프로세스를 실행했다"의 증거가 아닙니다. 필요한 것은 제품이 **자기가 실행한 자식에게 심는 마커**입니다.
 
-**빈 문자열은 미설정입니다.** `Value`가 그렇게 취급합니다. `MAKEFLAGS`처럼 "항상 export되지만 비어 있을 수 있는" 변수는 마커가 될 수 없습니다.
+**빈 문자열은 미설정입니다.** `EnvReader.Value`가 그렇게 취급합니다. `MAKEFLAGS`처럼 "항상 export되지만 비어 있을 수 있는" 변수는 마커가 될 수 없습니다.
 
 **부재를 부정으로 쓰지 마십시오.** 마커가 없다는 것이 "그 제품이 아니다"를 뜻하는 경우는 드뭅니다.
 
-**`Detect`가 채워 주는 것은 다시 쓰지 마십시오.** 식별자(`Agent`/`Provider`/`Program`/`Platform`/`Tool`), `Kind`, `Models`, `Level`, 그리고 비어 있는 `Confidence`·`Sandbox.Network`는 자동으로 채워집니다.
+**`Detect`가 채워 주는 것은 다시 쓰지 마십시오.** 식별자(`Name`/`Provider`/`Program`/`Platform`/`Tool`), `Kind`, `Models`, 그리고 비어 있는 `Confidence`·`Sandbox.Network`는 자동으로 채워집니다.
 
-파싱 헬퍼는 내장 드라이버가 쓰는 것과 같은 것을 쓰면 됩니다 — [`api.md`의 헬퍼 표](api.md)를 보십시오.
+환경 파싱은 내장 드라이버가 쓰는 것과 같은 `EnvReader`를 쓰면 됩니다 — [`api.md`의 `EnvReader` 절](api.md)을 보십시오.
 
 ## 조사 문서
 

@@ -49,7 +49,7 @@ func TestRemoteZellijMarkerIsNotABoolean(t *testing.T) {
 	if _, ok := result.Remote(runby.RemoteZellij); !ok {
 		t.Fatalf("ZELLIJ=0 not detected: %#v", result.Remotes)
 	}
-	if runby.IsTrue(runby.EnvironEnv([]string{"ZELLIJ=0"}), "ZELLIJ") {
+	if runby.NewEnvReader(runby.EnvironEnv([]string{"ZELLIJ=0"})).IsTrue("ZELLIJ") {
 		t.Fatal("IsTrue(ZELLIJ=0) = true; the test's premise is wrong")
 	}
 }
@@ -237,11 +237,11 @@ func TestCustomRemoteDriverIsReported(t *testing.T) {
 	driver := runby.RemoteDriver{
 		Platform: "acme-vpn",
 		Detect: func(env runby.Env) (runby.Remote, bool) {
-			id, ok := runby.Value(env, "ACME_VPN_SESSION")
+			id, ok := runby.NewEnvReader(env).Value("ACME_VPN_SESSION")
 			if !ok {
 				return runby.Remote{}, false
 			}
-			return runby.Remote{SessionID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_VPN_SESSION")}}, true
+			return runby.Remote{SessionID: id, Axis: runby.Axis{Evidence: []string{"ACME_VPN_SESSION"}}}, true
 		},
 	}
 
@@ -272,13 +272,10 @@ func TestRemotePlatformsAndKinds(t *testing.T) {
 	if len(platforms) == 0 || platforms[0] != runby.RemoteTmux {
 		t.Fatalf("RemotePlatforms() = %#v", platforms)
 	}
-	for _, p := range platforms {
-		if p.Kind() == runby.RemoteKindUnknown {
-			t.Fatalf("%q has no Kind", p)
+	for _, driver := range runby.BuiltinDrivers() {
+		if remote, ok := driver.(runby.RemoteDriver); ok && remote.Kind == runby.RemoteKindUnknown {
+			t.Fatalf("%q has no Kind", remote.Platform)
 		}
-	}
-	if runby.RemoteUnknown.Kind() != runby.RemoteKindUnknown {
-		t.Fatalf("RemoteUnknown.Kind() = %q", runby.RemoteUnknown.Kind())
 	}
 	if runby.RemotePlatform("").String() != "unknown" {
 		t.Fatalf(`RemotePlatform("").String() = %q`, runby.RemotePlatform("").String())

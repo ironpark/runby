@@ -18,10 +18,10 @@ func TestDetectCurrentEnvironmentPaseoCodex(t *testing.T) {
 
 	result := runby.Detect()
 	if got, want := result.Chain(), "paseo>codex"; got != want {
-		t.Fatalf("Chain() = %q, want %q: %#v", got, want, result.Layers)
+		t.Fatalf("Chain() = %q, want %q: %#v", got, want, result.Agents)
 	}
 	if !result.IsAgent() {
-		t.Fatalf("IsAgent() = false: %#v", result.Layers)
+		t.Fatalf("IsAgent() = false: %#v", result.Agents)
 	}
 }
 
@@ -31,13 +31,10 @@ func TestDetectUnknownStillInspectsTerminal(t *testing.T) {
 	result := runby.Detect(runby.WithOnlyDrivers())
 
 	if result.IsAgent() {
-		t.Fatalf("Found() = true, want false: %#v", result.Layers)
+		t.Fatalf("Found() = true, want false: %#v", result.Agents)
 	}
 	if !result.TTY.Inspected {
 		t.Fatalf("Terminal = %#v, want inspected", result.Terminal)
-	}
-	if result.Agent() != runby.AgentUnknown {
-		t.Fatalf("Agent() = %q, want %q", result.Agent(), runby.AgentUnknown)
 	}
 	if result.Chain() != "unknown" {
 		t.Fatalf("Chain() = %q, want %q", result.Chain(), "unknown")
@@ -87,7 +84,7 @@ func TestDetectUnknownEnviron(t *testing.T) {
 	}))
 
 	if result.IsAgent() || result.IsAgent() {
-		t.Fatalf("Found()/IsAgent() = true, want false: %#v", result.Layers)
+		t.Fatalf("Found()/IsAgent() = true, want false: %#v", result.Agents)
 	}
 }
 
@@ -101,17 +98,17 @@ func TestDetectLayers(t *testing.T) {
 		"CODEX_CI=1",
 	}))
 
-	if len(result.Layers) != 2 {
-		t.Fatalf("len(Layers) = %d, want 2: %#v", len(result.Layers), result.Layers)
+	if len(result.Agents) != 2 {
+		t.Fatalf("len(Layers) = %d, want 2: %#v", len(result.Agents), result.Agents)
 	}
 	if result.Chain() != "paseo>codex" {
 		t.Fatalf("Chain() = %q", result.Chain())
 	}
 
 	// The orchestrator is primary because it names the logical agent.
-	paseo, ok := result.Layer(runby.AgentPaseo)
-	if !ok || result.Agent() != runby.AgentPaseo {
-		t.Fatalf("primary = %q, want %q", result.Agent(), runby.AgentPaseo)
+	paseo, ok := result.Agent(runby.AgentPaseo)
+	if !ok || primaryAgent(result) != runby.AgentPaseo {
+		t.Fatalf("primary = %q, want %q", primaryAgent(result), runby.AgentPaseo)
 	}
 	if paseo.AgentID != "reviewer" || paseo.Paths.WorkingDirectory != "/work/project" {
 		t.Fatalf("Paseo detection = %#v", paseo)
@@ -120,7 +117,7 @@ func TestDetectLayers(t *testing.T) {
 		t.Fatalf("Paseo classification = %#v", paseo)
 	}
 
-	codex, ok := result.Layer(runby.AgentCodex)
+	codex, ok := result.Agent(runby.AgentCodex)
 	if !ok {
 		t.Fatal("Get(AgentCodex) = false")
 	}
@@ -133,16 +130,16 @@ func TestDetectLayers(t *testing.T) {
 	if codex.Extra["codex.ci"] != "true" {
 		t.Fatalf("Extra = %#v", codex.Extra)
 	}
-	_, hasCodex := result.Layer(runby.AgentCodex)
-	_, hasAmp := result.Layer(runby.AgentAmp)
+	_, hasCodex := result.Agent(runby.AgentCodex)
+	_, hasAmp := result.Agent(runby.AgentAmp)
 	if !hasCodex || hasAmp {
-		t.Fatalf("Layer lookup is inconsistent: %#v", result.Layers)
+		t.Fatalf("Layer lookup is inconsistent: %#v", result.Agents)
 	}
 }
 
 func TestCodexSessionIDFallsBackToSessionVariable(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron([]string{"CODEX_SESSION_ID=session-9"}))
-	codex, ok := result.Layer(runby.AgentCodex)
+	codex, ok := result.Agent(runby.AgentCodex)
 	if !ok || codex.SessionID != "session-9" {
 		t.Fatalf("Codex detection = %#v", codex)
 	}
@@ -152,7 +149,7 @@ func TestCodexSandboxOnlyIsProbable(t *testing.T) {
 	// The sandbox variables describe configuration, not a specific run, so
 	// they are a supporting signal rather than an execution marker.
 	result := runby.Detect(runby.WithEnviron([]string{"CODEX_SANDBOX=read-only"}))
-	codex, ok := result.Layer(runby.AgentCodex)
+	codex, ok := result.Agent(runby.AgentCodex)
 	if !ok || codex.Confidence != runby.ConfidenceProbable {
 		t.Fatalf("Codex detection = %#v", codex)
 	}
@@ -169,7 +166,7 @@ func TestClaudeCodeDetection(t *testing.T) {
 		"CLAUDE_CODE_CHILD_SESSION=true",
 	}))
 
-	claude, ok := result.Layer(runby.AgentClaudeCode)
+	claude, ok := result.Agent(runby.AgentClaudeCode)
 	if !ok {
 		t.Fatal("Get(AgentClaudeCode) = false")
 	}
@@ -184,11 +181,11 @@ func TestClaudeCodeDetection(t *testing.T) {
 
 func TestClaudeCodeAIAgentIsEvidenceOnlyWhenItNamesClaudeCode(t *testing.T) {
 	got := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=claude-code/2.0"}))
-	if _, ok := got.Layer(runby.AgentClaudeCode); !ok {
-		t.Fatalf("AI_AGENT=claude-code not detected: %#v", got.Layers)
+	if _, ok := got.Agent(runby.AgentClaudeCode); !ok {
+		t.Fatalf("AI_AGENT=claude-code not detected: %#v", got.Agents)
 	}
 	if got := runby.Detect(runby.WithEnviron([]string{"AI_AGENT=some-other-agent"})); got.IsAgent() {
-		t.Fatalf("AI_AGENT=some-other-agent detected: %#v", got.Layers)
+		t.Fatalf("AI_AGENT=some-other-agent detected: %#v", got.Agents)
 	}
 }
 
@@ -202,7 +199,7 @@ func TestZedIsATerminalNotAnAgent(t *testing.T) {
 	}))
 
 	if result.IsAgent() {
-		t.Fatalf("Found() = true, want false: %#v", result.Layers)
+		t.Fatalf("Found() = true, want false: %#v", result.Agents)
 	}
 	if !result.HasTerminal() || result.Terminal.Program != runby.TerminalZed {
 		t.Fatalf("Terminal = %#v", result.Terminal)
@@ -226,13 +223,13 @@ func TestZedRequiresBothVariables(t *testing.T) {
 
 func TestAmpEntrypoints(t *testing.T) {
 	orb := runby.Detect(runby.WithEnviron([]string{"AMP_ORB=1"}))
-	amp, ok := orb.Layer(runby.AgentAmp)
+	amp, ok := orb.Agent(runby.AgentAmp)
 	if !ok || amp.Entrypoint != "orb" || amp.SessionID != "" {
 		t.Fatalf("Amp orb detection = %#v", amp)
 	}
 
 	service := runby.Detect(runby.WithEnviron([]string{"AMP_THREAD_ID=T-1"}))
-	amp, ok = service.Layer(runby.AgentAmp)
+	amp, ok = service.Agent(runby.AgentAmp)
 	if !ok || amp.Entrypoint != "orb-service" || amp.SessionID != "T-1" {
 		t.Fatalf("Amp service detection = %#v", amp)
 	}
@@ -240,21 +237,21 @@ func TestAmpEntrypoints(t *testing.T) {
 
 func TestRemainingDetectors(t *testing.T) {
 	cursor := runby.Detect(runby.WithEnviron([]string{"CURSOR_AGENT=1"}))
-	if cursor.Agent() != runby.AgentCursor || !cursor.IsAgent() {
-		t.Fatalf("Cursor detection = %#v", cursor.Layers)
+	if primaryAgent(cursor) != runby.AgentCursor || !cursor.IsAgent() {
+		t.Fatalf("Cursor detection = %#v", cursor.Agents)
 	}
 
 	opencode := runby.Detect(runby.WithEnviron([]string{"OPENCODE_CLIENT=ACP"}))
-	layer, ok := opencode.Layer(runby.AgentOpenCode)
+	layer, ok := opencode.Agent(runby.AgentOpenCode)
 	if !ok || layer.Entrypoint != "acp" || layer.Confidence != runby.ConfidenceProbable {
 		t.Fatalf("OpenCode detection = %#v", layer)
 	}
 	if got := runby.Detect(runby.WithEnviron([]string{"OPENCODE_CLIENT=cli"})); got.IsAgent() {
-		t.Fatalf("OPENCODE_CLIENT=cli detected: %#v", got.Layers)
+		t.Fatalf("OPENCODE_CLIENT=cli detected: %#v", got.Agents)
 	}
 
 	antigravity := runby.Detect(runby.WithEnviron([]string{"ANTIGRAVITY_EXECUTABLE_DATA_DIR=/data/ag"}))
-	layer, ok = antigravity.Layer(runby.AgentAntigravity2)
+	layer, ok = antigravity.Agent(runby.AgentAntigravity2)
 	if !ok || layer.Paths.DataDirectory != "/data/ag" || layer.Entrypoint != "sidecar" {
 		t.Fatalf("Antigravity detection = %#v", layer)
 	}
@@ -262,7 +259,7 @@ func TestRemainingDetectors(t *testing.T) {
 
 func TestEmptyValueIsNotEvidence(t *testing.T) {
 	if got := runby.Detect(runby.WithEnviron([]string{"PASEO_AGENT_ID=   "})); got.IsAgent() {
-		t.Fatalf("blank PASEO_AGENT_ID detected: %#v", got.Layers)
+		t.Fatalf("blank PASEO_AGENT_ID detected: %#v", got.Agents)
 	}
 }
 
@@ -272,28 +269,28 @@ func TestLookupFuncAndLastValueWins(t *testing.T) {
 		value, ok := values[name]
 		return value, ok
 	})))
-	if got.Agent() != runby.AgentCursor {
-		t.Fatalf("Agent() = %q, want %q", got.Agent(), runby.AgentCursor)
+	if primaryAgent(got) != runby.AgentCursor {
+		t.Fatalf("Agent() = %q, want %q", primaryAgent(got), runby.AgentCursor)
 	}
 
 	dup := runby.Detect(runby.WithEnviron([]string{"PASEO_AGENT_ID=first", "PASEO_AGENT_ID=second"}))
-	paseo, _ := dup.Layer(runby.AgentPaseo)
+	paseo, _ := dup.Agent(runby.AgentPaseo)
 	if paseo.AgentID != "second" {
 		t.Fatalf("AgentID = %q, want %q", paseo.AgentID, "second")
 	}
 }
 
 func TestCustomAgentDriverReplacesABuiltin(t *testing.T) {
-	const inHouse runby.Agent = "acme-orchestrator"
+	const inHouse runby.AgentName = "acme-orchestrator"
 	driver := runby.AgentDriver{
 		Agent: inHouse,
 		Kind:  runby.KindOrchestrator,
-		Detect: func(env runby.Env) (runby.Layer, bool) {
-			id, ok := runby.Value(env, "ACME_RUN_ID")
+		Detect: func(env runby.Env) (runby.Agent, bool) {
+			id, ok := runby.NewEnvReader(env).Value("ACME_RUN_ID")
 			if !ok {
-				return runby.Layer{}, false
+				return runby.Agent{}, false
 			}
-			return runby.Layer{AgentID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_RUN_ID")}}, true
+			return runby.Agent{AgentID: id, Axis: runby.Axis{Evidence: []string{"ACME_RUN_ID"}}}, true
 		},
 	}
 
@@ -308,7 +305,7 @@ func TestCustomAgentDriverReplacesABuiltin(t *testing.T) {
 	// Agent and Kind come from the driver, and Confidence defaults, so Detect
 	// need not repeat any of them.
 	primary, _ := result.Primary()
-	if primary.Agent != inHouse || primary.Kind != runby.KindOrchestrator ||
+	if primary.Name != inHouse || primary.Kind != runby.KindOrchestrator ||
 		primary.AgentID != "run-7" || primary.Confidence != runby.ConfidenceDefinite {
 		t.Fatalf("primary = %#v", primary)
 	}
@@ -322,16 +319,13 @@ func TestAgentsAndKinds(t *testing.T) {
 	if len(agents) == 0 || agents[0] != runby.AgentPaseo {
 		t.Fatalf("Agents() = %#v", agents)
 	}
-	for _, agent := range agents {
-		if agent.Kind() == runby.KindUnknown {
-			t.Fatalf("%q has no Kind", agent)
+	for _, driver := range runby.BuiltinDrivers() {
+		if agent, ok := driver.(runby.AgentDriver); ok && agent.Kind == runby.KindUnknown {
+			t.Fatalf("%q has no Kind", agent.Agent)
 		}
 	}
-	if runby.AgentUnknown.Kind() != runby.KindUnknown {
-		t.Fatalf("AgentUnknown.Kind() = %q", runby.AgentUnknown.Kind())
-	}
-	if runby.Agent("").String() != "unknown" {
-		t.Fatalf(`Agent("").String() = %q`, runby.Agent("").String())
+	if runby.AgentName("").String() != "unknown" {
+		t.Fatalf(`AgentName("").String() = %q`, runby.AgentName("").String())
 	}
 }
 
@@ -365,57 +359,46 @@ func TestResultJSONShape(t *testing.T) {
 	))
 }
 
-// TestLevelDerivedForCustomDrivers checks that a driver supplied through
-// WithOnlyDrivers is placed on the ladder by the same rule as a built-in one,
-// and that an unclassified driver reports unknown rather than guessing.
-func TestLevelDerivedForCustomDrivers(t *testing.T) {
-	for _, test := range []struct {
-		name   string
-		kind   runby.Kind
-		models runby.ModelSource
-		want   runby.Level
-	}{
-		{"orchestrator delegating", runby.KindOrchestrator, runby.ModelsDelegated, runby.Level3},
-		// The case a single ladder cannot hold: an orchestrator over its own
-		// vendor's harness, as Antigravity 2.0 is.
-		{"orchestrator first party", runby.KindOrchestrator, runby.ModelsFirstParty, runby.Level3},
-		{"first party harness", runby.KindHarness, runby.ModelsFirstParty, runby.Level1},
-		{"multi vendor harness", runby.KindHarness, runby.ModelsMultiVendor, runby.Level2},
-		{"harness with no models declared", runby.KindHarness, "", runby.LevelUnknown},
-		{"nothing declared", "", "", runby.LevelUnknown},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			driver := runby.AgentDriver{
-				Agent:  "acme",
-				Kind:   test.kind,
-				Models: test.models,
-				Detect: func(env runby.Env) (runby.Layer, bool) {
-					if _, ok := runby.Value(env, "ACME"); !ok {
-						return runby.Layer{}, false
-					}
-					return runby.Layer{Axis: runby.Axis{Evidence: []string{"ACME"}}}, true
-				},
+// TestLadderPlacesCustomDrivers checks that a driver supplied through
+// WithOnlyDrivers is placed on the ladder by the same rule as a built-in one:
+// what it declares decides the order, not the order it was given in. It also
+// checks that an undeclared classification reads as unknown rather than
+// empty, so a serialized Agent never carries a blank field.
+func TestLadderPlacesCustomDrivers(t *testing.T) {
+	detect := func(name string) func(env runby.Env) (runby.Agent, bool) {
+		return func(env runby.Env) (runby.Agent, bool) {
+			if _, ok := runby.NewEnvReader(env).Value(name); !ok {
+				return runby.Agent{}, false
 			}
-			result := runby.Detect(
-				runby.WithEnviron([]string{"ACME=1"}),
-				runby.WithOnlyDrivers(driver),
-			)
-			layer, ok := result.Primary()
-			if !ok {
-				t.Fatal("the custom driver did not match")
-			}
-			if layer.Level != test.want {
-				t.Errorf("Level = %s, want %s", layer.Level, test.want)
-			}
-			// An undeclared axis must read as unknown rather than empty, so a
-			// serialized Layer never carries a blank classification.
-			if test.kind == "" && layer.Kind != runby.KindUnknown {
-				t.Errorf("Kind = %q, want %s", layer.Kind, runby.KindUnknown)
-			}
-			if test.models == "" && layer.Models != runby.ModelsUnknown {
-				t.Errorf("Models = %q, want %s", layer.Models, runby.ModelsUnknown)
-			}
-		})
+			return runby.Agent{Axis: runby.Axis{Evidence: []string{name}}}, true
+		}
+	}
+	harness := runby.AgentDriver{
+		Agent: "acme-harness", Kind: runby.KindHarness,
+		Models: runby.ModelsFirstParty, Detect: detect("ACME_HARNESS"),
+	}
+	orchestrator := runby.AgentDriver{
+		Agent: "acme-orchestrator", Kind: runby.KindOrchestrator,
+		Models: runby.ModelsDelegated, Detect: detect("ACME_ORCH"),
+	}
+	bare := runby.AgentDriver{Agent: "acme-bare", Detect: detect("ACME_BARE")}
+
+	// The harness is given first; the orchestrator still comes out on top,
+	// and the unclassified driver sorts last.
+	result := runby.Detect(
+		runby.WithEnviron([]string{"ACME_HARNESS=1", "ACME_ORCH=1", "ACME_BARE=1"}),
+		runby.WithOnlyDrivers(harness, bare, orchestrator),
+	)
+	if got := result.Chain(); got != "acme-orchestrator>acme-harness>acme-bare" {
+		t.Fatalf("Chain() = %q", got)
+	}
+
+	layer, ok := result.Agent("acme-bare")
+	if !ok {
+		t.Fatal("the bare driver did not match")
+	}
+	if layer.Kind != runby.KindUnknown || layer.Models != runby.ModelsUnknown {
+		t.Errorf("bare driver classified as (%s, %s), want unknown", layer.Kind, layer.Models)
 	}
 }
 
@@ -426,7 +409,7 @@ func TestAgentsAddedFromTheDetectAgentSurvey(t *testing.T) {
 	for _, test := range []struct {
 		name       string
 		environ    []string
-		want       runby.Agent
+		want       runby.AgentName
 		confidence runby.Confidence
 		entrypoint string
 	}{
@@ -441,7 +424,7 @@ func TestAgentsAddedFromTheDetectAgentSurvey(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			result := runby.Detect(runby.WithEnviron(test.environ))
-			layer, ok := result.Layer(test.want)
+			layer, ok := result.Agent(test.want)
 			if !ok {
 				t.Fatalf("%s not detected from %v", test.want, test.environ)
 			}
@@ -500,9 +483,9 @@ func TestOpenCodeGeneralMarker(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			result := runby.Detect(runby.WithEnviron(test.environ))
-			layer, ok := result.Layer(runby.AgentOpenCode)
+			layer, ok := result.Agent(runby.AgentOpenCode)
 			if ok != test.detected {
-				t.Fatalf("detected = %v, want %v (%#v)", ok, test.detected, result.Layers)
+				t.Fatalf("detected = %v, want %v (%#v)", ok, test.detected, result.Agents)
 			}
 			if !test.detected {
 				return
@@ -553,7 +536,7 @@ func TestSessionAndAgentIDAcrossLayers(t *testing.T) {
 	if !ok || session.Value != "pane-1" || session.Agent != runby.AgentOrca {
 		t.Fatalf("SessionID() = %#v, %v, want the outermost layer", session, ok)
 	}
-	if codex, found := nested.Layer(runby.AgentCodex); !found || codex.SessionID != "thread-123" {
+	if codex, found := nested.Agent(runby.AgentCodex); !found || codex.SessionID != "thread-123" {
 		t.Fatalf("the inner session is still reachable per layer: %#v", codex)
 	}
 	if agentID, ok = nested.AgentID(); ok || agentID != (runby.Identifier{}) {
@@ -621,10 +604,9 @@ func TestUnattendedIgnoresAnUninspectedTTY(t *testing.T) {
 // caught here rather than by a blank column in someone's logs.
 func TestZeroEnumsRenderAsUnknown(t *testing.T) {
 	for _, value := range []fmt.Stringer{
-		runby.Agent(""),
+		runby.AgentName(""),
 		runby.Kind(""),
 		runby.ModelSource(""),
-		runby.Level(""),
 		runby.Confidence(""),
 		runby.Network(""),
 		runby.CIProvider(""),
@@ -640,11 +622,18 @@ func TestZeroEnumsRenderAsUnknown(t *testing.T) {
 	}
 }
 
-// The same fields on a zero Layer, which is what Primary returns on a miss.
-func TestZeroLayerRendersAsUnknown(t *testing.T) {
-	var layer runby.Layer
-	got := fmt.Sprintf("%s %s %s %s %s", layer.Agent, layer.Kind, layer.Models, layer.Level, layer.Confidence)
-	if want := "unknown unknown unknown unknown unknown"; got != want {
-		t.Errorf("zero Layer renders as %q, want %q", got, want)
+// The same fields on a zero Agent, which is what Primary returns on a miss.
+func TestZeroAgentRendersAsUnknown(t *testing.T) {
+	var layer runby.Agent
+	got := fmt.Sprintf("%s %s %s %s", layer.Name, layer.Kind, layer.Models, layer.Confidence)
+	if want := "unknown unknown unknown unknown"; got != want {
+		t.Errorf("zero Agent renders as %q, want %q", got, want)
 	}
+}
+
+// primaryAgent returns the name of the most specific detected layer, or the
+// zero name when nothing was detected.
+func primaryAgent(r runby.Result) runby.AgentName {
+	primary, _ := r.Primary()
+	return primary.Name
 }

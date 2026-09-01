@@ -100,7 +100,7 @@ func Register(drivers ...Driver) {
 // thing twice, so the ambiguity is refused at registration rather than carried
 // into every result.
 func (r *registry) check() {
-	checkUnique("agent", r.agents, func(d AgentDriver) Agent { return d.Agent })
+	checkUnique("agent", r.agents, func(d AgentDriver) AgentName { return d.Agent })
 	checkUnique("CI", r.ci, func(d CIDriver) CIProvider { return d.Provider })
 	checkUnique("terminal", r.terminals, func(d TerminalDriver) TerminalProgram { return d.Program })
 	checkUnique("remote", r.remotes, func(d RemoteDriver) RemotePlatform { return d.Platform })
@@ -147,7 +147,7 @@ func defaultOptions() options {
 	return options{
 		env: processEnv{},
 		agentDrivers: merge(registered.agents, builtinAgentDrivers,
-			func(d AgentDriver) Agent { return d.Agent }),
+			func(d AgentDriver) AgentName { return d.Agent }),
 		ciDrivers: merge(registered.ci, builtinCIDrivers,
 			func(d CIDriver) CIProvider { return d.Provider }),
 		terminalDrivers: merge(registered.terminals, builtinTerminalDrivers,
@@ -161,74 +161,29 @@ func defaultOptions() options {
 	}
 }
 
-// The Kind, Models, and Level methods on a product identity answer from the
-// built-in tables first and fall through to here, so that a registered driver
-// answers them the same way a built-in one does. Without this a caller would
-// see Layer.Level report l3 while Agent.Level on the same agent reported
-// unknown, which is the kind of split a registry exists to avoid.
-//
-// The registered slices hold a handful of entries, so a scan is cheaper than
-// the map that would have to be invalidated on every Register.
-
-// The driver slice is selected inside the lock rather than passed in, so that
-// reading it is never racing a concurrent Register.
-func lookupRegistered[D any, ID comparable, V any](
-	slice func(*registry) []D, id ID, identify func(D) ID, value func(D) V, fallback V,
-) V {
-	registered.mu.RLock()
-	defer registered.mu.RUnlock()
-	for _, driver := range slice(&registered) {
-		if identify(driver) == id {
-			return value(driver)
-		}
-	}
-	return fallback
-}
-
-func registeredAgentKind(a Agent) Kind {
-	return lookupRegistered(func(r *registry) []AgentDriver { return r.agents }, a,
-		func(d AgentDriver) Agent { return d.Agent },
-		func(d AgentDriver) Kind { return d.Kind }, KindUnknown)
-}
-
-func registeredAgentModels(a Agent) ModelSource {
-	return lookupRegistered(func(r *registry) []AgentDriver { return r.agents }, a,
-		func(d AgentDriver) Agent { return d.Agent },
-		func(d AgentDriver) ModelSource { return d.Models }, ModelsUnknown)
-}
-
-func registeredRemoteKind(p RemotePlatform) RemoteKind {
-	return lookupRegistered(func(r *registry) []RemoteDriver { return r.remotes }, p,
-		func(d RemoteDriver) RemotePlatform { return d.Platform },
-		func(d RemoteDriver) RemoteKind { return d.Kind }, RemoteKindUnknown)
-}
-
-func registeredRunnerKind(t RunnerTool) RunnerKind {
-	return lookupRegistered(func(r *registry) []RunnerDriver { return r.runners }, t,
-		func(d RunnerDriver) RunnerTool { return d.Tool },
-		func(d RunnerDriver) RunnerKind { return d.Kind }, RunnerKindUnknown)
-}
-
 // ladderRank orders the agent axis from the outermost layer inward, which is
-// what Result.Primary means by "most specific".
+// what Result.Primary means by "most specific": orchestrators first, then the
+// harnesses they drive, multi-vendor ahead of first-party.
 //
 // The order cannot be left to whoever registered or passed a driver first.
 // Package initialization order is not something a driver author controls, and
-// prepending would put a custom Level1 harness ahead of a built-in Level3
-// orchestrator, which reports the runtime as the primary layer over the
-// orchestrator driving it — exactly backwards. Sorting by the level a driver
-// declares makes the order a property of what the product is.
+// prepending would put a custom harness ahead of a built-in orchestrator,
+// which reports the runtime as the primary layer over the orchestrator
+// driving it — exactly backwards. Sorting by what the driver declares makes
+// the order a property of what the product is.
 //
 // A driver that declares neither Kind nor Models has no place on the ladder
 // and sorts last, because this package cannot claim it is an orchestrator.
 // Declare both to be placed correctly.
 func ladderRank(driver AgentDriver) int {
-	switch level(driver.Kind, driver.Models) {
-	case Level3:
+	switch {
+	case driver.Kind == KindOrchestrator:
+		// Driving a harness is what puts a product on the top rung, whoever
+		// owns the model it ends up running.
 		return 0
-	case Level2:
+	case driver.Kind == KindHarness && driver.Models == ModelsMultiVendor:
 		return 1
-	case Level1:
+	case driver.Kind == KindHarness && driver.Models == ModelsFirstParty:
 		return 2
 	default:
 		return 3

@@ -25,10 +25,10 @@ const npmLifecycleEvent = "npm_lifecycle_event"
 
 // markerUserAgent matches when npm_config_user_agent names tool as its first
 // token, which is what tells the family members apart.
-func markerUserAgent(tool string) Marker {
+func markerUserAgent(tool string) marker {
 	prefix := tool + "/"
 	return func(env Env) bool {
-		agent, ok := Value(env, npmUserAgent)
+		agent, ok := envValue(env, npmUserAgent)
 		return ok && strings.HasPrefix(strings.ToLower(agent), prefix)
 	}
 }
@@ -94,7 +94,7 @@ var runnerSpecs = []runnerSpec{
 		kind:        RunnerKindScript,
 		executables: []string{"make", "gmake"},
 		specCore: specCore{
-			marker:      MarkerSet("MAKELEVEL"),
+			marker:      markerSet("MAKELEVEL"),
 			markerNames: []string{"MAKELEVEL"},
 			// The recursion depth is context: 1 is a top-level recipe, 2 or
 			// more is a sub-make. Make advertises no target name.
@@ -115,7 +115,7 @@ var runnerSpecs = []runnerSpec{
 		kind:        RunnerKindService,
 		executables: []string{"systemd"},
 		specCore: specCore{
-			marker:      MarkerSet("INVOCATION_ID"),
+			marker:      markerSet("INVOCATION_ID"),
 			markerNames: []string{"INVOCATION_ID"},
 			extra:       map[string]string{"systemd.journal_stream": "JOURNAL_STREAM"},
 		},
@@ -131,7 +131,7 @@ var runnerSpecs = []runnerSpec{
 		tool: RunnerPreCommit,
 		kind: RunnerKindHook,
 		specCore: specCore{
-			marker:      MarkerTrue("PRE_COMMIT"),
+			marker:      markerTrue("PRE_COMMIT"),
 			markerNames: []string{"PRE_COMMIT"},
 		},
 	},

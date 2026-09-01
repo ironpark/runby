@@ -268,11 +268,11 @@ func TestCustomTerminalDriverOutranksTheBuiltins(t *testing.T) {
 	driver := runby.TerminalDriver{
 		Program: "acme-term",
 		Detect: func(env runby.Env) (runby.Terminal, bool) {
-			id, ok := runby.Value(env, "ACME_TERM_SESSION")
+			id, ok := runby.NewEnvReader(env).Value("ACME_TERM_SESSION")
 			if !ok {
 				return runby.Terminal{}, false
 			}
-			return runby.Terminal{SessionID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_TERM_SESSION")}}, true
+			return runby.Terminal{SessionID: id, Axis: runby.Axis{Evidence: []string{"ACME_TERM_SESSION"}}}, true
 		},
 	}
 
@@ -424,8 +424,8 @@ func TestCursorAgentAndVSCodeTerminalCoexist(t *testing.T) {
 		"CURSOR_AGENT=1",
 		"TERM_PROGRAM=vscode",
 	}))
-	if !result.IsAgent() || result.Agent() != runby.AgentCursor {
-		t.Errorf("agent = %s, want cursor-agent", result.Agent())
+	if !result.IsAgent() || primaryAgent(result) != runby.AgentCursor {
+		t.Errorf("agent = %s, want cursor-agent", primaryAgent(result))
 	}
 	if result.Terminal.Program != runby.TerminalVSCode {
 		t.Errorf("terminal = %s, want vscode", result.Terminal.Program)

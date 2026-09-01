@@ -161,50 +161,34 @@ func TestKindsMatchDocs(t *testing.T) {
 		"delegated":    runby.ModelsDelegated,
 	}
 
-	// Agent.Kind and Agent.Models answer from the same built-in table the
-	// drivers are declared in, so this needs no access to the table itself.
-	for _, agent := range runby.Agents() {
-		t.Run(string(agent), func(t *testing.T) {
-			path := filepath.Join("docs/research/agents", string(agent)+".md")
+	// The driver table is the single place a product's classification lives,
+	// and BuiltinDrivers exposes it, so this needs no other access to it.
+	for _, driver := range runby.BuiltinDrivers() {
+		agent, ok := driver.(runby.AgentDriver)
+		if !ok {
+			continue
+		}
+		t.Run(string(agent.Agent), func(t *testing.T) {
+			path := filepath.Join("docs/research/agents", string(agent.Agent)+".md")
 			fields := docFields(t, path)
 
 			kind, ok := productTypes[fields["product_type"]]
 			if !ok {
 				t.Fatalf("%s records product_type %q, which maps to no Kind", path, fields["product_type"])
 			}
-			if kind != agent.Kind() {
+			if kind != agent.Kind {
 				t.Errorf("%s records product_type %q (%s), but the driver says %s",
-					path, fields["product_type"], kind, agent.Kind())
+					path, fields["product_type"], kind, agent.Kind)
 			}
 
 			models, ok := modelSources[fields["model_source"]]
 			if !ok {
 				t.Fatalf("%s records model_source %q, which maps to no ModelSource", path, fields["model_source"])
 			}
-			if models != agent.Models() {
+			if models != agent.Models {
 				t.Errorf("%s records model_source %q, but the driver says %s",
-					path, fields["model_source"], agent.Models())
-			}
-
-			// Level is derived, so it cannot drift on its own; this checks the
-			// derivation against the pair the documents actually record.
-			if got, want := agent.Level(), levelFor(kind, models); got != want {
-				t.Errorf("%s is Level %s, want %s for (%s, %s)", agent, got, want, kind, models)
+					path, fields["model_source"], agent.Models)
 			}
 		})
 	}
-}
-
-// levelFor restates the ladder rule independently of the package, so the test
-// fails if the derivation changes rather than agreeing with it by construction.
-func levelFor(kind runby.Kind, models runby.ModelSource) runby.Level {
-	switch {
-	case kind == runby.KindOrchestrator:
-		return runby.Level3
-	case kind == runby.KindHarness && models == runby.ModelsFirstParty:
-		return runby.Level1
-	case kind == runby.KindHarness && models == runby.ModelsMultiVendor:
-		return runby.Level2
-	}
-	return runby.LevelUnknown
 }

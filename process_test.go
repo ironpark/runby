@@ -66,11 +66,11 @@ func TestWithProcessTreeCorroboratesAgents(t *testing.T) {
 		runby.WithProcessTree(tree),
 	)
 
-	paseo, _ := result.Layer(runby.AgentPaseo)
+	paseo, _ := result.Agent(runby.AgentPaseo)
 	if paseo.AncestorPID != 300 {
 		t.Fatalf("Paseo AncestorPID = %d, want 300", paseo.AncestorPID)
 	}
-	claude, _ := result.Layer(runby.AgentClaudeCode)
+	claude, _ := result.Agent(runby.AgentClaudeCode)
 	if claude.AncestorPID != 200 {
 		t.Fatalf("Claude Code AncestorPID = %d, want 200", claude.AncestorPID)
 	}
@@ -89,9 +89,9 @@ func TestAncestorPIDZeroIsNotADenial(t *testing.T) {
 		}),
 	)
 
-	claude, ok := result.Layer(runby.AgentClaudeCode)
+	claude, ok := result.Agent(runby.AgentClaudeCode)
 	if !ok || !result.IsAgent() {
-		t.Fatalf("detection was suppressed: %#v", result.Layers)
+		t.Fatalf("detection was suppressed: %#v", result.Agents)
 	}
 	if claude.AncestorPID != 0 {
 		t.Fatalf("AncestorPID = %d, want 0", claude.AncestorPID)
@@ -136,7 +136,7 @@ func TestProcessTreeSurvivesJSON(t *testing.T) {
 			Ancestors: []runby.Process{{PID: 7, PPID: 1, Name: "codex", Path: "/usr/local/bin/codex", Agent: runby.AgentCodex}},
 		}),
 	)
-	codex, _ := result.Layer(runby.AgentCodex)
+	codex, _ := result.Agent(runby.AgentCodex)
 	if codex.AncestorPID != 7 {
 		t.Fatalf("AncestorPID = %d, want 7", codex.AncestorPID)
 	}
@@ -148,7 +148,7 @@ func TestCustomDriverGetsAncestorCorroboration(t *testing.T) {
 	// built-in one, and gets the same live-ancestor confirmation. Before the
 	// labels were derived from the configured drivers this was impossible: the
 	// name table was closed.
-	const acme runby.Agent = "acme-orchestrator"
+	const acme runby.AgentName = "acme-orchestrator"
 
 	result := runby.Detect(
 		runby.WithEnviron([]string{"ACME_RUN_ID=run-7"}),
@@ -163,9 +163,9 @@ func TestCustomDriverGetsAncestorCorroboration(t *testing.T) {
 		}),
 	)
 
-	layer, ok := result.Layer(acme)
+	layer, ok := result.Agent(acme)
 	if !ok {
-		t.Fatalf("custom agent not detected: %#v", result.Layers)
+		t.Fatalf("custom agent not detected: %#v", result.Agents)
 	}
 	if layer.AncestorPID != 20 {
 		t.Fatalf("AncestorPID = %d, want 20", layer.AncestorPID)
@@ -180,12 +180,12 @@ var acmeDriver = runby.AgentDriver{
 	Agent:       "acme-orchestrator",
 	Kind:        runby.KindOrchestrator,
 	Executables: []string{"acme-run"},
-	Detect: func(env runby.Env) (runby.Layer, bool) {
-		id, ok := runby.Value(env, "ACME_RUN_ID")
+	Detect: func(env runby.Env) (runby.Agent, bool) {
+		id, ok := runby.NewEnvReader(env).Value("ACME_RUN_ID")
 		if !ok {
-			return runby.Layer{}, false
+			return runby.Agent{}, false
 		}
-		return runby.Layer{AgentID: id}, true
+		return runby.Agent{AgentID: id}, true
 	},
 }
 

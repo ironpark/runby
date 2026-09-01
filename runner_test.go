@@ -293,13 +293,13 @@ func TestCustomRunnerDriver(t *testing.T) {
 		Tool: "acme-task",
 		Kind: runby.RunnerKindScript,
 		Detect: func(env runby.Env) (runby.Runner, bool) {
-			task, ok := runby.Value(env, "ACME_TASK")
+			task, ok := runby.NewEnvReader(env).Value("ACME_TASK")
 			if !ok {
 				return runby.Runner{}, false
 			}
 			return runby.Runner{
 				Task: task,
-				Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_TASK")},
+				Axis: runby.Axis{Evidence: []string{"ACME_TASK"}},
 			}, true
 		},
 	}

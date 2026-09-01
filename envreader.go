@@ -14,13 +14,13 @@ package runby
 // driver's evidence is what it actually read rather than a second list
 // maintained alongside:
 //
-//	Detect: func(env runby.Env) (runby.Layer, bool) {
+//	Detect: func(env runby.Env) (runby.Agent, bool) {
 //		r := runby.NewEnvReader(env)
 //		id, ok := r.Value("ACME_RUN_ID")
 //		if !ok {
-//			return runby.Layer{}, false
+//			return runby.Agent{}, false
 //		}
-//		return runby.Layer{
+//		return runby.Agent{
 //			SessionID: id,
 //			Axis:      runby.Axis{Evidence: r.Evidence()},
 //		}, true
@@ -49,21 +49,21 @@ func NewEnvReader(env Env) *EnvReader { return &EnvReader{env: env} }
 func (r *EnvReader) Record(names ...string) { r.names = append(r.names, names...) }
 
 // Value returns the space-trimmed value of name, and whether it is set to a
-// non-empty value, as the package-level Value does.
+// non-empty value. A variable set to the empty string is not evidence.
 func (r *EnvReader) Value(name string) (string, bool) {
 	r.Record(name)
-	return Value(r.env, name)
+	return envValue(r.env, name)
 }
 
 // Peek reads name without recording it, for a variable that is evidence only
 // when its value says so. Follow it with Record once the value has decided.
-func (r *EnvReader) Peek(name string) (string, bool) { return Value(r.env, name) }
+func (r *EnvReader) Peek(name string) (string, bool) { return envValue(r.env, name) }
 
 // Bool returns the boolean held by name, and whether name holds a value that
-// strconv.ParseBool accepts, as the package-level Bool does.
+// strconv.ParseBool accepts.
 func (r *EnvReader) Bool(name string) (value, ok bool) {
 	r.Record(name)
-	return Bool(r.env, name)
+	return envBool(r.env, name)
 }
 
 // IsTrue reports whether name holds a parsable boolean that is true.
@@ -75,7 +75,7 @@ func (r *EnvReader) IsTrue(name string) bool {
 // EqualsFold reports whether name holds want, ignoring case.
 func (r *EnvReader) EqualsFold(name, want string) bool {
 	r.Record(name)
-	return EqualsFold(r.env, name, want)
+	return envEqualsFold(r.env, name, want)
 }
 
 // Any reports whether at least one of the names is set. Every name is recorded
@@ -83,7 +83,7 @@ func (r *EnvReader) EqualsFold(name, want string) bool {
 // advertises alternatives is evidenced by whichever ones it happened to set.
 func (r *EnvReader) Any(names ...string) bool {
 	r.Record(names...)
-	return AnyPresent(r.env, names...)
+	return anyPresent(r.env, names...)
 }
 
 // First returns the value of the earliest name that is set, or the empty string
@@ -94,7 +94,7 @@ func (r *EnvReader) Any(names ...string) bool {
 func (r *EnvReader) First(names ...string) string {
 	r.Record(names...)
 	for _, name := range names {
-		if value, ok := Value(r.env, name); ok {
+		if value, ok := envValue(r.env, name); ok {
 			return value
 		}
 	}
@@ -102,15 +102,15 @@ func (r *EnvReader) First(names ...string) string {
 }
 
 // Extra collects the Axis.Extra map for keys, recording every variable it
-// consults. It is CollectExtra with the bookkeeping, so a product's context
+// consults. It is the collection helper with the bookkeeping, so a product's context
 // variables count as evidence without being listed a second time.
 func (r *EnvReader) Extra(keys map[string]string) map[string]string {
 	for _, name := range keys {
 		r.Record(name)
 	}
-	return CollectExtra(r.env, keys)
+	return collectExtra(r.env, keys)
 }
 
 // Evidence returns the sorted, deduplicated subset of the consulted variables
 // that are set. Only names are returned; values may be sensitive.
-func (r *EnvReader) Evidence() []string { return PresentNames(r.env, r.names...) }
+func (r *EnvReader) Evidence() []string { return presentNames(r.env, r.names...) }

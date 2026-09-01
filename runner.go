@@ -48,27 +48,11 @@ const (
 // and its serialized output.
 func (k RunnerKind) String() string { return slug(k, RunnerKindUnknown) }
 
-// runnerKinds is derived from the built-in driver table, so a tool is
-// registered in one place.
-var runnerKinds = indexBy(builtinRunnerDrivers, func(d RunnerDriver) (RunnerTool, RunnerKind) {
-	return d.Tool, d.Kind
-})
-
-// Kind reports what kind of thing t is. It returns RunnerKindUnknown for tools
-// this package does not support; a driver supplied through Register
-// carries its own Kind onto the Runner instead.
-func (t RunnerTool) Kind() RunnerKind {
-	if kind, ok := runnerKinds[t]; ok {
-		return kind
-	}
-	return registeredRunnerKind(t)
-}
-
 // Runner is one tool that ran this process.
 //
 // This axis answers the half of "what launched this process" that the others
 // leave out. A process started by `npm test` has a terminal attached, is not in
-// CI, and was not launched by an agent, so TTY, CI, and Layers all describe it
+// CI, and was not launched by an agent, so TTY, CI, and Agents all describe it
 // as an interactive command a person typed — and none of them is wrong, but
 // none of them says that a script in package.json ran it.
 //
@@ -99,7 +83,7 @@ type Runner struct {
 
 	// AncestorPID is the PID of a running ancestor process whose executable
 	// belongs to this tool, or 0 when none was found. As with
-	// Layer.AncestorPID, a non-zero value confirms the environment
+	// Agent.AncestorPID, a non-zero value confirms the environment
 	// evidence against a live process, and zero is not a denial.
 	AncestorPID int `json:"ancestor_pid,omitempty"`
 }

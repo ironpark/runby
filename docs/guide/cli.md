@@ -29,8 +29,8 @@ runby chain            "paseo>codex" 한 줄. 감지 실패 시 "unknown"
 ```
 $ runby
 agent     paseo>claude-code
-            paseo          l3  orchestrator  delegated     definite  살아 있는 조상 pid=2540
-            claude-code    l1  harness       first-party   definite  살아 있는 조상 pid=4344
+            paseo          orchestrator  delegated     definite  살아 있는 조상 pid=2540
+            claude-code    harness       first-party   definite  살아 있는 조상 pid=4344
 ci        -
 terminal  ghostty (definite)
 remote    tmux (multiplexer), openssh (environment)
@@ -98,7 +98,7 @@ esac
 JSON은 `jq`로 바로 다룰 수 있습니다.
 
 ```sh
-runby -json | jq -r '.layers[] | select(.ancestor_pid != null) | .agent'
+runby -json | jq -r '.agents[] | select(.ancestor_pid != null) | .name'
 ```
 
 ## 환경변수 값은 출력하지 않습니다
@@ -109,9 +109,9 @@ runby -json | jq -r '.layers[] | select(.ancestor_pid != null) | .agent'
 
 | 필드 | 내용 |
 |---|---|
-| `layers[].agent_id`, `layers[].session_id` | 에이전트/세션 UUID |
-| `layers[].paths.*` | 작업 디렉터리, 데이터 디렉터리 |
-| `layers[].extra`, `ci.extra`, `terminal.extra`, `remote[].extra` | 제품 전용 값 (worktree 경로, 호스트 ID 등) |
+| `agents[].agent_id`, `agents[].session_id` | 에이전트/세션 UUID |
+| `agents[].paths.*` | 작업 디렉터리, 데이터 디렉터리 |
+| `agents[].extra`, `ci.extra`, `terminal.extra`, `remote[].extra` | 제품 전용 값 (worktree 경로, 호스트 ID 등) |
 | `process.ancestors[].path` | 조상 프로세스의 실행 파일 **전체 경로** |
 
 여기에는 사용자 이름이 들어간 홈 디렉터리 경로, 저장소 위치, 세션 식별자가 포함될 수 있습니다. 텍스트 모드는 이 값들을 찍지 않고 이름과 PID만 보여주므로, **버그 리포트에 붙일 때는 `-json`보다 `runby -v`가 안전합니다.**
@@ -119,7 +119,7 @@ runby -json | jq -r '.layers[] | select(.ancestor_pid != null) | .agent'
 `-json`을 로그나 텔레메트리로 보낸다면 필요한 필드만 골라 쓰십시오.
 
 ```sh
-runby -json | jq '{chain: [.layers[].agent] | join(">"), ci: .ci.provider, tty: .tty.interactive}'
+runby -json | jq '{chain: [.agents[].name] | join(">"), ci: .ci.provider, tty: .tty.interactive}'
 ```
 
 ## 라이브러리와의 관계
@@ -129,7 +129,7 @@ runby -json | jq '{chain: [.layers[].agent] | join(">"), ci: .ci.provider, tty: 
 | CLI | 라이브러리 (`result := runby.Current()`) |
 |---|---|
 | `runby is agent` | `result.IsAgent()` |
-| `runby is agent codex` | `_, ok := result.Layer(runby.AgentCodex)` |
+| `runby is agent codex` | `_, ok := result.Agent(runby.AgentCodex)` |
 | `runby is runner` | `result.HasRunner()` |
 | `runby is runner npm` | `_, ok := result.Runner(runby.RunnerNPM)` |
 | `runby is ci` | `result.IsCI()` |

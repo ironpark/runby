@@ -1,14 +1,13 @@
 package runby
 
-// Layer is one agent layer detected in an environment.
-type Layer struct {
-	Agent Agent `json:"agent"`
-	// Kind, Models, and Level classify the product rather than this run. Kind
-	// is what it drives, Models is whose intelligence is behind it, and Level
-	// is the ladder position read off the two. See the commentary above Kind.
+// Agent is one agent layer detected in an environment.
+type Agent struct {
+	Name AgentName `json:"name"`
+	// Kind and Models classify the product rather than this run. Kind is what
+	// it drives, and Models is whose intelligence is behind it. See the
+	// commentary above Kind.
 	Kind   Kind        `json:"kind"`
 	Models ModelSource `json:"models"`
-	Level  Level       `json:"level"`
 	Axis
 
 	// SessionID is the agent's identifier for the conversation or thread that
@@ -56,16 +55,16 @@ type Paths struct {
 
 // Result is everything detected about one process environment.
 type Result struct {
-	// Layers holds every detected agent, ordered from the most specific
+	// Agents holds every detected agent, ordered from the most specific
 	// orchestrator to the underlying runtime. It is empty when nothing was
 	// detected.
-	Layers []Layer `json:"layers"`
+	Agents []Agent `json:"agents"`
 	// TTY is the process-level standard stream status. It is present even
-	// when Layers is empty; see TTY.Inspected. It is the only field derived
+	// when Agents is empty; see TTY.Inspected. It is the only field derived
 	// from system calls rather than from the environment.
 	TTY TTY `json:"tty"`
 	// CI describes the continuous integration run that owns this process. It
-	// is a separate axis from Layers: an agent can run inside CI, so both can
+	// is a separate axis from Agents: an agent can run inside CI, so both can
 	// be populated at once.
 	CI CI `json:"ci"`
 	// Terminal identifies the terminal emulator that produced this
@@ -96,33 +95,23 @@ type Result struct {
 //
 // It, IsCI, HasTerminal, IsRemote, and HasRunner are the five axis predicates
 // and are named alike on purpose. Each answers "did this axis detect anything".
-// The Layer, Runner, and Remote accessors below answer the different question
+// The Agent, Runner, and Remote accessors below answer the different question
 // of whether one named product is among what it detected; each returns the
 // value with an ok, so a bare existence check is the usual Go idiom:
 //
 //	if _, ok := result.Runner(runby.RunnerNPM); ok {
-func (r Result) IsAgent() bool { return len(r.Layers) > 0 }
+func (r Result) IsAgent() bool { return len(r.Agents) > 0 }
 
 // Primary returns the most specific detected layer, and whether there was one.
-// On a miss it returns the zero Layer, as Layer, Runner, and Remote do. The ok
+// On a miss it returns the zero Agent, as Agent, Runner, and Remote do. The ok
 // is the thing to branch on, but a caller that logs the layer without checking
 // it still writes something meaningful: every enum in this package renders its
 // zero value as "unknown" rather than as the empty string.
-func (r Result) Primary() (Layer, bool) {
-	if len(r.Layers) == 0 {
-		return Layer{}, false
+func (r Result) Primary() (Agent, bool) {
+	if len(r.Agents) == 0 {
+		return Agent{}, false
 	}
-	return r.Layers[0], true
-}
-
-// Agent returns the most specific detected agent, or AgentUnknown when nothing
-// was detected.
-func (r Result) Agent() Agent {
-	primary, ok := r.Primary()
-	if !ok {
-		return AgentUnknown
-	}
-	return primary.Agent
+	return r.Agents[0], true
 }
 
 // Identifier is a value one agent layer advertised, paired with the agent that
@@ -136,7 +125,7 @@ type Identifier struct {
 	// Value is the identifier as the agent advertised it.
 	Value string `json:"value"`
 	// Agent is the layer that advertised it.
-	Agent Agent `json:"agent"`
+	Agent AgentName `json:"agent"`
 }
 
 // SessionID returns the conversation or thread identifier of the outermost
@@ -154,12 +143,12 @@ type Identifier struct {
 // and no session — while the harness it drives carries the session. Walking
 // outermost first gives the most specific identifier that exists without the
 // caller having to know which layer of a stack publishes it. Read
-// Layer(agent).SessionID when the question is about one named product, and
-// range over Layers when every identifier is wanted.
+// Agent(name).SessionID when the question is about one named product, and
+// range over Agents when every identifier is wanted.
 func (r Result) SessionID() (Identifier, bool) {
-	for _, layer := range r.Layers {
+	for _, layer := range r.Agents {
 		if layer.SessionID != "" {
-			return Identifier{Value: layer.SessionID, Agent: layer.Agent}, true
+			return Identifier{Value: layer.SessionID, Agent: layer.Name}, true
 		}
 	}
 	return Identifier{}, false
@@ -171,22 +160,22 @@ func (r Result) SessionID() (Identifier, bool) {
 // across the sessions that agent runs, so the two answer different questions
 // and neither substitutes for the other.
 func (r Result) AgentID() (Identifier, bool) {
-	for _, layer := range r.Layers {
+	for _, layer := range r.Agents {
 		if layer.AgentID != "" {
-			return Identifier{Value: layer.AgentID, Agent: layer.Agent}, true
+			return Identifier{Value: layer.AgentID, Agent: layer.Name}, true
 		}
 	}
 	return Identifier{}, false
 }
 
-// Layer returns the detected layer for agent, and whether it was detected.
-func (r Result) Layer(agent Agent) (Layer, bool) {
-	for _, layer := range r.Layers {
-		if layer.Agent == agent {
+// Agent returns the detected layer for agent, and whether it was detected.
+func (r Result) Agent(agent AgentName) (Agent, bool) {
+	for _, layer := range r.Agents {
+		if layer.Name == agent {
 			return layer, true
 		}
 	}
-	return Layer{}, false
+	return Agent{}, false
 }
 
 // IsCI reports whether this process is running in a CI job.
@@ -291,12 +280,12 @@ func (r Result) Multiplexer() (Remote, bool) {
 // use as a single log or telemetry field. It returns "unknown" when nothing was
 // detected, so the field is never empty.
 func (r Result) Chain() string {
-	if len(r.Layers) == 0 {
+	if len(r.Agents) == 0 {
 		return AgentUnknown.String()
 	}
-	chain := r.Layers[0].Agent.String()
-	for _, layer := range r.Layers[1:] {
-		chain += ">" + layer.Agent.String()
+	chain := r.Agents[0].Name.String()
+	for _, layer := range r.Agents[1:] {
+		chain += ">" + layer.Name.String()
 	}
 	return chain
 }

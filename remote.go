@@ -47,20 +47,6 @@ func (k RemoteKind) String() string { return slug(k, RemoteKindUnknown) }
 
 // remoteKinds is derived from the built-in driver table, so a driver is the
 // one place a platform is registered.
-var remoteKinds = indexBy(builtinRemoteDrivers, func(d RemoteDriver) (RemotePlatform, RemoteKind) {
-	return d.Platform, d.Kind
-})
-
-// Kind reports what a detection of p proves. It returns RemoteKindUnknown for
-// platforms this package does not support; a driver supplied through
-// A registered driver carries its own Kind onto the Remote instead.
-func (p RemotePlatform) Kind() RemoteKind {
-	if kind, ok := remoteKinds[p]; ok {
-		return kind
-	}
-	return registeredRemoteKind(p)
-}
-
 // Remote is one layer detected between the user and this process.
 //
 // This axis exists because these layers do more than add variables of their
@@ -92,7 +78,7 @@ type Remote struct {
 
 	// AncestorPID is the PID of a running ancestor process whose executable
 	// belongs to this layer, or 0 when none was found. As with
-	// Layer.AncestorPID, a non-zero value confirms the environment
+	// Agent.AncestorPID, a non-zero value confirms the environment
 	// evidence against a live process, and zero is not a denial.
 	AncestorPID int `json:"ancestor_pid,omitempty"`
 }

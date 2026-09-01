@@ -89,7 +89,7 @@ result.Runner(runby.RunnerNPM)             // (Runner, bool)
 특정 에이전트가 감지됐을 때만 그 제품의 필드를 읽을 수 있습니다.
 
 ```go
-if codex, ok := result.Layer(runby.AgentCodex); ok {
+if codex, ok := result.Agent(runby.AgentCodex); ok {
 	log.Printf("sandbox=%s network=%s", codex.Sandbox.Mode, codex.Sandbox.Network)
 }
 ```

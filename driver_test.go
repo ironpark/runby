@@ -17,11 +17,11 @@ func TestCustomMultiplexerCapsTerminalConfidence(t *testing.T) {
 		Kind:        runby.RemoteKindMultiplexer,
 		Executables: []string{"acme-mux"},
 		Detect: func(env runby.Env) (runby.Remote, bool) {
-			id, ok := runby.Value(env, "ACME_MUX")
+			id, ok := runby.NewEnvReader(env).Value("ACME_MUX")
 			if !ok {
 				return runby.Remote{}, false
 			}
-			return runby.Remote{SessionID: id, Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_MUX")}}, true
+			return runby.Remote{SessionID: id, Axis: runby.Axis{Evidence: []string{"ACME_MUX"}}}, true
 		},
 	}
 
@@ -46,10 +46,10 @@ func TestCustomTerminalAndRemoteDriversAreCorroborated(t *testing.T) {
 		Program:     "acme-term",
 		Executables: []string{"acme-term"},
 		Detect: func(env runby.Env) (runby.Terminal, bool) {
-			if !runby.IsTrue(env, "ACME_TERM") {
+			if !runby.NewEnvReader(env).IsTrue("ACME_TERM") {
 				return runby.Terminal{}, false
 			}
-			return runby.Terminal{Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_TERM")}}, true
+			return runby.Terminal{Axis: runby.Axis{Evidence: []string{"ACME_TERM"}}}, true
 		},
 	}
 	vpn := runby.RemoteDriver{
@@ -57,10 +57,10 @@ func TestCustomTerminalAndRemoteDriversAreCorroborated(t *testing.T) {
 		Kind:        runby.RemoteKindEnvironment,
 		Executables: []string{"acme-vpnd"},
 		Detect: func(env runby.Env) (runby.Remote, bool) {
-			if !runby.IsTrue(env, "ACME_VPN") {
+			if !runby.NewEnvReader(env).IsTrue("ACME_VPN") {
 				return runby.Remote{}, false
 			}
-			return runby.Remote{Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME_VPN")}}, true
+			return runby.Remote{Axis: runby.Axis{Evidence: []string{"ACME_VPN"}}}, true
 		},
 	}
 
@@ -97,58 +97,14 @@ func TestDriversWithoutKindReportUnknown(t *testing.T) {
 		runby.WithEnviron([]string{"ACME=1"}),
 		runby.WithOnlyDrivers(runby.AgentDriver{
 			Agent: "acme",
-			Detect: func(env runby.Env) (runby.Layer, bool) {
-				return runby.Layer{Axis: runby.Axis{Evidence: runby.PresentNames(env, "ACME")}}, true
+			Detect: func(env runby.Env) (runby.Agent, bool) {
+				return runby.Agent{Axis: runby.Axis{Evidence: []string{"ACME"}}}, true
 			},
 		}),
 	)
 	primary, _ := result.Primary()
 	if primary.Kind != runby.KindUnknown {
 		t.Fatalf("Kind = %q, want %q", primary.Kind, runby.KindUnknown)
-	}
-}
-
-func TestMarkerHelpers(t *testing.T) {
-	env := runby.EnvironEnv([]string{"A=1", "B=false", "C=x", "EMPTY=", "TERM_PROGRAM=WezTerm"})
-	for _, test := range []struct {
-		name   string
-		marker runby.Marker
-		want   bool
-	}{
-		{"set both", runby.MarkerSet("A", "C"), true},
-		{"set missing", runby.MarkerSet("A", "MISSING"), false},
-		{"set empty is not set", runby.MarkerSet("EMPTY"), false},
-		{"true", runby.MarkerTrue("A"), true},
-		{"true on false", runby.MarkerTrue("A", "B"), false},
-		{"true on non-boolean", runby.MarkerTrue("C"), false},
-		{"term program folds case", runby.MarkerTermProgram("wezterm"), true},
-		{"term program mismatch", runby.MarkerTermProgram("ghostty"), false},
-	} {
-		if got := test.marker(env); got != test.want {
-			t.Errorf("%s = %v, want %v", test.name, got, test.want)
-		}
-	}
-
-	if !runby.AnyPresent(env, "MISSING", "C") {
-		t.Error("AnyPresent missed a set name")
-	}
-	if runby.AnyPresent(env, "MISSING", "EMPTY") {
-		t.Error("AnyPresent matched an unset name")
-	}
-	if runby.AnyPresent(env) {
-		t.Error("AnyPresent matched with no names")
-	}
-}
-
-func TestCollectExtra(t *testing.T) {
-	env := runby.EnvironEnv([]string{"A=1", "EMPTY="})
-	got := runby.CollectExtra(env, map[string]string{"acme.a": "A", "acme.missing": "MISSING", "acme.empty": "EMPTY"})
-	if want := map[string]string{"acme.a": "1"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("CollectExtra = %#v, want %#v", got, want)
-	}
-	// Nothing present carries no map, so a detection without context has none.
-	if got := runby.CollectExtra(env, map[string]string{"acme.missing": "MISSING"}); got != nil {
-		t.Fatalf("CollectExtra = %#v, want nil", got)
 	}
 }
 
@@ -167,10 +123,10 @@ func TestBuiltinDriversCanDropOneProduct(t *testing.T) {
 
 	env := runby.WithEnviron([]string{"CODEX_THREAD_ID=t-1", "CLAUDECODE=1", "GITHUB_ACTIONS=true"})
 	result := runby.Detect(env, runby.WithOnlyDrivers(drivers...))
-	if _, ok := result.Layer(runby.AgentCodex); ok {
+	if _, ok := result.Agent(runby.AgentCodex); ok {
 		t.Error("codex was detected after its driver was filtered out")
 	}
-	if _, ok := result.Layer(runby.AgentClaudeCode); !ok {
+	if _, ok := result.Agent(runby.AgentClaudeCode); !ok {
 		t.Error("dropping codex also silenced claude-code")
 	}
 	// Filtering the agent axis leaves the other four intact, which passing a
@@ -212,13 +168,13 @@ func TestWithDriversExtendsTheDefaultSet(t *testing.T) {
 		Agent:  "acme",
 		Kind:   runby.KindHarness,
 		Models: runby.ModelsMultiVendor,
-		Detect: func(env runby.Env) (runby.Layer, bool) {
+		Detect: func(env runby.Env) (runby.Agent, bool) {
 			r := runby.NewEnvReader(env)
 			id, ok := r.Value("ACME_RUN_ID")
 			if !ok {
-				return runby.Layer{}, false
+				return runby.Agent{}, false
 			}
-			return runby.Layer{SessionID: id, Axis: runby.Axis{Evidence: r.Evidence()}}, true
+			return runby.Agent{SessionID: id, Axis: runby.Axis{Evidence: r.Evidence()}}, true
 		},
 	}
 
@@ -227,7 +183,7 @@ func TestWithDriversExtendsTheDefaultSet(t *testing.T) {
 		runby.WithDrivers(acme),
 	)
 
-	custom, ok := result.Layer("acme")
+	custom, ok := result.Agent("acme")
 	if !ok || custom.SessionID != "r-1" {
 		t.Fatalf("Layer(acme) = %#v, %v", custom, ok)
 	}
@@ -237,8 +193,8 @@ func TestWithDriversExtendsTheDefaultSet(t *testing.T) {
 	// The built-in axis still runs, which is the whole difference from
 	// WithOnlyDrivers. Codex is Level1 and acme is Level2, so the ladder puts
 	// the custom harness first whatever order the drivers arrived in.
-	if _, ok := result.Layer(runby.AgentCodex); !ok {
-		t.Fatalf("the built-in drivers were dropped: %#v", result.Layers)
+	if _, ok := result.Agent(runby.AgentCodex); !ok {
+		t.Fatalf("the built-in drivers were dropped: %#v", result.Agents)
 	}
 	if got := result.Chain(); got != "acme>codex" {
 		t.Errorf("Chain() = %q, want acme>codex", got)
@@ -252,7 +208,7 @@ func TestWithDriversReplacesAMatchingBuiltin(t *testing.T) {
 		Agent:  runby.AgentCodex,
 		Kind:   runby.KindHarness,
 		Models: runby.ModelsFirstParty,
-		Detect: func(runby.Env) (runby.Layer, bool) { return runby.Layer{}, false },
+		Detect: func(runby.Env) (runby.Agent, bool) { return runby.Agent{}, false },
 	}
 
 	result := runby.Detect(
@@ -260,6 +216,6 @@ func TestWithDriversReplacesAMatchingBuiltin(t *testing.T) {
 		runby.WithDrivers(silenced),
 	)
 	if result.IsAgent() {
-		t.Fatalf("the replaced built-in still ran: %#v", result.Layers)
+		t.Fatalf("the replaced built-in still ran: %#v", result.Agents)
 	}
 }

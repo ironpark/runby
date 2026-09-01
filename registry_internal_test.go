@@ -14,7 +14,7 @@ import (
 // rather than running beside a built-in of the same name: two drivers for one
 // product would report the same product twice.
 func TestMergeReplacesBuiltins(t *testing.T) {
-	id := func(d AgentDriver) Agent { return d.Agent }
+	id := func(d AgentDriver) AgentName { return d.Agent }
 	builtin := []AgentDriver{{Agent: AgentPaseo}, {Agent: AgentCodex}}
 
 	t.Run("nothing registered", func(t *testing.T) {
@@ -71,7 +71,7 @@ func TestCheckUniquePanicsOnDuplicate(t *testing.T) {
 		}
 	}()
 	checkUnique("agent", []AgentDriver{{Agent: "acme"}, {Agent: "acme"}},
-		func(d AgentDriver) Agent { return d.Agent })
+		func(d AgentDriver) AgentName { return d.Agent })
 }
 
 func TestRegisterAfterCurrentPanics(t *testing.T) {

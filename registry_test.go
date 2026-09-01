@@ -22,14 +22,14 @@ func init() {
 			Agent:  "acme-orchestrator",
 			Kind:   runby.KindOrchestrator,
 			Models: runby.ModelsDelegated,
-			Detect: func(env runby.Env) (runby.Layer, bool) {
-				id, ok := runby.Value(env, "ACME_REGISTERED_RUN_ID")
+			Detect: func(env runby.Env) (runby.Agent, bool) {
+				id, ok := runby.NewEnvReader(env).Value("ACME_REGISTERED_RUN_ID")
 				if !ok {
-					return runby.Layer{}, false
+					return runby.Agent{}, false
 				}
-				return runby.Layer{
+				return runby.Agent{
 					AgentID: id,
-					Axis:    runby.Axis{Evidence: runby.PresentNames(env, "ACME_REGISTERED_RUN_ID")},
+					Axis:    runby.Axis{Evidence: []string{"ACME_REGISTERED_RUN_ID"}},
 				}, true
 			},
 		},
@@ -39,11 +39,11 @@ func init() {
 			Agent:  "acme-harness",
 			Kind:   runby.KindHarness,
 			Models: runby.ModelsFirstParty,
-			Detect: func(env runby.Env) (runby.Layer, bool) {
-				if _, ok := runby.Value(env, "ACME_REGISTERED_HARNESS"); !ok {
-					return runby.Layer{}, false
+			Detect: func(env runby.Env) (runby.Agent, bool) {
+				if _, ok := runby.NewEnvReader(env).Value("ACME_REGISTERED_HARNESS"); !ok {
+					return runby.Agent{}, false
 				}
-				return runby.Layer{
+				return runby.Agent{
 					Axis: runby.Axis{Evidence: []string{"ACME_REGISTERED_HARNESS"}},
 				}, true
 			},
@@ -52,7 +52,7 @@ func init() {
 			Tool: "acme-task",
 			Kind: runby.RunnerKindScript,
 			Detect: func(env runby.Env) (runby.Runner, bool) {
-				task, ok := runby.Value(env, "ACME_REGISTERED_TASK")
+				task, ok := runby.NewEnvReader(env).Value("ACME_REGISTERED_TASK")
 				if !ok {
 					return runby.Runner{}, false
 				}
@@ -74,17 +74,17 @@ func TestRegisteredDriversReachDetect(t *testing.T) {
 		"ACME_REGISTERED_TASK=build",
 	}))
 
-	layer, ok := result.Layer("acme-orchestrator")
+	layer, ok := result.Agent("acme-orchestrator")
 	if !ok {
-		t.Fatalf("the registered agent driver did not run: %v", result.Layers)
+		t.Fatalf("the registered agent driver did not run: %v", result.Agents)
 	}
 	if layer.AgentID != "r1" {
 		t.Errorf("agent id = %q, want r1", layer.AgentID)
 	}
-	// Detect fills the identity and the ladder for a registered driver exactly
-	// as it does for a built-in one.
-	if layer.Kind != runby.KindOrchestrator || layer.Level != runby.Level3 {
-		t.Errorf("kind = %s, level = %s", layer.Kind, layer.Level)
+	// Detect fills the identity for a registered driver exactly as it does
+	// for a built-in one.
+	if layer.Kind != runby.KindOrchestrator {
+		t.Errorf("kind = %s, want orchestrator", layer.Kind)
 	}
 
 	runner, ok := result.Runner("acme-task")
@@ -98,18 +98,18 @@ func TestRegisteredDriversReachDetect(t *testing.T) {
 
 // TestLadderOrdersRegisteredAgents is why registration cannot simply prepend.
 // Package initialization order is not something a driver author controls, so a
-// registered Level1 harness must not displace a built-in Level3 orchestrator
-// as the primary layer.
+// registered harness must not displace a built-in orchestrator as the primary
+// layer.
 func TestLadderOrdersRegisteredAgents(t *testing.T) {
 	result := runby.Detect(runby.WithEnviron([]string{
 		"ACME_REGISTERED_HARNESS=1",
 		"PASEO_AGENT_ID=p1",
 	}))
-	if len(result.Layers) != 2 {
-		t.Fatalf("got %d layers, want 2: %v", len(result.Layers), result.Layers)
+	if len(result.Agents) != 2 {
+		t.Fatalf("got %d layers, want 2: %v", len(result.Agents), result.Agents)
 	}
-	if got := result.Agent(); got != runby.AgentPaseo {
-		t.Errorf("primary = %s, want paseo: a Level1 harness outranked a Level3 orchestrator", got)
+	if got := primaryAgent(result); got != runby.AgentPaseo {
+		t.Errorf("primary = %s, want paseo: a harness outranked an orchestrator", got)
 	}
 	if result.Chain() != "paseo>acme-harness" {
 		t.Errorf("chain = %q, want paseo>acme-harness", result.Chain())
@@ -134,7 +134,7 @@ func TestWithOnlyIgnoresRegistry(t *testing.T) {
 
 	agents := runby.Detect(runby.WithEnviron(environ), runby.WithOnlyDrivers())
 	if agents.IsAgent() {
-		t.Errorf("WithOnlyDrivers() still ran a registered driver: %v", agents.Layers)
+		t.Errorf("WithOnlyDrivers() still ran a registered driver: %v", agents.Agents)
 	}
 	runners := runby.Detect(runby.WithEnviron(environ), runby.WithOnlyDrivers())
 	if runners.HasRunner() {
@@ -158,39 +158,17 @@ func TestIdentityListsStayBuiltIn(t *testing.T) {
 	}
 }
 
-// TestRegisteredIdentityAnswersLikeBuiltin closes the gap that made this worth
-// doing: a registered agent must answer Kind, Models, and Level the same way a
-// built-in one does, so that Agent.Level and Layer.Level cannot disagree
-// about the same agent.
-func TestRegisteredIdentityAnswersLikeBuiltin(t *testing.T) {
-	const acme = runby.Agent("acme-orchestrator")
-	if got := acme.Kind(); got != runby.KindOrchestrator {
-		t.Errorf("Kind() = %s, want orchestrator", got)
-	}
-	if got := acme.Models(); got != runby.ModelsDelegated {
-		t.Errorf("Models() = %s, want delegated", got)
-	}
-	if got := acme.Level(); got != runby.Level3 {
-		t.Errorf("Level() = %s, want l3", got)
-	}
-
-	// And the answer matches what a detection of it carries.
+// TestRegisteredDriverCarriesItsClassification checks that a detection of a
+// registered agent carries the Kind and Models the driver declared, exactly
+// as a built-in detection does.
+func TestRegisteredDriverCarriesItsClassification(t *testing.T) {
+	const acme = runby.AgentName("acme-orchestrator")
 	result := runby.Detect(runby.WithEnviron([]string{"ACME_REGISTERED_RUN_ID=r1"}))
-	layer, ok := result.Layer(acme)
+	layer, ok := result.Agent(acme)
 	if !ok {
 		t.Fatal("the registered driver did not match")
 	}
-	if layer.Level != acme.Level() || layer.Kind != acme.Kind() {
-		t.Errorf("Layer says (%s, %s) but Agent says (%s, %s)",
-			layer.Kind, layer.Level, acme.Kind(), acme.Level())
-	}
-
-	if got := runby.RunnerTool("acme-task").Kind(); got != runby.RunnerKindScript {
-		t.Errorf("RunnerTool.Kind() = %s, want script", got)
-	}
-
-	// An identity nobody registered still reads as unknown.
-	if got := runby.Agent("never-registered").Level(); got != runby.LevelUnknown {
-		t.Errorf("unknown agent Level() = %s", got)
+	if layer.Kind != runby.KindOrchestrator || layer.Models != runby.ModelsDelegated {
+		t.Errorf("Layer says (%s, %s), want (orchestrator, delegated)", layer.Kind, layer.Models)
 	}
 }

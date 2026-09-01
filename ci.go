@@ -35,7 +35,7 @@ func CIProviders() []CIProvider {
 
 // CI describes the continuous integration run that owns this process.
 //
-// CI is a separate axis from the agent Layers, not one of them. An agent can
+// CI is a separate axis from the agent layers, not one of them. An agent can
 // run inside CI: Claude Code invoked from a GitHub Actions workflow produces
 // both a KindHarness layer and a CI result. Kind answers who requested the
 // command; CI answers where it runs.
@@ -88,7 +88,7 @@ type CIDriver struct {
 // platforms exposing a 0-based retry count normalize to the same form.
 // Non-numeric and negative results are reported as 0, meaning unknown.
 func parseAttempt(env Env, name string, offset int) int {
-	raw, ok := Value(env, name)
+	raw, ok := envValue(env, name)
 	if !ok {
 		return 0
 	}
