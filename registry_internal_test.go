@@ -14,18 +14,17 @@ import (
 // rather than running beside a built-in of the same name: two drivers for one
 // product would report the same product twice.
 func TestMergeReplacesBuiltins(t *testing.T) {
-	id := func(d AgentDriver) AgentName { return d.Agent }
 	builtin := []AgentDriver{{Agent: AgentPaseo}, {Agent: AgentCodex}}
 
 	t.Run("nothing registered", func(t *testing.T) {
-		merged := merge(nil, builtin, id)
+		merged := merge(nil, builtin)
 		if len(merged) != 2 || merged[0].Agent != AgentPaseo {
 			t.Errorf("merged = %v", merged)
 		}
 	})
 
 	t.Run("added alongside", func(t *testing.T) {
-		merged := merge([]AgentDriver{{Agent: "acme"}}, builtin, id)
+		merged := merge([]AgentDriver{{Agent: "acme"}}, builtin)
 		if len(merged) != 3 {
 			t.Fatalf("got %d drivers, want 3: %v", len(merged), merged)
 		}
@@ -36,7 +35,7 @@ func TestMergeReplacesBuiltins(t *testing.T) {
 	})
 
 	t.Run("replacing a built-in", func(t *testing.T) {
-		merged := merge([]AgentDriver{{Agent: AgentCodex, Kind: KindOrchestrator}}, builtin, id)
+		merged := merge([]AgentDriver{{Agent: AgentCodex, Kind: KindOrchestrator}}, builtin)
 		if len(merged) != 2 {
 			t.Fatalf("got %d drivers, want 2 — the built-in codex should be gone: %v", len(merged), merged)
 		}
@@ -70,8 +69,7 @@ func TestCheckUniquePanicsOnDuplicate(t *testing.T) {
 			t.Errorf("panic message does not name the product: %q", message)
 		}
 	}()
-	checkUnique("agent", []AgentDriver{{Agent: "acme"}, {Agent: "acme"}},
-		func(d AgentDriver) AgentName { return d.Agent })
+	checkUnique("agent", []AgentDriver{{Agent: "acme"}, {Agent: "acme"}})
 }
 
 func TestRegisterAfterCurrentPanics(t *testing.T) {

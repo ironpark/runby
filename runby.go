@@ -157,16 +157,11 @@ func WithDrivers(drivers ...Driver) Option {
 	}
 	added.check()
 	return func(o *options) {
-		o.agentDrivers = merge(added.agents, o.agentDrivers,
-			func(d AgentDriver) AgentName { return d.Agent })
-		o.ciDrivers = merge(added.ci, o.ciDrivers,
-			func(d CIDriver) CIProvider { return d.Provider })
-		o.terminalDrivers = merge(added.terminals, o.terminalDrivers,
-			func(d TerminalDriver) TerminalProgram { return d.Program })
-		o.remoteDrivers = merge(added.remotes, o.remoteDrivers,
-			func(d RemoteDriver) RemotePlatform { return d.Platform })
-		o.runnerDrivers = merge(added.runners, o.runnerDrivers,
-			func(d RunnerDriver) RunnerTool { return d.Tool })
+		o.agentDrivers = merge(added.agents, o.agentDrivers)
+		o.ciDrivers = merge(added.ci, o.ciDrivers)
+		o.terminalDrivers = merge(added.terminals, o.terminalDrivers)
+		o.remoteDrivers = merge(added.remotes, o.remoteDrivers)
+		o.runnerDrivers = merge(added.runners, o.runnerDrivers)
 	}
 }
 
@@ -275,22 +270,43 @@ func applyMultiplexerStaleness(result *Result) {
 }
 
 // executableLabels gathers the name-to-product mapping from every configured
-// driver that names its executables.
+// driver that names its executables. The CI axis is absent because a CI driver
+// names no executables; see CIDriver.
 func (config options) executableLabels() executableLabels {
 	labels := make(executableLabels)
-	for _, driver := range config.agentDrivers {
-		labels.add(driver.Executables, Process{Agent: driver.Agent})
-	}
-	for _, driver := range config.terminalDrivers {
-		labels.add(driver.Executables, Process{Terminal: driver.Program})
-	}
-	for _, driver := range config.remoteDrivers {
-		labels.add(driver.Executables, Process{Remote: driver.Platform})
-	}
-	for _, driver := range config.runnerDrivers {
-		labels.add(driver.Executables, Process{Runner: driver.Tool})
-	}
+	addLabels(labels, config.agentDrivers)
+	addLabels(labels, config.terminalDrivers)
+	addLabels(labels, config.remoteDrivers)
+	addLabels(labels, config.runnerDrivers)
 	return labels
+}
+
+// ancestorLabel is what a live ancestor running one of this driver's
+// executables is labelled as: the driver's identity on its own axis's field
+// of Process. Keeping it on the driver type puts the axis-specific fact
+// beside the identity it labels.
+func (d AgentDriver) ancestorLabel() ([]string, Process) {
+	return d.Executables, Process{Agent: d.Agent}
+}
+
+func (d TerminalDriver) ancestorLabel() ([]string, Process) {
+	return d.Executables, Process{Terminal: d.Program}
+}
+
+func (d RemoteDriver) ancestorLabel() ([]string, Process) {
+	return d.Executables, Process{Remote: d.Platform}
+}
+
+func (d RunnerDriver) ancestorLabel() ([]string, Process) {
+	return d.Executables, Process{Runner: d.Tool}
+}
+
+// addLabels records one axis's executable names into labels.
+func addLabels[D interface{ ancestorLabel() ([]string, Process) }](labels executableLabels, drivers []D) {
+	for _, driver := range drivers {
+		names, product := driver.ancestorLabel()
+		labels.add(names, product)
+	}
 }
 
 // detectAgents reports every agent layer, most specific orchestrator first.

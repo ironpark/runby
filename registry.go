@@ -31,6 +31,19 @@ func (d TerminalDriver) addTo(r *registry) { r.terminals = append(r.terminals, d
 func (d RemoteDriver) addTo(r *registry)   { r.remotes = append(r.remotes, d) }
 func (d RunnerDriver) addTo(r *registry)   { r.runners = append(r.runners, d) }
 
+// identity returns the driver's product identity as its slug. Every identity
+// type is a string-typed slug, so one string is enough to compare drivers
+// within an axis, and it is what the duplicate panic prints. It is what lets
+// merge and checkUnique be written once instead of once per axis.
+func (d AgentDriver) identity() string    { return string(d.Agent) }
+func (d CIDriver) identity() string       { return string(d.Provider) }
+func (d TerminalDriver) identity() string { return string(d.Program) }
+func (d RemoteDriver) identity() string   { return string(d.Platform) }
+func (d RunnerDriver) identity() string   { return string(d.Tool) }
+
+// identified is the constraint shared by the five driver types.
+type identified interface{ identity() string }
+
 type registry struct {
 	mu        sync.RWMutex
 	agents    []AgentDriver
@@ -100,17 +113,17 @@ func Register(drivers ...Driver) {
 // thing twice, so the ambiguity is refused at registration rather than carried
 // into every result.
 func (r *registry) check() {
-	checkUnique("agent", r.agents, func(d AgentDriver) AgentName { return d.Agent })
-	checkUnique("CI", r.ci, func(d CIDriver) CIProvider { return d.Provider })
-	checkUnique("terminal", r.terminals, func(d TerminalDriver) TerminalProgram { return d.Program })
-	checkUnique("remote", r.remotes, func(d RemoteDriver) RemotePlatform { return d.Platform })
-	checkUnique("runner", r.runners, func(d RunnerDriver) RunnerTool { return d.Tool })
+	checkUnique("agent", r.agents)
+	checkUnique("CI", r.ci)
+	checkUnique("terminal", r.terminals)
+	checkUnique("remote", r.remotes)
+	checkUnique("runner", r.runners)
 }
 
-func checkUnique[D any, ID comparable](axis string, drivers []D, identify func(D) ID) {
-	seen := make(map[ID]bool, len(drivers))
+func checkUnique[D identified](axis string, drivers []D) {
+	seen := make(map[string]bool, len(drivers))
 	for _, driver := range drivers {
-		id := identify(driver)
+		id := driver.identity()
 		if seen[id] {
 			panic(fmt.Sprintf("runby: two %s drivers registered for %v", axis, id))
 		}
@@ -121,17 +134,17 @@ func checkUnique[D any, ID comparable](axis string, drivers []D, identify func(D
 // merge puts the registered drivers ahead of the built-in ones and drops any
 // built-in a registered driver has taken over, so that replacing a built-in
 // yields one layer rather than two.
-func merge[D any, ID comparable](registeredDrivers, builtin []D, identify func(D) ID) []D {
+func merge[D identified](registeredDrivers, builtin []D) []D {
 	if len(registeredDrivers) == 0 {
 		return builtin
 	}
-	replaced := make(map[ID]bool, len(registeredDrivers))
+	replaced := make(map[string]bool, len(registeredDrivers))
 	for _, driver := range registeredDrivers {
-		replaced[identify(driver)] = true
+		replaced[driver.identity()] = true
 	}
 	merged := cloneSlice(registeredDrivers)
 	for _, driver := range builtin {
-		if !replaced[identify(driver)] {
+		if !replaced[driver.identity()] {
 			merged = append(merged, driver)
 		}
 	}
@@ -145,19 +158,14 @@ func defaultOptions() options {
 	registered.mu.RLock()
 	defer registered.mu.RUnlock()
 	return options{
-		env: processEnv{},
-		agentDrivers: merge(registered.agents, builtinAgentDrivers,
-			func(d AgentDriver) AgentName { return d.Agent }),
-		ciDrivers: merge(registered.ci, builtinCIDrivers,
-			func(d CIDriver) CIProvider { return d.Provider }),
-		terminalDrivers: merge(registered.terminals, builtinTerminalDrivers,
-			func(d TerminalDriver) TerminalProgram { return d.Program }),
-		remoteDrivers: merge(registered.remotes, builtinRemoteDrivers,
-			func(d RemoteDriver) RemotePlatform { return d.Platform }),
-		runnerDrivers: merge(registered.runners, builtinRunnerDrivers,
-			func(d RunnerDriver) RunnerTool { return d.Tool }),
-		inspectTTY:     true,
-		inspectProcess: true,
+		env:             processEnv{},
+		agentDrivers:    merge(registered.agents, builtinAgentDrivers),
+		ciDrivers:       merge(registered.ci, builtinCIDrivers),
+		terminalDrivers: merge(registered.terminals, builtinTerminalDrivers),
+		remoteDrivers:   merge(registered.remotes, builtinRemoteDrivers),
+		runnerDrivers:   merge(registered.runners, builtinRunnerDrivers),
+		inspectTTY:      true,
+		inspectProcess:  true,
 	}
 }
 
