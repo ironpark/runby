@@ -111,7 +111,7 @@ runby -json | jq -r '.agents[] | select(.ancestor_pid != null) | .name'
 |---|---|
 | `agents[].agent_id`, `agents[].session_id` | 에이전트/세션 UUID |
 | `agents[].paths.*` | 작업 디렉터리, 데이터 디렉터리 |
-| `agents[].extra`, `ci.extra`, `terminal.extra`, `remote[].extra` | 제품 전용 값 (worktree 경로, 호스트 ID 등) |
+| `agents[].extra`, `ci.extra`, `terminal.extra`, `remotes[].extra` | 제품 전용 값 (worktree 경로, 호스트 ID 등) |
 | `process.ancestors[].path` | 조상 프로세스의 실행 파일 **전체 경로** |
 
 여기에는 사용자 이름이 들어간 홈 디렉터리 경로, 저장소 위치, 세션 식별자가 포함될 수 있습니다. 텍스트 모드는 이 값들을 찍지 않고 이름과 PID만 보여주므로, **버그 리포트에 붙일 때는 `-json`보다 `runby -v`가 안전합니다.**

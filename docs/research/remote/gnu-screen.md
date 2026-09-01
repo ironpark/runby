@@ -12,7 +12,7 @@ runtime_test_reason: 공식 매뉴얼(Environment, Setenv/New Window, Session Na
 
 # GNU Screen
 
-아래 내용은 조사 시점의 공식 매뉴얼([GNU Screen 5.0.0, Aug 2024](https://www.gnu.org/software/screen/manual/screen.html))과 공식 소스 [`git.savannah.gnu.org/cgit/screen.git`](https://git.savannah.gnu.org/cgit/screen.git) master 브랜치(v5.0.0, 커밋 [`9d8b0ff`](https://git.savannah.gnu.org/cgit/screen.git/commit/?id=9d8b0ff3901bdcb8d3bc05d94fce2ef987562768))를 기준으로 확인했습니다. GNU Screen은 [터미널 에뮬레이터 문서](../terminals/README.md)가 다루는 대상과 근본적으로 다른 종류의 소프트웨어입니다 — 터미널은 프로세스를 시작할 때 환경변수를 **주입**만 하고 이후에는 관여하지 않지만, Screen은 서버 프로세스가 살아있는 동안 **어떤 환경을 새 창에 물려줄지 자신이 계속 결정**합니다. 이 문서의 핵심은 마커 변수 자체보다, 그 결정 로직이 언제 갱신되고(혹은 갱신되지 않고) 그것이 `runby`의 세 축(agent·CI·terminal)에 어떤 방향의 오류를 만드는지입니다.
+아래 내용은 조사 시점의 공식 매뉴얼([GNU Screen 5.0.0, Aug 2024](https://www.gnu.org/software/screen/manual/screen.html))과 공식 소스 [`git.savannah.gnu.org/cgit/screen.git`](https://git.savannah.gnu.org/cgit/screen.git) master 브랜치(v5.0.0, 커밋 [`9d8b0ff`](https://git.savannah.gnu.org/cgit/screen.git/commit/?id=9d8b0ff3901bdcb8d3bc05d94fce2ef987562768))를 기준으로 확인했습니다. GNU Screen은 [터미널 에뮬레이터 문서](../terminals/README.md)가 다루는 대상과 근본적으로 다른 종류의 소프트웨어입니다 — 터미널은 프로세스를 시작할 때 환경변수를 **주입**만 하고 이후에는 관여하지 않지만, Screen은 서버 프로세스가 살아있는 동안 **어떤 환경을 새 창에 물려줄지 자신이 계속 결정**합니다. 이 문서의 핵심은 마커 변수 자체보다, 그 결정 로직이 언제 갱신되고(혹은 갱신되지 않고) 그것이 `runby`의 나머지 축(agent·CI·terminal)에 어떤 방향의 오류를 만드는지입니다.
 
 ## 실행 식별 신호
 
@@ -68,13 +68,13 @@ GNU Screen 공식 소스에서 재접속(attach/reattach) 경로를 담당하는
 
 ## 다른 축에 미치는 영향
 
-`runby`가 보고하는 세 축(agent·CI·terminal) 중 GNU Screen이 오염시키는 방식은 서로 다릅니다.
+`runby`는 에이전트·CI·터미널·실행 도구·원격 다섯 축을 보고합니다. GNU Screen 자신은 원격 축의 `RemoteScreen`(`RemoteKindMultiplexer`) 계층으로 보고되므로, 아래에서는 Screen이 **나머지 축**을 오염시키는 방식을 정리합니다 — 축마다 방식이 다릅니다.
 
 - **terminal 축 — 가장 심각하게 오염됩니다.** `STY`/`WINDOW`가 가리키는 것은 "지금 이 프로세스에 붙어 있는 터미널"이 아니라 "이 Screen 서버를 최초로 기동한 터미널"입니다. 게다가 위에서 확인했듯 Screen에는 tmux `update-environment` 같은 새로고침 수단이 전혀 없으므로, 이 오염은 tmux보다 구조적으로 더 심하고 사용자가 설정으로 고칠 수도 없습니다. 오류 방향은 **낡았지만 그럴듯함(stale-but-plausible)**입니다 — 서버가 기동될 당시에는 사실이었던 정보가, 시간이 지나 다른 사람이 다른 터미널에서 재접속해 만든 새 창에도 계속 나타납니다.
 - **CI 축 — stale-but-plausible 오류를 만듭니다.** CI 러너 안에서 시작된 Screen 세션이 잡 종료 후에도 데몬처럼 계속 살아있다면, `GITHUB_ACTIONS` 같은 CI 식별 변수가 서버 기동 시점 스냅샷에 그대로 박혀, 잡이 끝난 한참 뒤 사람이 attach해서 만든 새 창에도 나타날 수 있습니다. "그 서버가 CI 환경에서 시작됐다"는 사실 자체는 참이지만, "지금 이 명령이 CI에서 실행되고 있다"는 판정으로 오독하면 오탐입니다.
 - **agent 축 — 동일한 메커니즘으로 오탐 방향의 오류를 만듭니다.** 만약 어떤 에이전트(예: Claude Code)가 실행한 셸 안에서 Screen 서버가 시작됐다면, 그 에이전트가 주입한 실행 식별 변수(`CLAUDECODE=1` 등)가 서버 기동 시점 스냅샷에 포함되어, 이후 완전히 다른 사람이 대화형으로 만든 새 창에서도 계속 보고될 수 있습니다. Screen 자체는 "누가 명령을 요청했는가"를 판단할 자체 신호를 전혀 제공하지 않으므로, agent 축에 대한 오염은 전적으로 Screen이 상위 프로세스의 에이전트 마커를 오래도록 보존한다는 부작용을 통해서만 발생합니다.
 
-`runby`는 현재 `STY`가 있으면 `Terminal.Multiplexer`를 채우고 `Confidence`를 `probable`로 낮춥니다. 방향은 옳지만, 이번 조사로 확인된 사실 — **Screen은 tmux와 달리 attach 시점 갱신 수단이 아예 없다** — 을 반영하면 이 처리로 충분한지 재검토할 필요가 있습니다. tmux는 사용자가 `update-environment`를 설정하면 적어도 일부 변수는 최신 값을 반영할 수 있는 반면, Screen 세션은 서버가 오래 살아있을수록 낡음이 무조건 누적되며 사용자가 이를 완화할 공식 수단이 `setenv`를 매번 수동 실행하는 것 말고는 없습니다. 따라서 `runby`가 `STY`를 볼 때는 단순히 `probable`로 낮추는 것에 더해, 그 판정이 "창이 만들어진 시점이 아니라 Screen 서버가 최초로 기동된 시점"의 스냅샷에 근거한다는 점, 그리고 그 시점과 현재 사이의 간격을 좁힐 어떤 공식 메커니즘도 없다는 점을 문서·주석 수준에서라도 명시하는 것이 정직합니다.
+`runby`는 `STY`를 `RemoteScreen` 계층으로 보고하고, 멀티플렉서가 잡히면 터미널 판정의 `Confidence`를 `probable`로 낮춥니다. 살아 있는 조상으로 확증되지 않은 에이전트·러너 계층도 함께 낮아집니다(`runby.go`의 `applyMultiplexerStaleness`). 방향은 옳지만, 이번 조사로 확인된 사실 — **Screen은 tmux와 달리 attach 시점 갱신 수단이 아예 없다** — 을 반영하면 이 처리로 충분한지 재검토할 필요가 있습니다. tmux는 사용자가 `update-environment`를 설정하면 적어도 일부 변수는 최신 값을 반영할 수 있는 반면, Screen 세션은 서버가 오래 살아있을수록 낡음이 무조건 누적되며 사용자가 이를 완화할 공식 수단이 `setenv`를 매번 수동 실행하는 것 말고는 없습니다. 따라서 `runby`가 `STY`를 볼 때는 단순히 `probable`로 낮추는 것에 더해, 그 판정이 "창이 만들어진 시점이 아니라 Screen 서버가 최초로 기동된 시점"의 스냅샷에 근거한다는 점, 그리고 그 시점과 현재 사이의 간격을 좁힐 어떤 공식 메커니즘도 없다는 점을 문서·주석 수준에서라도 명시하는 것이 정직합니다.
 
 ## 실행 주체 감지에 관한 결론
 

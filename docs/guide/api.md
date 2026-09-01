@@ -188,7 +188,7 @@ type Agent struct {
 
 `AncestorPID`는 [`process.md`](process.md)를 참고하십시오. **0은 부정이 아닙니다.** `Terminal`, `Remotes[]`, `Runners[]`에도 같은 필드가 있습니다.
 
-드라이버의 `Executables`를 채우면 조상 확증 대상에 포함됩니다. agent·terminal·remote 세 축에서 동작합니다.
+드라이버의 `Executables`를 채우면 조상 확증 대상에 포함됩니다. agent·terminal·remote·runner 네 축에서 동작하며, CI 드라이버에만 이 필드가 없습니다.
 
 ## 캐시된 진입점
 

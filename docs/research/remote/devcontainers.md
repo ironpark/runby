@@ -66,7 +66,7 @@ Docker와 Podman은 **컨테이너 런타임을 알리는 환경변수를 아무
 
 ## 다른 축에 미치는 영향
 
-`runby`는 에이전트·CI·터미널 세 축을 보고합니다. devcontainer 경계를 넘나드는 프로세스에서 이 축들이 어떻게 되는지 짚어야 합니다.
+`runby`는 에이전트·CI·터미널·실행 도구·원격 다섯 축을 보고합니다. Dev Containers 자신은 원격 축의 `RemoteDevContainer`(`RemoteKindEnvironment`) 계층으로 보고되며, devcontainer 경계를 넘나드는 프로세스에서 나머지 축이 어떻게 되는지 짚어야 합니다.
 
 - **호스트에서 컨테이너로 exec하는 에이전트** — 호스트에서 실행 중인 에이전트(예: Claude Code, Cursor Agent)가 `docker exec`로 컨테이너 안에 셸을 띄우는 경우, `docker exec`는 **호스트 프로세스의 환경을 컨테이너 프로세스에 상속시키지 않습니다.** 컨테이너 안 프로세스는 그 컨테이너의 `containerEnv`(또는 이미지에 굽힌 값)에서 시작하며, 호스트에서 설정된 에이전트 마커(`CLAUDECODE=1`, `CURSOR_AGENT` 등)는 `docker exec -e VAR=value`로 명시적으로 전달하지 않는 한 **건너가지 않습니다.**
 - **VS Code가 원격 세션에 전달하는 값** — VS Code Dev Containers 확장은 예외적으로 이 경계를 스스로 메웁니다. 확장이 컨테이너에 붙일 때 `remoteEnv`(및 자체 IPC 메커니즘)로 자신이 필요로 하는 값을 그 연결이 띄우는 프로세스에만 주입합니다. 이는 일반적인 `docker exec`가 아니라 VS Code 서버 프로세스 자체가 하는 일이므로, VS Code로 연 세션의 터미널에서는 호스트 쪽 VS Code 관련 마커 일부가 보일 수 있지만, 같은 컨테이너에 별도로 `docker exec`로 들어간 셸에는 보이지 않습니다.

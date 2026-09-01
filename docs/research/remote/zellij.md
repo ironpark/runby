@@ -118,7 +118,7 @@ pub fn set_vars(&self) {
 
 ## 다른 축에 미치는 영향
 
-`runby`는 세 축(agent/CI/terminal)을 보고합니다. Zellij는 이 중 **터미널(terminal) 축을 구조적으로 오염시키는 멀티플렉서**이며, 나머지 두 축에는 직접적인 신호를 제공하지 않습니다.
+`runby`는 다섯 축(agent/CI/terminal/runner/remote)을 보고합니다. Zellij 자신은 원격 축의 `RemoteZellij`(`RemoteKindMultiplexer`) 계층으로 보고되며, 나머지 축에 대해서는 **터미널 축을 구조적으로 오염시키는 멀티플렉서**로만 작용하고 직접적인 신호는 제공하지 않습니다.
 
 - **터미널 축(`Result.Terminal`)** — 오염 방향은 명확합니다. `docs/research/terminals/README.md`가 정리한 "멀티플렉서 잔존" 문제와 동일하게, Zellij 세션 안 프로세스가 보고하는 `TERM_PROGRAM`/`KITTY_WINDOW_ID` 등 터미널 식별 변수는 **세션을 최초로 만든 클라이언트가 실행되던 터미널**을 가리킵니다. 지금 실제로 화면을 보고 있는 터미널 에뮬레이터와 무관할 수 있고, 앞 절에서 확인했듯 Zellij에는 이를 갱신할 tmux식 `update-environment`조차 없어 tmux보다 더 오래 낡은 값을 들고 있을 수 있습니다. 다만 `TERM` 자체는 Zellij가 재작성하지 않으므로, 적어도 `TERM`이 가리키는 terminfo 능력 정보는 원본 터미널의 것이 그대로 유지됩니다(tmux/screen처럼 `tmux-256color`/`screen`으로 뭉개지지 않음).
 - **에이전트 축(`Kind`)** — Zellij 공식 변수 중 "누가(사람 또는 어떤 agent 하네스가) 이 명령을 요청했는가"를 나타내는 것은 없습니다. `ZELLIJ`/`ZELLIJ_SESSION_NAME`/`ZELLIJ_PANE_ID`는 모두 실행 공간(멀티플렉서 세션·pane)을 가리킬 뿐 요청 주체를 가리키지 않으므로, `runby`가 이미 다른 문서에서 확인한 원칙("터미널을 소유한다는 사실은 에이전트 실행의 증거가 아니다")이 그대로 적용됩니다. Zellij는 agent 관련 축에 어떤 신호도 제공하지 않습니다.
@@ -126,7 +126,7 @@ pub fn set_vars(&self) {
 
 ### Zellij를 `runby`에 추가해야 하는가
 
-**추가해야 합니다.** `runby`는 이미 `TMUX`와 `STY`로 `Terminal.Multiplexer`를 채우고 그때 `Confidence`를 `probable`로 낮추는 정책을 갖고 있습니다(`terminal.go`의 `detectMultiplexer`). Zellij는 이 두 제품과 정확히 같은 구조적 위치에 있는 세 번째 멀티플렉서이므로, 같은 정책을 그대로 적용하는 것이 일관적입니다.
+**추가했습니다.** `runby`는 `TMUX`와 `STY`를 `RemoteKindMultiplexer` 계층으로 보고하고 그때 터미널 판정의 `Confidence`를 `probable`로 낮추는 정책을 갖고 있습니다(`remote_drivers.go`와 `runby.go`의 `applyMultiplexerStaleness`). Zellij는 이 두 제품과 정확히 같은 구조적 위치에 있는 세 번째 멀티플렉서이므로, `RemoteZellij`로 같은 정책을 그대로 적용했습니다.
 
 - **마커**: `ZELLIJ` 환경변수의 **존재 여부**만 검사해야 합니다. 값이 `"0"`이라는 사실 때문에, `TMUX`/`STY`와 달리 이 변수는 절대 `strconv.ParseBool`로 판정해서는 안 됩니다 — 존재 확인(예: `Value(env, "ZELLIJ")`가 반환하는 `ok`)만으로 감지하고, 값 자체는 검사에 쓰지 않아야 합니다.
 - **부가 정보**: `ZELLIJ_SESSION_NAME`은 tmux 세션 이름과 동일한 성격(사용자 선택, 비유일)이므로 있다면 참고 정보로만 노출하고 신뢰 경계로 쓰지 않아야 합니다.

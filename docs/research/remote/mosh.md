@@ -66,7 +66,7 @@ Mosh는 원격 호스트에서 실제 터미널 에뮬레이터를 흉내 내지
 
 ## 다른 축에 미치는 영향
 
-`runby`는 agent(누가 실행을 요청했는가) / CI(어디서 실행되는가) / terminal(어떤 터미널이 소유하는가) 세 축을 보고합니다. Mosh는 세 축 중 특히 **terminal 축을 조용히 무력화**합니다.
+`runby`는 agent(누가 실행을 요청했는가) / CI(어디서 실행되는가) / terminal(어떤 터미널이 소유하는가) / runner(무엇이 직접 실행했는가) / remote(사용자와 프로세스 사이에 무엇이 있는가) 다섯 축을 보고합니다. Mosh는 마커가 없어 remote 축에도 나타나지 않으며, 그러면서 특히 **terminal 축을 조용히 무력화**합니다.
 
 - **Terminal 축.** SSH 위에서 동작하는 다른 터미널들(iTerm2의 `LC_TERMINAL`, kitty의 `kitten ssh` 등, [`terminals/README.md`](../terminals/README.md) 참고)은 최소한 "낡았을 수 있는 값"이라도 원격에 전달합니다. Mosh는 그런 전달 메커니즘 자체가 없고, 오히려 `TERM`을 `xterm`/`xterm-256color`로 강제 재작성해 로컬 터미널의 정체성을 지워버립니다. 즉 Mosh를 거친 원격 셸에서는 `TERM_PROGRAM`류 변수가 아예 도착하지 않을 뿐 아니라, 도착했더라도 `TERM` 자체가 로컬 터미널을 가리키지 않게 됩니다. 로밍까지 겹치면 유일하게 살아남는 `SSH_CONNECTION`조차 "지금 여기"가 아니라 "몇 시간/며칠 전 부트스트랩 시점"을 가리키므로, 터미널 축의 신뢰도는 이 문서가 다루는 어떤 다른 제품보다도 낮습니다.
 - **Agent 축.** Mosh 자체는 에이전트를 실행하거나 구분하는 기능이 없습니다(`executes_agents: []`). Mosh 세션 안에서 Claude Code나 Codex 같은 에이전트가 실행된다면, 그 에이전트들의 고유 마커(`CLAUDECODE=1` 등)는 Mosh와 무관하게 정상적으로 상속·관측됩니다. Mosh는 이 축에 신호를 추가하지도, 지우지도 않습니다.

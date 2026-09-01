@@ -21,7 +21,7 @@
 | `runtime_test_required` | 공식 문서·소스 조사 외에 제품을 직접 실행하는 추가 검증이 필요한지 여부 |
 | `runtime_test_reason` | 직접 실행 검증이 필요하거나 불필요하다고 판정한 근거와 핵심 시험 범위 |
 
-`product_type`은 코드의 `Kind`와 대응합니다. `agent_harness`는 `KindHarness`, `agent_orchestrator`는 `KindOrchestrator`입니다. `ci_platform`과 `terminal_emulator`는 예외로, `Kind`가 아니라 각각 `Result.CI`와 `Result.Terminal`이라는 **별도 축**이 됩니다. 에이전트가 CI 안에서, 또 터미널 안에서 실행될 수 있어 세 축이 동시에 참일 수 있기 때문입니다.
+`product_type`은 코드의 `Kind`와 대응합니다. `agent_harness`는 `KindHarness`, `agent_orchestrator`는 `KindOrchestrator`입니다. `ci_platform`과 `terminal_emulator`는 예외로, `Kind`가 아니라 각각 `Result.CI`와 `Result.Terminal`이라는 **별도 축**이 됩니다. 에이전트가 CI 안에서, 또 터미널 안에서 실행될 수 있어 축들이 동시에 참일 수 있기 때문입니다. 같은 이유로 `Result.Runners`와 `Result.Remotes`도 별도 축입니다.
 
 `agent_host`는 현재 코드에 대응하는 `Kind`가 없습니다. 터미널을 소유한다는 사실은 에이전트 실행의 증거가 아니므로, Zed처럼 여기 해당하던 제품은 터미널 축으로 옮겼으므로, `agent_host` 문서는 `Result.Terminal`을 통해 반영됩니다.
 
@@ -39,18 +39,41 @@
 | Zed Agent | Agent 전용 신호 없음 | `ZED_TERM=true`는 Zed 터미널만 식별 |
 | Cursor Agent | `CURSOR_AGENT` | Cursor Agent가 실행한 셸 |
 | GitHub Copilot CLI | 없음 | 공개 변수는 설정·관측용 |
-| OpenCode | 일반 실행 신호 없음 | `OPENCODE_CLIENT=acp`는 ACP 실행의 보조 신호 |
+| OpenCode | `OPENCODE=1` | 모든 OpenCode 실행. `OPENCODE_CLIENT=acp`는 ACP 진입점을 덧붙이며, 이 변수만 단독으로 있으면 `probable` |
+| Gemini CLI | `GEMINI_CLI` | Gemini CLI가 실행한 셸 |
+| Grok Build | `GROK_PLUGIN_ROOT`, `GROK_PLUGIN_DATA` | Grok Build 플러그인이 실행한 프로세스 |
+| OpenClaw | `OPENCLAW_SHELL` | OpenClaw가 실행한 셸 |
+| Auggie | `AUGMENT_AGENT` | Auggie가 실행한 프로세스 |
+| Cline | `CLINE_ACTIVE` | Cline이 실행한 셸. 에디터 안에서 돌므로 조상 실행 파일로는 확증할 수 없음 |
 | JetBrains Junie | 없음 | 공개 변수는 CLI 입력 설정용 |
 
 ## CI 플랫폼별 조사
 
 CI 감지는 "누가 명령을 요청했는가"가 아니라 "어디서 실행되는가"를 답하므로 `Agent`가 아닌 `Result.CI`로 보고합니다. 문서는 [`ci/`](ci/)에 있습니다.
 
+- [GitHub Actions](ci/github-actions.md)
 - [Forgejo Actions (Forgejo Runner)](ci/forgejo-runner.md)
+- [GitLab CI/CD](ci/gitlab-ci.md)
+- [CircleCI](ci/circleci.md)
+- [Travis CI](ci/travis-ci.md)
+- [Buildkite](ci/buildkite.md)
+- [Azure Pipelines](ci/azure-pipelines.md)
+- [Bitbucket Pipelines](ci/bitbucket-pipelines.md)
+- [Jenkins](ci/jenkins.md)
 
 ## 멀티플렉서·원격 실행 계층 조사
 
 사용자와 프로세스 사이에 끼어 있는 계층입니다. 다른 범주와 달리 자기 변수를 추가하는 데 그치지 않고 **다른 축의 변수가 살아남을지, 어떻게 변형될지를 결정**하므로(`update-environment`, `SendEnv`, `WSLENV`), 나머지 문서의 신뢰도 해석에 전제가 됩니다. 문서는 [`remote/`](remote/)에 있습니다.
+
+- [tmux](remote/tmux.md)
+- [GNU Screen](remote/gnu-screen.md)
+- [Zellij](remote/zellij.md)
+- [OpenSSH](remote/openssh.md)
+- [WSL](remote/wsl.md)
+- [GitHub Codespaces](remote/github-codespaces.md)
+- [Gitpod](remote/gitpod.md)
+- [Dev Containers](remote/devcontainers.md)
+- [Mosh](remote/mosh.md) — 감지하지 않는 이유
 
 ## 실행 주체 조사
 
@@ -75,4 +98,12 @@ CI 감지는 "누가 명령을 요청했는가"가 아니라 "어디서 실행�
 - [Cursor Agent](agents/cursor-agent.md)
 - [GitHub Copilot CLI](agents/github-copilot-cli.md)
 - [OpenCode](agents/opencode.md)
-- [JetBrains Junie](agents/junie.md)
+- [Gemini CLI](agents/gemini-cli.md)
+- [Grok Build](agents/grok-build.md)
+- [OpenClaw](agents/openclaw.md)
+- [Auggie](agents/auggie.md)
+- [Cline](agents/cline.md)
+- [JetBrains Junie](agents/junie.md) — 감지하지 않는 이유
+- [Goose](agents/goose.md) — 감지하지 않는 이유
+- [Cowork](agents/cowork.md) — 감지하지 않는 이유
+- [Kimi CLI](agents/kimi-cli.md) — 감지하지 않는 이유

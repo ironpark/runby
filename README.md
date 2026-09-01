@@ -85,13 +85,20 @@ testResult := runby.Detect(runby.WithEnviron([]string{"GITHUB_ACTIONS=true"}))
 ```console
 $ runby
 agent     paseo>codex
+            paseo          orchestrator  delegated     definite  살아 있는 조상 pid=84445
+            codex          harness       first-party   probable
 ci        -
-terminal  ghostty (definite)
+terminal  ghostty (probable)
 remote    tmux (multiplexer)
 runner    npm (script) test
 tty       대화형 (stdin과 출력이 터미널)
 process   조상 7개
+
+주의: tmux 안에서 실행 중입니다. 멀티플렉서는 이미 열린 pane의 환경을
+갱신하지 않으므로 터미널 축의 값이 낡았을 수 있습니다.
 ```
+
+여기서 `codex`와 `ghostty`가 `probable`인 것은 tmux 때문입니다. 멀티플렉서는 이미 열린 pane의 환경을 갱신하지 못하므로, 살아 있는 조상으로 확증되지 않은 판정은 신뢰도가 한 단계 낮아집니다. `paseo`는 조상 프로세스로 확증돼서 `definite`로 남았습니다.
 
 셸 조건문에서는 출력 대신 종료 코드로 답하는 `is` 명령을 사용합니다.
 
@@ -128,7 +135,7 @@ runby -json            # Result 전체 JSON
 
 ## 지원 범위
 
-- **에이전트:** Paseo, Orca, Antigravity 2.0, Cursor Agent, OpenCode ACP, Amp, OpenClaw, Auggie, Cline, OpenAI Codex, Claude Code, Gemini CLI, Grok Build
+- **에이전트:** Paseo, Orca, Antigravity 2.0, Cursor Agent, OpenCode, Amp, OpenClaw, Auggie, Cline, OpenAI Codex, Claude Code, Gemini CLI, Grok Build
 - **CI:** GitHub Actions, Forgejo Actions, GitLab CI/CD, CircleCI, Travis CI, Buildkite, Azure Pipelines, Bitbucket Pipelines, Jenkins, 일반 `CI=true`
 - **실행 도구:** npm, pnpm, Bun, GNU Make, systemd, pre-commit
 - **원격 환경:** tmux, GNU Screen, Zellij, OpenSSH, WSL, GitHub Codespaces, Gitpod, Dev Containers

@@ -13,14 +13,16 @@ tree.Ancestors            // 가까운 부모부터
 tree.FindAgent(runby.AgentCodex)
 ```
 
+`runby -v`가 같은 내용을 보여줍니다. 조상 줄의 `agent=`는 그 실행 파일이 어느 제품의 것인지 라벨링된 결과이고, 에이전트 줄의 `살아 있는 조상 pid=`는 그 라벨이 환경변수 판정을 확증했다는 뜻입니다.
+
 ```
-env chain : paseo>claude-code
-  pid=3066    zsh
-  pid=11904   claude           -> agent=claude-code
-  pid=2540    paseo            -> agent=paseo
-corroboration:
-  paseo          CONFIRMED by live ancestor pid=2540
-  claude-code    CONFIRMED by live ancestor pid=11904
+agent     paseo>claude-code
+            paseo          orchestrator  delegated     definite  살아 있는 조상 pid=2540
+            claude-code    harness       first-party   definite  살아 있는 조상 pid=11904
+process   조상 3개
+            pid=3066     zsh
+            pid=11904    claude  agent=claude-code
+            pid=2540     paseo  agent=paseo
 ```
 
 ## 교차 검증
@@ -35,7 +37,7 @@ for _, agent := range runby.Current().Agents {
 }
 ```
 
-세 축 모두 확증을 받습니다 — `Agent.AncestorPID`, `Terminal.AncestorPID`, `Remote[].AncestorPID`.
+네 축 모두 확증을 받습니다 — `Agent.AncestorPID`, `Terminal.AncestorPID`, `Remotes[].AncestorPID`, `Runners[].AncestorPID`. CI 축만 예외입니다: CI 잡은 이 프로세스가 파생된 조상 프로세스가 아니라 러너 위의 작업이므로, 체인에 대조할 대상이 없습니다.
 
 ### 살아 있는 터미널 조상은 멀티플렉서 강등을 취소합니다
 

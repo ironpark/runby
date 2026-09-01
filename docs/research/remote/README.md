@@ -124,7 +124,9 @@ Mosh와 컨테이너 런타임 일반은 위에서 설명한 이유로 감지하
 
 `Result.Remotes`는 슬라이스이며 **순서는 감지 순서일 뿐 중첩 순서가 아닙니다.** 환경변수로는 어느 계층이 바깥인지 증명할 수 없습니다.
 
-멀티플렉서가 잡히면 `Terminal.Confidence`를 `probable`로 낮춥니다. SSH는 낮추지 않습니다 — 값이 낡은 것이 아니라 다른 머신을 가리킬 수 있다는 뜻이므로, `RemoteSSH` 계층의 존재로 그 사실을 표현합니다.
+멀티플렉서가 잡히면 `Terminal.Confidence`를 `probable`로 낮춥니다 — 단, 터미널이 살아 있는 조상으로 확증되지 않았고(`AncestorPID == 0`) 원래 `definite`였을 때만입니다. 같은 조건으로 에이전트·러너 계층의 신뢰도도 낮아집니다(`runby.go`의 `applyMultiplexerStaleness`). CI 축은 멀티플렉서의 저장된 환경을 거쳐 실행되지 않으므로, remote 축은 멀티플렉서 자신이 그 축의 계층이므로 각각 건드리지 않습니다.
+
+SSH는 낮추지 않습니다 — 값이 낡은 것이 아니라 다른 머신을 가리킬 수 있다는 뜻이므로, `RemoteSSH` 계층의 존재로 그 사실을 표현합니다.
 
 오탐 때문에 일부러 마커로 쓰지 않는 변수는 `SSH_AUTH_SOCK`(로컬 `ssh-agent`도 설정), `WINDOW`(이름이 너무 일반적), `LC_TERMINAL`(SSH를 건너감)입니다.
 

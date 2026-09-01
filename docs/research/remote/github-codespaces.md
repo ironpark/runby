@@ -75,7 +75,7 @@ Codespace는 사용자의 로컬 머신과는 별개의 원격 컨테이너입�
 
 ## 다른 축에 미치는 영향
 
-Codespace는 리눅스 컨테이너이므로 그 안에서 실행되는 터미널 에뮬레이터 신호(`docs/research/terminals/`)는 컨테이너에 실제로 붙은 클라이언트(브라우저 내장 xterm.js 터미널, VS Code 통합 터미널 등)의 것이며, 로컬 터미널의 값과는 무관하게 독립적으로 관측됩니다. 에이전트 축(`docs/research/agents/`)도 마찬가지로, 컨테이너 안에서 에이전트 CLI를 실행해야만 해당 마커가 나타나고 로컬에서 실행 중인 에이전트는 이 컨테이너에 아무 흔적도 남기지 않습니다. CI 축은 앞 절에서 다룬 대로 `CODESPACES=true`가 `GITHUB_ACTIONS`·`FORGEJO_ACTIONS` 어느 쪽과도 동시에 서지 않는다는 점에서, 세 축(터미널·에이전트·CI) 모두 Codespaces와 원칙적으로 독립적으로 병존할 수 있는 구조입니다.
+Codespace는 리눅스 컨테이너이므로 그 안에서 실행되는 터미널 에뮬레이터 신호(`docs/research/terminals/`)는 컨테이너에 실제로 붙은 클라이언트(브라우저 내장 xterm.js 터미널, VS Code 통합 터미널 등)의 것이며, 로컬 터미널의 값과는 무관하게 독립적으로 관측됩니다. 에이전트 축(`docs/research/agents/`)도 마찬가지로, 컨테이너 안에서 에이전트 CLI를 실행해야만 해당 마커가 나타나고 로컬에서 실행 중인 에이전트는 이 컨테이너에 아무 흔적도 남기지 않습니다. CI 축은 앞 절에서 다룬 대로 `CODESPACES=true`가 `GITHUB_ACTIONS`·`FORGEJO_ACTIONS` 어느 쪽과도 동시에 서지 않는다는 점에서, 터미널·에이전트·CI 축 모두 Codespaces와 원칙적으로 독립적으로 병존할 수 있는 구조입니다 — Codespaces 자신은 원격 축의 `RemoteCodespaces` 계층으로 따로 보고됩니다.
 
 ## 실행 주체 감지에 관한 결론
 

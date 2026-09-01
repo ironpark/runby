@@ -46,7 +46,7 @@ Gitpod 워크스페이스는 사용자의 로컬 머신과 완전히 분리된 �
 
 ## 다른 축에 미치는 영향
 
-`runby`가 보고하는 세 축(에이전트·CI·터미널) 중 Gitpod 자체의 공식 변수가 직접 값을 채우는 축은 없습니다.
+`runby`는 에이전트·CI·터미널·실행 도구·원격 다섯 축을 보고합니다. Gitpod 자신은 `GITPOD_WORKSPACE_ID`로 원격 축의 `RemoteGitpod`(`RemoteKindEnvironment`) 계층을 채우며, **나머지 네 축**에는 Gitpod의 공식 변수가 직접 값을 채우지 않습니다.
 
 - **CI 축** — 위에서 확인한 대로 Gitpod은 `CI`를 설정하지 않습니다. `GITPOD_WORKSPACE_ID` 같은 마커가 있다고 해서 `Result.CI`를 채울 근거는 없으며, 오히려 대화형 환경이라는 사실이 CI 판정과 상충합니다.
 - **터미널 축** — 공식 문서에 `TERM_PROGRAM`이나 터미널 에뮬레이터 식별용 변수를 Gitpod이 자체적으로 설정한다는 언급이 없습니다. 워크스페이스 내부에서 관측되는 터미널 신호는 그 컨테이너에 실제로 붙은 클라이언트(브라우저 내장 xterm.js, VS Code 통합 터미널 등)가 독립적으로 만드는 값이며, `docs/research/terminals/`의 감지 규칙과 동일하게 다뤄야 합니다.
