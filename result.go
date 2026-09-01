@@ -1,5 +1,7 @@
 package runby
 
+import "strings"
+
 // Agent is one agent layer detected in an environment.
 type Agent struct {
 	Name AgentName `json:"name"`
@@ -294,9 +296,11 @@ func (r Result) Chain() string {
 	if len(r.Agents) == 0 {
 		return AgentUnknown.String()
 	}
-	chain := r.Agents[0].Name.String()
+	var chain strings.Builder
+	chain.WriteString(r.Agents[0].Name.String())
 	for _, layer := range r.Agents[1:] {
-		chain += ">" + layer.Name.String()
+		chain.WriteByte('>')
+		chain.WriteString(layer.Name.String())
 	}
-	return chain
+	return chain.String()
 }

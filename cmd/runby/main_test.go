@@ -85,6 +85,9 @@ func TestJSONRoundTripsToTheSameResult(t *testing.T) {
 	if round.Chain() != runby.Current().Chain() {
 		t.Errorf("decoded chain = %q, want %q", round.Chain(), runby.Current().Chain())
 	}
+	if strings.Contains(stdout, `"evidence": null`) {
+		t.Errorf("-json emitted null evidence:\n%s", stdout)
+	}
 }
 
 func TestChainPrintsOneLine(t *testing.T) {
@@ -144,6 +147,30 @@ func TestVerboseAddsEvidenceNamesAndNeverValues(t *testing.T) {
 		if strings.Contains(verbose, value) {
 			t.Errorf("-v printed the VALUE of %s, which may be sensitive", name)
 		}
+	}
+}
+
+func TestVerboseLabelsRunnerAncestors(t *testing.T) {
+	result := runby.Result{Process: runby.ProcessTree{
+		Inspected: true,
+		Ancestors: []runby.Process{{PID: 42, Name: "npm", Runner: runby.RunnerNPM}},
+	}}
+	var output bytes.Buffer
+	report(&output, result, true)
+	if !strings.Contains(output.String(), "runner=npm") {
+		t.Errorf("-v omits runner ancestor label:\n%s", output.String())
+	}
+}
+
+func TestMultiplexerWarningNamesEveryDowngradedAxis(t *testing.T) {
+	result := runby.Result{Remotes: []runby.Remote{{
+		Platform: runby.RemoteTmux,
+		Kind:     runby.RemoteKindMultiplexer,
+	}}}
+	var output bytes.Buffer
+	report(&output, result, false)
+	if !strings.Contains(output.String(), "환경에서 파생된 축(터미널·에이전트·러너)") {
+		t.Errorf("멀티플렉서 경고가 강등 대상 축을 모두 언급하지 않음:\n%s", output.String())
 	}
 }
 

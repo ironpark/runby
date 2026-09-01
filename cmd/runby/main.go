@@ -335,6 +335,8 @@ func report(w io.Writer, result runby.Result, verbose bool) {
 				label = "  terminal=" + string(p.Terminal)
 			case p.Remote != "":
 				label = "  remote=" + string(p.Remote)
+			case p.Runner != "":
+				label = "  runner=" + string(p.Runner)
 			}
 			fmt.Fprintf(w, "%-9s   pid=%-8d %s%s\n", "", p.PID, name, label)
 		}
@@ -342,7 +344,7 @@ func report(w io.Writer, result runby.Result, verbose bool) {
 
 	if multiplexer, ok := result.Multiplexer(); ok {
 		fmt.Fprintf(w, "\n주의: %s 안에서 실행 중입니다. 멀티플렉서는 이미 열린 pane의 환경을\n"+
-			"갱신하지 않으므로 터미널 축의 값이 낡았을 수 있습니다.\n", multiplexer.Platform)
+			"갱신하지 않으므로 환경에서 파생된 축(터미널·에이전트·러너)의 값이 낡았을 수 있습니다.\n", multiplexer.Platform)
 	}
 }
 

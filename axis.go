@@ -23,7 +23,7 @@ type Axis struct {
 
 	// Evidence lists the environment variable names that produced this
 	// result, sorted. Their values may be sensitive and are never copied.
-	Evidence []string `json:"evidence"`
+	Evidence []string `json:"evidence,omitempty"`
 }
 
 // applyDefaults fills in what a driver is allowed to leave unset. Every axis

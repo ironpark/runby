@@ -52,9 +52,8 @@ func EnvironEnv(environ []string) Env {
 	return env
 }
 
-// The helpers below are exported so that a driver supplied through
-// Register or WithOnlyDrivers parses the environment exactly like the
-// built-in ones.
+// The helpers below hold the parsing rules shared by the built-in specs and
+// EnvReader.
 
 // envValue returns the space-trimmed value of name, and whether it is set to a
 // non-empty value. A variable set to the empty string is not evidence.
