@@ -1,0 +1,42 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go test ./...
+      - name: build CLI for each target
+        run: |
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            export GOOS=${target%/*} GOARCH=${target#*/}
+            bin=runby
+            [ "$GOOS" = windows ] && bin=runby.exe
+            CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "dist/$bin" ./cmd/runby
+            name="runby_${GITHUB_REF_NAME#v}_${GOOS}_${GOARCH}"
+            if [ "$GOOS" = windows ]; then
+              (cd dist && zip -q "$name.zip" "$bin" && rm "$bin")
+            else
+              tar -C dist -czf "dist/$name.tar.gz" "$bin"
+              rm "dist/$bin"
+            fi
+          done
+          (cd dist && sha256sum ./* > checksums.txt)
+      - name: create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes
