@@ -73,6 +73,7 @@ testResult := runby.Detect(runby.WithEnviron([]string{"GITHUB_ACTIONS=true"}))
 | SSH·tmux·컨테이너 개발 환경을 거쳤나? | `result.IsRemote()` | `true` |
 | 어떤 터미널 환경에서 시작됐나? | `result.HasTerminal()` / `result.Terminal` | `ghostty` |
 | 지금 프롬프트를 사용할 수 있나? | `result.TTY.Interactive` | `true` |
+| 아무도 출력을 보고 있지 않나? | `result.Unattended()` | `true` |
 | 감지된 실행 주체가 현재도 조상인가? | `AncestorPID` | `2540` |
 
 `Terminal`과 `TTY`는 다릅니다. `Terminal`은 환경을 만든 에뮬레이터의 이름이고, `TTY`는 현재 표준 스트림이 터미널에 연결됐는지 나타냅니다. 프롬프트 여부를 정할 때는 `TTY.Interactive`를 사용하세요.

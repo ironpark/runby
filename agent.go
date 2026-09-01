@@ -53,6 +53,10 @@ const (
 	KindHarness Kind = "harness"
 )
 
+// String returns the stable slug used across this package, its documentation,
+// and its serialized output.
+func (k Kind) String() string { return slug(k, KindUnknown) }
+
 // ModelSource says where the intelligence behind a product comes from. It
 // mirrors the model_source field recorded in docs/research/agents.
 //
@@ -210,6 +214,10 @@ const (
 	ConfidenceProbable Confidence = "probable"
 )
 
+// String returns the stable slug used across this package, its documentation,
+// and its serialized output.
+func (c Confidence) String() string { return slug(c, ConfidenceUnknown) }
+
 // Network describes the network access advertised by the agent environment.
 type Network string
 
@@ -218,3 +226,7 @@ const (
 	NetworkEnabled  Network = "enabled"
 	NetworkDisabled Network = "disabled"
 )
+
+// String returns the stable slug used across this package, its documentation,
+// and its serialized output.
+func (n Network) String() string { return slug(n, NetworkUnknown) }

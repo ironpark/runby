@@ -2,6 +2,7 @@ package runby_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -265,12 +266,12 @@ func TestEmptyValueIsNotEvidence(t *testing.T) {
 	}
 }
 
-func TestWithLookupAndLastValueWins(t *testing.T) {
+func TestLookupFuncAndLastValueWins(t *testing.T) {
 	values := map[string]string{"CURSOR_AGENT": "1"}
-	got := runby.Detect(runby.WithLookup(func(name string) (string, bool) {
+	got := runby.Detect(runby.WithEnv(runby.LookupFunc(func(name string) (string, bool) {
 		value, ok := values[name]
 		return value, ok
-	}))
+	})))
 	if got.Agent() != runby.AgentCursor {
 		t.Fatalf("Agent() = %q, want %q", got.Agent(), runby.AgentCursor)
 	}
@@ -532,13 +533,13 @@ func TestSessionAndAgentIDAcrossLayers(t *testing.T) {
 		"CODEX_THREAD_ID=thread-123",
 	}))
 
-	sessionID, sessionAgent, ok := result.SessionID()
-	if !ok || sessionID != "thread-123" || sessionAgent != runby.AgentCodex {
-		t.Fatalf("SessionID() = %q, %q, %v, want the harness thread", sessionID, sessionAgent, ok)
+	session, ok := result.SessionID()
+	if !ok || session.Value != "thread-123" || session.Agent != runby.AgentCodex {
+		t.Fatalf("SessionID() = %#v, %v, want the harness thread", session, ok)
 	}
-	agentID, agentSource, ok := result.AgentID()
-	if !ok || agentID != "reviewer" || agentSource != runby.AgentPaseo {
-		t.Fatalf("AgentID() = %q, %q, %v, want the orchestrator agent", agentID, agentSource, ok)
+	agentID, ok := result.AgentID()
+	if !ok || agentID.Value != "reviewer" || agentID.Agent != runby.AgentPaseo {
+		t.Fatalf("AgentID() = %#v, %v, want the orchestrator agent", agentID, ok)
 	}
 
 	// Two layers advertise a session here. The outermost wins, and the agent
@@ -548,22 +549,102 @@ func TestSessionAndAgentIDAcrossLayers(t *testing.T) {
 		"ORCA_TAB_ID=tab-1",
 		"CODEX_THREAD_ID=thread-123",
 	}))
-	sessionID, sessionAgent, ok = nested.SessionID()
-	if !ok || sessionID != "pane-1" || sessionAgent != runby.AgentOrca {
-		t.Fatalf("SessionID() = %q, %q, %v, want the outermost layer", sessionID, sessionAgent, ok)
+	session, ok = nested.SessionID()
+	if !ok || session.Value != "pane-1" || session.Agent != runby.AgentOrca {
+		t.Fatalf("SessionID() = %#v, %v, want the outermost layer", session, ok)
 	}
 	if codex, found := nested.Layer(runby.AgentCodex); !found || codex.SessionID != "thread-123" {
 		t.Fatalf("the inner session is still reachable per layer: %#v", codex)
 	}
-	if agentID, agentSource, ok = nested.AgentID(); ok || agentID != "" || agentSource != runby.AgentUnknown {
-		t.Fatalf("AgentID() = %q, %q, %v, want empty when no layer advertises one", agentID, agentSource, ok)
+	if agentID, ok = nested.AgentID(); ok || agentID != (runby.Identifier{}) {
+		t.Fatalf("AgentID() = %#v, %v, want the zero Identifier when no layer advertises one", agentID, ok)
 	}
 
 	none := runby.Detect(runby.WithEnviron(nil))
-	if _, _, ok := none.SessionID(); ok {
+	if _, ok := none.SessionID(); ok {
 		t.Fatal("SessionID() reported a session with no agent detected")
 	}
-	if _, _, ok := none.AgentID(); ok {
+	if _, ok := none.AgentID(); ok {
 		t.Fatal("AgentID() reported an agent id with no agent detected")
+	}
+}
+
+// Unattended is the one place this package combines axes, so its rule is
+// pinned by test as well as by doc comment.
+func TestUnattended(t *testing.T) {
+	interactive := runby.TTY{Inspected: true, StdinTTY: true, StdoutTTY: true, Attached: true, Interactive: true}
+	piped := runby.TTY{Inspected: true}
+
+	for _, test := range []struct {
+		name    string
+		environ []string
+		tty     runby.TTY
+		want    bool
+	}{
+		{"a person at a terminal", nil, interactive, false},
+		{"output redirected", nil, piped, true},
+		{"an agent that allocated a pty", []string{"CODEX_SANDBOX=seatbelt"}, interactive, true},
+		{"CI with a pty", []string{"GITHUB_ACTIONS=true"}, interactive, true},
+		{"a systemd unit", []string{"INVOCATION_ID=abc"}, interactive, true},
+		// A script runner is not a reason on its own: `npm test` typed at a
+		// prompt still has a person in front of it.
+		{"an npm script at a terminal", []string{"npm_config_user_agent=npm/10.0.0 node/v22"}, interactive, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := runby.Detect(runby.WithEnviron(test.environ), runby.WithTTY(test.tty))
+			if got := result.Unattended(); got != test.want {
+				t.Errorf("Unattended() = %v, want %v: %#v", got, test.want, result)
+			}
+		})
+	}
+}
+
+// An unread TTY is not evidence. A Result built from a bare environment never
+// examined the streams, so the TTY clause must not fire on its zero value.
+func TestUnattendedIgnoresAnUninspectedTTY(t *testing.T) {
+	result := runby.Detect(runby.WithEnviron(nil))
+	if result.TTY.Inspected {
+		t.Fatal("WithEnviron inspected the standard streams")
+	}
+	if result.Unattended() {
+		t.Errorf("Unattended() = true from an unread TTY: %#v", result.TTY)
+	}
+}
+
+// Every identity and classification enum in this package renders its zero value
+// as "unknown" rather than as the empty string. It matters on the miss path:
+// Primary, Layer, Runner, and Remote all return a zero struct when they find
+// nothing, and a caller that logs one without checking ok should still write a
+// meaningful field rather than a blank one.
+//
+// This is a table of fmt.Stringer, so an enum added without a String method is
+// caught here rather than by a blank column in someone's logs.
+func TestZeroEnumsRenderAsUnknown(t *testing.T) {
+	for _, value := range []fmt.Stringer{
+		runby.Agent(""),
+		runby.Kind(""),
+		runby.ModelSource(""),
+		runby.Level(""),
+		runby.Confidence(""),
+		runby.Network(""),
+		runby.CIProvider(""),
+		runby.TerminalProgram(""),
+		runby.RemotePlatform(""),
+		runby.RemoteKind(""),
+		runby.RunnerTool(""),
+		runby.RunnerKind(""),
+	} {
+		if got := value.String(); got != "unknown" {
+			t.Errorf("%T zero value renders as %q, want \"unknown\"", value, got)
+		}
+	}
+}
+
+// The same fields on a zero Layer, which is what Primary returns on a miss.
+func TestZeroLayerRendersAsUnknown(t *testing.T) {
+	var layer runby.Layer
+	got := fmt.Sprintf("%s %s %s %s %s", layer.Agent, layer.Kind, layer.Models, layer.Level, layer.Confidence)
+	if want := "unknown unknown unknown unknown unknown"; got != want {
+		t.Errorf("zero Layer renders as %q, want %q", got, want)
 	}
 }

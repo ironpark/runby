@@ -29,10 +29,12 @@ func (m mapEnv) Lookup(name string) (string, bool) {
 	return value, ok
 }
 
-// lookupEnv adapts a lookup function, such as os.LookupEnv, to Env.
-type lookupEnv func(string) (string, bool)
+// LookupFunc adapts a lookup function, such as os.LookupEnv, to Env:
+//
+//	runby.Detect(runby.WithEnv(runby.LookupFunc(recorded.Get)))
+type LookupFunc func(name string) (value string, ok bool)
 
-func (fn lookupEnv) Lookup(name string) (string, bool) { return fn(name) }
+func (fn LookupFunc) Lookup(name string) (string, bool) { return fn(name) }
 
 // EnvironEnv builds an Env from a slice of "NAME=value" entries as returned by
 // os.Environ. If a name occurs more than once its last value wins, matching

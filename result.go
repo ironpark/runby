@@ -103,23 +103,44 @@ type Result struct {
 //	if _, ok := result.Runner(runby.RunnerNPM); ok {
 func (r Result) IsAgent() bool { return len(r.Layers) > 0 }
 
-// Primary returns the most specific detected layer.
+// Primary returns the most specific detected layer, and whether there was one.
+// On a miss it returns the zero Layer, as Layer, Runner, and Remote do. The ok
+// is the thing to branch on, but a caller that logs the layer without checking
+// it still writes something meaningful: every enum in this package renders its
+// zero value as "unknown" rather than as the empty string.
 func (r Result) Primary() (Layer, bool) {
 	if len(r.Layers) == 0 {
-		return Layer{Agent: AgentUnknown, Kind: KindUnknown, Axis: Axis{Confidence: ConfidenceUnknown}}, false
+		return Layer{}, false
 	}
 	return r.Layers[0], true
 }
 
-// Agent returns the most specific detected agent, or AgentUnknown.
+// Agent returns the most specific detected agent, or AgentUnknown when nothing
+// was detected.
 func (r Result) Agent() Agent {
-	primary, _ := r.Primary()
+	primary, ok := r.Primary()
+	if !ok {
+		return AgentUnknown
+	}
 	return primary.Agent
 }
 
+// Identifier is a value one agent layer advertised, paired with the agent that
+// advertised it. Result.SessionID and Result.AgentID return it.
+//
+// The two travel together because more than one layer can advertise the same
+// kind of identifier at once, and those identifiers are not interchangeable. A
+// caller that logs the value without the agent is writing two products'
+// identifiers into one field that claims to hold one thing.
+type Identifier struct {
+	// Value is the identifier as the agent advertised it.
+	Value string `json:"value"`
+	// Agent is the layer that advertised it.
+	Agent Agent `json:"agent"`
+}
+
 // SessionID returns the conversation or thread identifier of the outermost
-// layer that advertised one, the agent that advertised it, and false when no
-// layer did.
+// layer that advertised one, and false when no layer did.
 //
 // The agent comes back with the value because more than one layer can carry a
 // session at once — Orca stamps a pane key and the Codex it hosts stamps a
@@ -135,27 +156,27 @@ func (r Result) Agent() Agent {
 // caller having to know which layer of a stack publishes it. Read
 // Layer(agent).SessionID when the question is about one named product, and
 // range over Layers when every identifier is wanted.
-func (r Result) SessionID() (string, Agent, bool) {
+func (r Result) SessionID() (Identifier, bool) {
 	for _, layer := range r.Layers {
 		if layer.SessionID != "" {
-			return layer.SessionID, layer.Agent, true
+			return Identifier{Value: layer.SessionID, Agent: layer.Agent}, true
 		}
 	}
-	return "", AgentUnknown, false
+	return Identifier{}, false
 }
 
 // AgentID returns the logical agent identifier of the outermost layer that
-// advertised one, the agent that advertised it, and false when no layer did.
-// It is the counterpart to SessionID and resolves layers the same way; an agent
-// identifier is stable across the sessions that agent runs, so the two answer
-// different questions and neither substitutes for the other.
-func (r Result) AgentID() (string, Agent, bool) {
+// advertised one, and false when no layer did. It is the counterpart to
+// SessionID and resolves layers the same way; an agent identifier is stable
+// across the sessions that agent runs, so the two answer different questions
+// and neither substitutes for the other.
+func (r Result) AgentID() (Identifier, bool) {
 	for _, layer := range r.Layers {
 		if layer.AgentID != "" {
-			return layer.AgentID, layer.Agent, true
+			return Identifier{Value: layer.AgentID, Agent: layer.Agent}, true
 		}
 	}
-	return "", AgentUnknown, false
+	return Identifier{}, false
 }
 
 // Layer returns the detected layer for agent, and whether it was detected.
@@ -185,6 +206,41 @@ func (r Result) IsRemote() bool { return len(r.Remotes) > 0 }
 // HasRunner reports whether a tool ran this process rather than a person
 // invoking it directly. It is named for the axis, like the other predicates.
 func (r Result) HasRunner() bool { return len(r.Runners) > 0 }
+
+// Unattended reports whether nothing is in a position to read this process's
+// output or answer a prompt. It is the question behind most uses of this
+// package: whether to draw a spinner, colour the output, or stop and ask.
+//
+// It is the one place this package combines axes. Everything else in Result is
+// reported per axis on purpose, because the axes are independent facts, so the
+// rule here is pinned rather than left implied. Any of these makes it true:
+//
+//   - IsAgent. An agent can allocate a PTY, so the streams may well look
+//     interactive, but no person is behind them.
+//   - IsCI. A CI job's log is read afterwards, if it is read at all.
+//   - A runner of RunnerKindService. A service manager started this, so the
+//     output goes to a journal and nobody is waiting on it.
+//   - The standard streams were examined and cannot carry a prompt. The
+//     examined part matters: a Result built from a bare environment never read
+//     them, and an unread TTY is not evidence of anything. See TTY.Inspected.
+//
+// Terminal is deliberately not consulted. It names the emulator that produced
+// the environment, never the one attached now, so it cannot say whether anyone
+// is watching; see Terminal.
+//
+// Treat it as the default for a presentation decision, never as a trust
+// boundary. Read the axes directly when the policy differs — a program that
+// wants to keep prompting under an agent, say, wants IsCI and TTY rather than
+// this.
+func (r Result) Unattended() bool {
+	if r.IsAgent() || r.IsCI() {
+		return true
+	}
+	if _, ok := r.RunnerOfKind(RunnerKindService); ok {
+		return true
+	}
+	return r.TTY.Inspected && !r.TTY.Interactive
+}
 
 // Runner returns the detected runner for tool, and whether it was detected.
 func (r Result) Runner(tool RunnerTool) (Runner, bool) {

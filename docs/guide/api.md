@@ -33,7 +33,8 @@ runby.Register(myDriver)                                   // 사내 드라이�
 
 | 옵션 | 설명 |
 |---|---|
-| `WithEnv(Env)` / `WithLookup(func)` | 임의의 조회 함수로 환경 지정. `WithEnviron`의 일반형 |
+| `WithEnv(Env)` | 임의의 `Env` 구현으로 환경 지정. `WithEnviron`의 일반형 |
+| `WithEnv(LookupFunc(f))` | 조회 함수(`os.LookupEnv` 등)로 환경 지정 |
 | `WithDrivers(...Driver)` | 기본 세트(내장 + `Register`된 것)에 **추가**. 같은 식별자는 교체 |
 | `WithOnlyDrivers(...Driver)` | **딱 이것만** 실행. 내장도 등록된 것도 무시. 인자가 없으면 전부 비활성화 |
 
@@ -55,7 +56,7 @@ CI·터미널 축은 **첫 매치가 이깁니다.** 커스텀 드라이버가 �
 
 ### 무엇이 꺼지는가
 
-`WithEnviron`·`WithEnv`·`WithLookup`은 **이 프로세스의 것이 아닐 수도 있는** 환경을 넘기는 것이므로, 같은 프로세스를 설명해야만 의미가 있는 `TTY`와 `Process` 축은 자동으로 꺼집니다. 남의 환경에 이 프로세스의 파일 디스크립터와 조상 체인을 섞어 한 결과로 내놓으면, 그 결과는 어떤 프로세스도 설명하지 않습니다.
+`WithEnviron`과 `WithEnv`는 **이 프로세스의 것이 아닐 수도 있는** 환경을 넘기는 것이므로, 같은 프로세스를 설명해야만 의미가 있는 `TTY`와 `Process` 축은 자동으로 꺼집니다. 남의 환경에 이 프로세스의 파일 디스크립터와 조상 체인을 섞어 한 결과로 내놓으면, 그 결과는 어떤 프로세스도 설명하지 않습니다.
 
 `WithOnlyDrivers`는 축별로 나뉘지 않습니다. `Driver` 인터페이스로 받아 드라이버가 속한 축에 알아서 배치하므로 한 번에 여러 축을 덮을 수 있고, 주지 않은 축은 꺼집니다. 용도는 두 가지입니다 — **드라이버를 격리해서 테스트**하는 것, 그리고 어딘가의 `_` 임포트가 `Register`한 드라이버에 좌우되지 않는 **결정적 테스트**를 쓰는 것.
 
@@ -89,6 +90,9 @@ result.HasTerminal()                   // 터미널 에뮬레이터를 식별했
 result.IsRemote()                      // 낀 계층이 있는가
 result.HasRunner()                     // 도구가 실행했는가 (스크립트·훅·서비스)
 
+// 축을 합치는 유일한 메서드. 규칙이 doc comment에 못박혀 있습니다.
+result.Unattended()                    // IsAgent ∨ IsCI ∨ service 러너 ∨ (TTY 검사됨 ∧ 비대화형)
+
 // 특정 제품이 계층에 있는지는 다른 질문입니다. 셋 다 축 이름을 그대로 쓰고
 // (값, ok)를 돌려주므로, 존재 여부만 필요하면 값을 버리면 됩니다.
 result.Layer(runby.AgentCodex)         // (Layer, bool)
@@ -100,14 +104,47 @@ if _, ok := result.Remote(runby.RemoteSSH); ok {
 	// SSH 계층이 있다
 }
 
-result.SessionID()                     // (string, Agent, bool) — 값과 그 값을 광고한 에이전트
-result.AgentID()                       // (string, Agent, bool) — 논리적 에이전트 식별자, 같은 방식
+result.SessionID()                     // (Identifier, bool) — 값과 그 값을 광고한 에이전트
+result.AgentID()                       // (Identifier, bool) — 논리적 에이전트 식별자, 같은 방식
 
 result.Agent()                         // 최상위 레이어의 Agent, 없으면 AgentUnknown
-result.Primary()                       // (Layer, bool)
+result.Primary()                       // (Layer, bool) — 없으면 제로 Layer, ok로 판단
+result.Unattended()                    // 아무도 출력을 보고 있지 않은가 (아래 참고)
 result.Chain()                         // "paseo>codex", 감지 실패 시 "unknown"
 result.Multiplexer()                   // (Remote, bool) — 잔존 위험의 주 원인
 ```
+
+### `Identifier`
+
+`SessionID()`와 `AgentID()`가 돌려주는 값입니다. 값과 **그 값을 광고한 에이전트**가 항상 함께 다닙니다 — 한 계층 스택에서 여러 제품이 같은 종류의 식별자를 광고할 수 있고, 그 식별자들은 서로 호환되지 않기 때문입니다.
+
+```go
+type Identifier struct {
+	Value string `json:"value"`
+	Agent Agent  `json:"agent"`
+}
+
+if session, ok := result.SessionID(); ok {
+	log.Printf("session=%s from=%s", session.Value, session.Agent)
+}
+```
+
+### `Unattended()`
+
+**이 패키지에서 축을 합치는 유일한 메서드입니다.** 나머지는 전부 축별로 따로 보고합니다 — 축은 서로 독립된 사실이기 때문입니다. 그래서 이 하나는 규칙을 doc comment와 테스트 양쪽에 못박아 두었습니다. 넷 중 하나라도 참이면 참입니다.
+
+| 조건 | 이유 |
+|---|---|
+| `IsAgent()` | 에이전트도 PTY를 할당하므로 스트림은 대화형으로 보일 수 있지만, 뒤에 사람이 없습니다 |
+| `IsCI()` | CI 로그는 나중에, 읽힌다면, 읽힙니다 |
+| `RunnerKindService` 러너 | 서비스 관리자가 실행했으므로 출력은 저널로 갑니다 |
+| `TTY.Inspected && !TTY.Interactive` | 스트림을 **검사했고** 프롬프트를 띄울 수 없습니다 |
+
+마지막 조건의 `Inspected`가 중요합니다. `WithEnviron`으로 만든 결과는 스트림을 읽은 적이 없고, **읽지 않은 TTY는 근거가 아닙니다.**
+
+`Terminal` 축은 일부러 보지 않습니다. 지금 붙어 있는 에뮬레이터가 아니라 환경을 만든 에뮬레이터를 가리키므로, 누가 보고 있는지 답할 수 없습니다.
+
+표시 방식을 정하는 기본값으로 쓰십시오. **신뢰 경계로 쓰면 안 됩니다.** 정책이 다르면 축을 직접 읽으십시오.
 
 ## Layer
 
@@ -144,6 +181,8 @@ type Layer struct {
 `Axis`는 `CI`, `Terminal`, `Remote`, `Runner`에도 똑같이 임베드되어 있어, 어느 축의 결과든 `Confidence`·`Extra`·`Evidence`를 같은 이름으로 읽을 수 있습니다. `AncestorPID`는 `Axis`에 없습니다 — CI 잡은 이 프로세스가 파생된 프로세스가 아니라 러너 위의 작업이라 조상 체인에 대조할 대상이 없기 때문입니다.
 
 `Extra`는 한 제품만 광고하는 값을 담아 공용 필드가 무한정 늘어나지 않게 합니다. 현재 키는 `codex.ci`와 `orca.*` 계열입니다.
+
+이 패키지의 **모든 enum은 제로값을 `"unknown"`으로 렌더링합니다** — `Agent`, `Kind`, `ModelSource`, `Level`, `Confidence`, `Network`, `CIProvider`, `TerminalProgram`, `RemotePlatform`, `RemoteKind`, `RunnerTool`, `RunnerKind`. `Primary()`·`Layer()`·`Runner()`·`Remote()`가 미스에서 돌려주는 제로 구조체를 `ok` 확인 없이 그대로 로그에 찍어도 빈 칸이 아니라 `unknown`이 남습니다.
 
 **`Evidence`에는 변수 이름만 들어갑니다.** 값은 민감할 수 있으므로 어떤 경우에도 복사하지 않습니다. 이 규칙은 다섯 축 전부에 동일하게 적용됩니다.
 

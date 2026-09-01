@@ -44,6 +44,10 @@ const (
 	RunnerKindService RunnerKind = "service"
 )
 
+// String returns the stable slug used across this package, its documentation,
+// and its serialized output.
+func (k RunnerKind) String() string { return slug(k, RunnerKindUnknown) }
+
 // runnerKinds is derived from the built-in driver table, so a tool is
 // registered in one place.
 var runnerKinds = indexBy(builtinRunnerDrivers, func(d RunnerDriver) (RunnerTool, RunnerKind) {

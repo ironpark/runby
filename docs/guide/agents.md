@@ -79,15 +79,15 @@ if codex, ok := result.Layer(runby.AgentCodex); ok && codex.Sandbox.Network == r
 
 세션 식별자는 **동시에 여러 개일 수 있습니다.** Orca가 pane key를, 그 안의 Codex가 thread id를 각각 광고하는 식이라, `orca>codex` 한 프로세스에 세션이 둘 존재합니다. 반대로 Paseo>Codex라면 바깥은 논리적 에이전트(`AgentID`)만, 안쪽은 대화(`SessionID`)만 광고합니다.
 
-그래서 두 접근자는 바깥에서 안쪽으로 계층을 훑어 처음 값을 가진 계층을 답하고, **그 값을 광고한 에이전트를 함께 돌려줍니다.** 여러 제품의 식별자가 로그의 한 필드에 이름 없이 섞이지 않게 하려는 것이고, 드라이버가 늘어도 그 필드의 의미가 조용히 바뀌지 않습니다.
+그래서 두 접근자는 바깥에서 안쪽으로 계층을 훑어 처음 값을 가진 계층을 답하고, **그 값을 광고한 에이전트를 `Identifier`에 함께 담아 돌려줍니다.** 여러 제품의 식별자가 로그의 한 필드에 이름 없이 섞이지 않게 하려는 것이고, 드라이버가 늘어도 그 필드의 의미가 조용히 바뀌지 않습니다.
 
 ```go
 result := runby.Detect()
-if sessionID, agent, ok := result.SessionID(); ok {
-	log.Printf("agent=%s session=%s session_agent=%s", result.Chain(), sessionID, agent)
+if session, ok := result.SessionID(); ok {
+	log.Printf("agent=%s session=%s session_agent=%s", result.Chain(), session.Value, session.Agent)
 }
-if agentID, agent, ok := result.AgentID(); ok {
-	log.Printf("agent_id=%s source=%s", agentID, agent) // 세션이 바뀌어도 유지되는 식별자
+if agentID, ok := result.AgentID(); ok {
+	log.Printf("agent_id=%s source=%s", agentID.Value, agentID.Agent) // 세션이 바뀌어도 유지되는 식별자
 }
 ```
 

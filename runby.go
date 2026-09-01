@@ -33,9 +33,9 @@
 //     the environment, and WithTTY and WithProcessTree supply the two axes
 //     that cannot be read from it. WithoutTTY and WithoutProcessTree skip
 //     those axes when only the environment matters.
-//   - Writing a driver, and testing one: WithEnv and WithLookup are the
-//     general form of WithEnviron, WithDrivers adds a driver to the set this
-//     call would otherwise run, and WithOnlyDrivers runs an exact set.
+//   - Writing a driver, and testing one: WithEnv is the general form of
+//     WithEnviron, WithDrivers adds a driver to the set this call would
+//     otherwise run, and WithOnlyDrivers runs an exact set.
 //
 // Every axis is extensible by the same means. A product this package does not
 // support is added by passing a driver — AgentDriver, CIDriver, TerminalDriver,
@@ -81,18 +81,17 @@ func WithEnviron(environ []string) Option {
 
 // WithEnv inspects an explicit Env instead of the process environment. As with
 // WithEnviron, the standard streams are not inspected.
+//
+// Pair it with LookupFunc to inspect an environment through a lookup function
+// rather than a slice:
+//
+//	Detect(WithEnv(LookupFunc(os.LookupEnv)))
 func WithEnv(env Env) Option {
 	return func(o *options) {
 		o.env = env
 		o.inspectTTY = false
 		o.inspectProcess = false
 	}
-}
-
-// WithLookup inspects an environment through a lookup function such as
-// os.LookupEnv. As with WithEnviron, the standard streams are not inspected.
-func WithLookup(lookup func(name string) (string, bool)) Option {
-	return WithEnv(lookupEnv(lookup))
 }
 
 // WithoutTTY skips standard stream inspection, avoiding its system calls when

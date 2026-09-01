@@ -41,6 +41,10 @@ const (
 	RemoteKindEnvironment RemoteKind = "environment"
 )
 
+// String returns the stable slug used across this package, its documentation,
+// and its serialized output.
+func (k RemoteKind) String() string { return slug(k, RemoteKindUnknown) }
+
 // remoteKinds is derived from the built-in driver table, so a driver is the
 // one place a platform is registered.
 var remoteKinds = indexBy(builtinRemoteDrivers, func(d RemoteDriver) (RemotePlatform, RemoteKind) {

@@ -17,21 +17,28 @@ askForConfirmation()
 
 `result.IsAgent()`만으로 프롬프트 가능 여부를 정하지 마세요. 에이전트도 PTY를 할당할 수 있고, 사람이 실행한 명령도 파이프나 서비스 안에서는 TTY가 없을 수 있습니다.
 
-반대로 “사람이 직접 요청한 실행인가?”가 중요하면 실행 맥락을 함께 봅니다.
+반대로 “아무도 이 출력을 보고 있지 않은가?”가 중요하면 — 스피너, 색상, 진행률 표시를 켤지 정할 때 — `Unattended()`를 쓰십시오. 이 패키지에서 축을 합치는 **유일한** 메서드이고, 그래서 규칙이 doc comment에 못박혀 있습니다.
 
 ```go
 result := runby.Current()
-
-automated := result.IsAgent() || result.IsCI()
-if _, ok := result.RunnerOfKind(runby.RunnerKindService); ok {
-	automated = true
+if result.Unattended() {
+	disableSpinner()
+	disableColor()
 }
+```
+
+`Unattended()`가 참이 되는 조건은 넷입니다 — `IsAgent()`, `IsCI()`, `RunnerKindService` 러너, 그리고 **검사된** 표준 스트림이 대화형이 아닌 경우. `TTY.Inspected`가 거짓이면(예: `WithEnviron`으로 만든 결과) TTY 조건은 발동하지 않습니다. 읽지 않은 TTY는 근거가 아니기 때문입니다. `Terminal` 축은 보지 않습니다 — 지금 붙어 있는 에뮬레이터가 아니라 환경을 만든 에뮬레이터를 가리키므로 누가 보고 있는지 답할 수 없습니다.
+
+정책이 다르면 축을 직접 조합하십시오. 예를 들어 git 훅까지 자동 실행으로 치고 싶다면:
+
+```go
+automated := result.Unattended()
 if _, ok := result.RunnerOfKind(runby.RunnerKindHook); ok {
 	automated = true
 }
 ```
 
-이 값은 알려진 자동 실행 신호를 모은 것이지, `false`일 때 사람이 직접 실행했다고 증명하는 값은 아닙니다. cron이나 일반 git 훅처럼 환경변수만으로 식별할 수 없는 실행 방식도 있습니다.
+어느 쪽이든 알려진 자동 실행 신호를 모은 것이지, `false`일 때 사람이 직접 실행했다고 증명하는 값은 아닙니다. cron이나 일반 git 훅처럼 환경변수만으로 식별할 수 없는 실행 방식도 있습니다.
 
 ## 에이전트별 동작 바꾸기
 

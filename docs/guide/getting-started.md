@@ -130,7 +130,7 @@ func TestGitHubActions(t *testing.T) {
 }
 ```
 
-명시적 환경은 현재 프로세스의 환경이 아닐 수 있으므로 `WithEnviron`, `WithEnv`, `WithLookup`은 TTY와 상위 프로세스를 자동으로 검사하지 않습니다. 필요한 테스트에서는 `WithTTY()`나 `WithProcessTree()`로 값을 직접 넣을 수 있습니다.
+명시적 환경은 현재 프로세스의 환경이 아닐 수 있으므로 `WithEnviron`과 `WithEnv`는 TTY와 상위 프로세스를 자동으로 검사하지 않습니다. 필요한 테스트에서는 `WithTTY()`나 `WithProcessTree()`로 값을 직접 넣을 수 있습니다.
 
 ## 결과를 해석할 때 주의하기
 
