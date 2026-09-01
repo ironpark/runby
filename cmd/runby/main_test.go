@@ -34,6 +34,8 @@ func TestExitCodesAreTheDocumentedContract(t *testing.T) {
 		{[]string{"is", "agent", "codex", "more"}, 2, "인자가 셋"},
 		{[]string{"is", "tty", "ghostty"}, 2, "tty 축은 제품을 받지 않음"},
 		{[]string{"is", "unattended", "codex"}, 2, "unattended 축은 제품을 받지 않음"},
+		{[]string{"-h"}, 0, "도움말 요청은 정상 종료"},
+		{[]string{"help"}, 0, "help 부명령도 정상 종료"},
 		{[]string{"bogus"}, 2, "알 수 없는 명령"},
 		{[]string{"chain", "extra"}, 2, "chain은 인자를 받지 않음"},
 		{[]string{"extra"}, 2, "예상하지 못한 인자"},

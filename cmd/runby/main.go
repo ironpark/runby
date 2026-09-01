@@ -12,6 +12,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -28,6 +29,7 @@ const usage = `runby — 이 프로세스를 무엇이 실행했는지 보고합
   runby [-json] [-v]     사람이 읽는 요약, 또는 Result 전체 JSON
   runby is <축> [제품]   종료 코드로만 답합니다
   runby chain            "paseo>codex" 한 줄. 감지 실패 시 "unknown"
+  runby help             이 도움말 (runby -h와 같습니다)
 
 축:
   agent ci terminal remote runner   제품 이름을 덧붙여 좁힐 수 있습니다
@@ -50,7 +52,7 @@ const usage = `runby — 이 프로세스를 무엇이 실행했는지 보고합
 
 종료 코드:
   0  정상. "is"에서는 참
-  1  "is"에서 거짓
+  1  "is"에서 거짓, 또는 내부 오류
   2  사용법 오류 (알 수 없는 축·제품 포함)
 
 환경변수 값은 어떤 모드에서도 출력하지 않습니다. -v는 변수 이름만 보여줍니다.
@@ -69,6 +71,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	// parsing rather than after it.
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		switch args[0] {
+		case "help":
+			fmt.Fprint(stdout, usage)
+			return 0
 		case "is":
 			return runIs(args[1:], stderr)
 		case "chain":
@@ -86,10 +91,18 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	flags := flag.NewFlagSet("runby", flag.ContinueOnError)
 	flags.SetOutput(stderr)
-	flags.Usage = func() { fmt.Fprint(stderr, usage) }
+	// Parse prints the offending flag itself; the usage is printed below on
+	// the stream the outcome calls for — stdout for -h, stderr for a mistake.
+	flags.Usage = func() {}
 	asJSON := flags.Bool("json", false, "Result 전체를 JSON으로 출력")
 	verbose := flags.Bool("v", false, "근거가 된 환경변수 이름도 출력")
 	if err := flags.Parse(args); err != nil {
+		// Asking for help is a documented invocation, not a mistake.
+		if errors.Is(err, flag.ErrHelp) {
+			fmt.Fprint(stdout, usage)
+			return 0
+		}
+		fmt.Fprintf(stderr, "\n%s", usage)
 		return 2
 	}
 	if flags.NArg() > 0 {
