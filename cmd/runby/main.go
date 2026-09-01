@@ -113,7 +113,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 //
 // any answers "did this axis detect anything", and named answers "did it detect
 // this one product". Both come from the library rather than from a rule of this
-// command's own, which is what TestIsMatchesTheLibrary pins.
+// command's own, which is what TestIsMatchesTheLibrary and
+// TestIsNamedProductMatchesTheLibrary pin.
 //
 // products lists the names named accepts. It exists so that a typo is a usage
 // error rather than a silent false: a script that asks for "codexx" and is told
@@ -122,7 +123,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 type axis struct {
 	any      func(runby.Result) bool
 	named    func(runby.Result, string) bool
-	products func() []string
+	products []string
 }
 
 // slugs widens an axis's identity list into the plain strings the command
@@ -147,21 +148,21 @@ var axes = map[string]axis{
 			_, ok := r.Layer(runby.Agent(name))
 			return ok
 		},
-		products: func() []string { return slugs(runby.Agents()) },
+		products: slugs(runby.Agents()),
 	},
 	"ci": {
 		any: func(r runby.Result) bool { return r.IsCI() },
 		named: func(r runby.Result, name string) bool {
-			return r.IsCI() && r.CI.Provider == runby.CIProvider(name)
+			return r.CI.Provider == runby.CIProvider(name)
 		},
-		products: func() []string { return slugs(runby.CIProviders()) },
+		products: slugs(runby.CIProviders()),
 	},
 	"terminal": {
 		any: func(r runby.Result) bool { return r.HasTerminal() },
 		named: func(r runby.Result, name string) bool {
-			return r.HasTerminal() && r.Terminal.Program == runby.TerminalProgram(name)
+			return r.Terminal.Program == runby.TerminalProgram(name)
 		},
-		products: func() []string { return slugs(runby.TerminalPrograms()) },
+		products: slugs(runby.TerminalPrograms()),
 	},
 	"remote": {
 		any: func(r runby.Result) bool { return r.IsRemote() },
@@ -169,7 +170,7 @@ var axes = map[string]axis{
 			_, ok := r.Remote(runby.RemotePlatform(name))
 			return ok
 		},
-		products: func() []string { return slugs(runby.RemotePlatforms()) },
+		products: slugs(runby.RemotePlatforms()),
 	},
 	"runner": {
 		any: func(r runby.Result) bool { return r.HasRunner() },
@@ -177,7 +178,7 @@ var axes = map[string]axis{
 			_, ok := r.Runner(runby.RunnerTool(name))
 			return ok
 		},
-		products: func() []string { return slugs(runby.RunnerTools()) },
+		products: slugs(runby.RunnerTools()),
 	},
 	"tty": {
 		any: func(r runby.Result) bool { return r.TTY.Interactive },
@@ -195,9 +196,8 @@ func runIs(args []string, stderr io.Writer) int {
 		return 2
 	}
 
-	result := runby.Current()
 	if len(args) == 1 {
-		return exitCode(ask.any(result))
+		return exitCode(ask.any(runby.Current()))
 	}
 
 	product := args[1]
@@ -207,13 +207,12 @@ func runIs(args []string, stderr io.Writer) int {
 	}
 	// An unknown name is refused rather than answered, so a typo cannot read as
 	// a confident "no".
-	products := ask.products()
-	if !slices.Contains(products, product) {
+	if !slices.Contains(ask.products, product) {
 		fmt.Fprintf(stderr, "runby: %s 축에 알 수 없는 제품 %q. 가능한 값: %s\n",
-			args[0], product, strings.Join(products, " "))
+			args[0], product, strings.Join(ask.products, " "))
 		return 2
 	}
-	return exitCode(ask.named(result, product))
+	return exitCode(ask.named(runby.Current(), product))
 }
 
 // exitCode is the "is" contract in one place: true is 0, false is 1.
