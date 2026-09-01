@@ -49,6 +49,7 @@
 | OpenHands | `AI_AGENT=openhands` | OpenHands terminal·hook subprocess. hook 컨텍스트는 `Extra` |
 | Cline | `CLINE_ACTIVE` | Cline이 실행한 셸. 에디터 안에서 돌므로 조상 실행 파일로는 확증할 수 없음 |
 | Qwen Code | `QWEN_CODE=1` | Qwen Code가 실행한 셸/PTY. 세션·프로젝트 변수는 컨텍스트 |
+| DeepSeek Harness | `DSH_SHELL=1` | DeepSeek Harness가 실행한 모델 셸. `DSH_SESSION_ID`·`DSH_SESSION_JSONL`은 컨텍스트 |
 | JetBrains Junie | 없음 | 공개 변수는 CLI 입력 설정용 |
 
 표준화 후보인 `AGENT=<agent-name>`·`AI_AGENT=<agent-name>`의 진행 상황과 알 수 없는 값의 generic 폴백을 구현하지 않는 이유는 [`agents/README.md`](agents/README.md)에 기록했다.
@@ -139,6 +140,7 @@ CI 감지는 "누가 명령을 요청했는가"가 아니라 "어디서 실행�
 - [OpenHands](agents/openhands.md)
 - [Cline](agents/cline.md)
 - [Qwen Code](agents/qwen-code.md)
+- [DeepSeek Harness](agents/deepseek-harness.md)
 - [JetBrains Junie](agents/junie.md) — 감지하지 않는 이유
 - [Goose](agents/goose.md) — 감지하지 않는 이유
 - [Cowork](agents/cowork.md) — 감지하지 않는 이유

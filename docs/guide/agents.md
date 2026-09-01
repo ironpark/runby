@@ -38,6 +38,7 @@ API 키와 일반 설정 변수는 에이전트가 프로세스를 실행했다�
 | Gemini CLI | `AgentGeminiCLI` | `harness` | `first-party` | `GEMINI_CLI` |
 | Grok Build 플러그인 훅 | `AgentGrokBuild` | `harness` | `first-party` | `GROK_PLUGIN_ROOT`, `GROK_PLUGIN_DATA` |
 | Qwen Code | `AgentQwenCode` | `harness` | `first-party` | `QWEN_CODE=1` (`QWEN_CODE_SESSION_ID`·`QWEN_CODE_PROJECT_DIR`는 컨텍스트) |
+| DeepSeek Harness | `AgentDeepSeekHarness` | `harness` | `first-party` | `DSH_SHELL=1` (`DSH_SESSION_ID`·`DSH_SESSION_JSONL`는 컨텍스트) |
 
 **Cline과 Roo Code는 `probable`입니다.** 두 마커 모두 프로세스가 아니라 각 제품이 만든 **터미널**에 붙어 있어, 사람이 그 터미널에 직접 타이핑한 명령도 같은 값을 받기 때문입니다. **Grok Build는 플러그인 훅에만** 마커가 주어지므로, 훅을 실행하지 않은 세션은 감지되지 않습니다. Crush의 일반 이름 `AGENT`·`AI_AGENT`는 제품명을 정확히 지목할 때만 보조 evidence로 쓰며, OpenHands도 `AI_AGENT=openhands`를 정확히 매칭합니다. Qwen Code는 기본적으로 Qwen 모델을 대상으로 하지만 OpenAI 호환 endpoint 설정도 지원하므로, `Models`는 제품 성격인 `first-party`를 나타냅니다.
 

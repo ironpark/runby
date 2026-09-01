@@ -831,6 +831,49 @@ func TestOpenHandsAndClaudeCodeDoNotCrossDetect(t *testing.T) {
 	}
 }
 
+func TestDeepSeekHarnessDetection(t *testing.T) {
+	result := runby.Detect(runby.WithEnviron([]string{
+		"DSH_SHELL=1",
+		"DSH_SESSION_ID=dsh-session",
+		"DSH_SESSION_JSONL=/workspace/.dsh/session.jsonl",
+		"DSH_HOME=/workspace/.dsh",
+	}))
+
+	dsh, ok := result.Agent(runby.AgentDeepSeekHarness)
+	if !ok {
+		t.Fatalf("DeepSeek Harness not detected: %#v", result.Agents)
+	}
+	if dsh.SessionID != "dsh-session" || dsh.Confidence != runby.ConfidenceDefinite {
+		t.Fatalf("DeepSeek Harness detection = %#v", dsh)
+	}
+	if dsh.Kind != runby.KindHarness || dsh.Models != runby.ModelsFirstParty {
+		t.Fatalf("DeepSeek Harness classification = %#v", dsh)
+	}
+	if dsh.Extra["deepseek-harness.session_jsonl"] != "/workspace/.dsh/session.jsonl" {
+		t.Fatalf("DeepSeek Harness Extra = %#v", dsh.Extra)
+	}
+	if want := []string{"DSH_SESSION_ID", "DSH_SESSION_JSONL", "DSH_SHELL"}; !reflect.DeepEqual(dsh.Evidence, want) {
+		t.Fatalf("DeepSeek Harness Evidence = %#v, want %#v", dsh.Evidence, want)
+	}
+	for _, name := range dsh.Evidence {
+		if name == "DSH_HOME" {
+			t.Fatalf("configurable DSH_HOME was used as evidence: %#v", dsh.Evidence)
+		}
+	}
+
+	for _, environ := range [][]string{
+		{"DSH_SHELL=0", "DSH_SESSION_ID=dsh-session"},
+		{"DSH_SESSION_ID=dsh-session"},
+		{"DSH_SESSION_JSONL=/workspace/.dsh/session.jsonl"},
+		{"DSH_HOME=/workspace/.dsh"},
+	} {
+		got := runby.Detect(runby.WithEnviron(environ))
+		if _, ok := got.Agent(runby.AgentDeepSeekHarness); ok {
+			t.Errorf("DeepSeek Harness false positive from %v: %#v", environ, got.Agents)
+		}
+	}
+}
+
 func TestZeroEnumsRenderAsUnknown(t *testing.T) {
 	for _, value := range []fmt.Stringer{
 		runby.AgentName(""),

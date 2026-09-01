@@ -49,6 +49,7 @@ var builtinAgentDrivers = []AgentDriver{
 	{Agent: AgentGeminiCLI, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"gemini"}, Detect: detectGeminiCLI},
 	{Agent: AgentGrokBuild, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"grok"}, Detect: detectGrokBuild},
 	{Agent: AgentQwenCode, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"qwen"}, Detect: detectQwenCode},
+	{Agent: AgentDeepSeekHarness, Kind: KindHarness, Models: ModelsFirstParty, Executables: []string{"dsh"}, Detect: detectDeepSeekHarness},
 }
 
 // detectPaseo identifies a process launched by a Paseo agent. PASEO_AGENT_ID is
@@ -438,6 +439,32 @@ func detectQwenCode(env Env) (Agent, bool) {
 		SessionID: sessionID,
 		Paths:     Paths{WorkingDirectory: workingDirectory},
 		Axis:      Axis{Evidence: r.Evidence()},
+	}, true
+}
+
+// deepSeekHarnessExtra maps optional session persistence context to stable
+// Extra keys. DSH_HOME is deliberately absent: it is a configurable home path,
+// not an execution marker or a per-session identifier.
+var deepSeekHarnessExtra = map[string]string{
+	"deepseek-harness.session_jsonl": "DSH_SESSION_JSONL",
+}
+
+// detectDeepSeekHarness identifies a process launched by DeepSeek Harness. Its
+// shell environment registry stamps each model shell call with DSH_SHELL=1 and
+// removes inherited DSH_* names before adding the current snapshot.
+func detectDeepSeekHarness(env Env) (Agent, bool) {
+	r := NewEnvReader(env)
+	if !r.IsTrue("DSH_SHELL") {
+		return Agent{}, false
+	}
+
+	sessionID, _ := r.Value("DSH_SESSION_ID")
+	return Agent{
+		SessionID: sessionID,
+		Axis: Axis{
+			Extra:    r.Extra(deepSeekHarnessExtra),
+			Evidence: r.Evidence(),
+		},
 	}, true
 }
 
