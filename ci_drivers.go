@@ -469,6 +469,188 @@ var ciSpecs = []ciSpec{
 		pipelineID: "WORKERS_CI_BUILD_UUID",
 	},
 	{
+		provider: CIWoodpecker,
+		specCore: specCore{
+			// Woodpecker sets CI=woodpecker, which is more specific than the
+			// generic CI=true convention and therefore needs an equality marker.
+			marker:      markerEquals("CI", "woodpecker"),
+			markerNames: []string{"CI"},
+			extra: map[string]string{
+				"woodpecker.repository":      "CI_REPO",
+				"woodpecker.system":          "CI_SYSTEM_HOST",
+				"woodpecker.pipeline_number": "CI_PIPELINE_NUMBER",
+				"woodpecker.pipeline_event":  "CI_PIPELINE_EVENT",
+				"woodpecker.pull_request":    "CI_COMMIT_PULL_REQUEST",
+				"woodpecker.step_number":     "CI_STEP_NUMBER",
+			},
+		},
+		pipelineID:  "CI_BUILD_NUMBER",
+		buildNumber: "CI_BUILD_NUMBER",
+		jobID:       "CI_JOB_NUMBER",
+		jobName:     "CI_STEP_NAME",
+		trigger:     "CI_BUILD_EVENT",
+		runner:      "CI_SYSTEM_HOST",
+		pullRequest: ciPRWhen(func(env Env) bool {
+			return markerEquals("CI_BUILD_EVENT", "pull_request")(env) ||
+				markerEquals("CI_PIPELINE_EVENT", "pull_request")(env) ||
+				anyPresent(env, "CI_PULL_REQUEST", "CI_COMMIT_PULL_REQUEST")
+		}, []string{"CI_BUILD_EVENT", "CI_PIPELINE_EVENT", "CI_PULL_REQUEST", "CI_COMMIT_PULL_REQUEST"}, "CI_PULL_REQUEST", "CI_COMMIT_PULL_REQUEST"),
+	},
+	{
+		provider: CIBitrise,
+		specCore: specCore{
+			marker:      markerTrue("BITRISE_IO"),
+			markerNames: []string{"BITRISE_IO"},
+			evidence:    []string{"CI"},
+		},
+		pipelineID:  "BITRISE_BUILD_SLUG",
+		buildNumber: "BITRISE_BUILD_NUMBER",
+		jobName:     "BITRISE_TRIGGERED_WORKFLOW_ID",
+		trigger:     "BITRISE_TRIGGER_BY",
+		pullRequest: ciPR("BITRISE_PULL_REQUEST"),
+	},
+	{
+		provider: CIRender,
+		specCore: specCore{
+			marker:      markerTrue("RENDER"),
+			markerNames: []string{"RENDER"},
+			extra: map[string]string{
+				"render.service_id": "RENDER_SERVICE_ID",
+				"render.branch":     "RENDER_GIT_BRANCH",
+				"render.commit":     "RENDER_GIT_COMMIT",
+			},
+		},
+		pullRequest: ciPRWhen(markerEquals("IS_PULL_REQUEST", "true"), []string{"IS_PULL_REQUEST"}),
+	},
+	{
+		provider: CIHarness,
+		specCore: specCore{
+			marker:      markerSet("HARNESS_BUILD_ID"),
+			markerNames: []string{"HARNESS_BUILD_ID"},
+			extra: map[string]string{
+				"harness.org_id":      "HARNESS_ORG_ID",
+				"harness.project_id":  "HARNESS_PROJECT_ID",
+				"harness.pipeline_id": "HARNESS_PIPELINE_ID",
+			},
+		},
+		pipelineID: "HARNESS_BUILD_ID",
+		jobID:      "HARNESS_STAGE_ID",
+		jobName:    "HARNESS_STAGE_NAME",
+	},
+	{
+		provider: CIBamboo,
+		specCore: specCore{
+			marker:      markerSet("bamboo_planKey"),
+			markerNames: []string{"bamboo_planKey"},
+			extra: map[string]string{
+				"bamboo.plan_name": "bamboo_planName",
+				"bamboo.agent_id":  "bamboo_agentId",
+			},
+		},
+		pipelineID:  "bamboo_buildResultKey",
+		buildNumber: "bamboo_buildNumber",
+		jobID:       "bamboo_buildKey",
+		jobName:     "bamboo_planName",
+		runner:      "bamboo_agentId",
+		pullRequest: ciPR("bamboo_repository_pr_key"),
+	},
+	{
+		provider: CIGoCD,
+		specCore: specCore{
+			marker:      markerSet("GO_PIPELINE_LABEL"),
+			markerNames: []string{"GO_PIPELINE_LABEL"},
+			extra:       map[string]string{"gocd.pipeline_name": "GO_PIPELINE_NAME"},
+		},
+		pipelineID:  "GO_PIPELINE_LABEL",
+		buildNumber: "GO_PIPELINE_COUNTER",
+		jobID:       "GO_JOB_NAME",
+		jobName:     "GO_STAGE_NAME",
+		runner:      "GO_AGENT_HOST",
+	},
+	{
+		provider: CITaskCluster,
+		specCore: specCore{
+			marker:      markerSet("TASK_ID", "RUN_ID"),
+			markerNames: []string{"TASK_ID", "RUN_ID"},
+		},
+		pipelineID:    "TASK_ID",
+		attempt:       "RUN_ID",
+		attemptOffset: 1,
+	},
+	{
+		provider: CISourcehut,
+		specCore: specCore{
+			// CI_NAME is a generic-looking variable, but sourcehut's build
+			// service assigns the literal product name to it. Keep this specific
+			// equality ahead of the generic CI_NAME heuristic.
+			marker:      markerEquals("CI_NAME", "sourcehut"),
+			markerNames: []string{"CI_NAME"},
+		},
+		pipelineID: "JOB_ID",
+	},
+	{
+		provider: CICodefresh,
+		specCore: specCore{
+			marker:      markerSet("CF_BUILD_ID"),
+			markerNames: []string{"CF_BUILD_ID"},
+			extra: map[string]string{
+				"codefresh.branch":   "CF_BRANCH",
+				"codefresh.revision": "CF_REVISION",
+			},
+		},
+		pipelineID:  "CF_BUILD_ID",
+		jobName:     "CF_STEP_NAME",
+		pullRequest: ciPRAny("CF_PULL_REQUEST_NUMBER", "CF_PULL_REQUEST_ID"),
+	},
+	{
+		provider: CICodemagic,
+		specCore: specCore{
+			marker:      markerSet("CM_BUILD_ID"),
+			markerNames: []string{"CM_BUILD_ID"},
+		},
+		pipelineID:  "CM_BUILD_ID",
+		buildNumber: "BUILD_NUMBER",
+		jobName:     "CM_WORKFLOW_NAME",
+		trigger:     "CM_TRIGGER_SOURCE",
+		pullRequest: ciPRWhen(markerEquals("CM_PULL_REQUEST", "true"), []string{"CM_PULL_REQUEST"}, "CM_PULL_REQUEST_NUMBER"),
+	},
+	{
+		provider: CIBuddy,
+		specCore: specCore{
+			marker:      markerSet("BUDDY_WORKSPACE_ID"),
+			markerNames: []string{"BUDDY_WORKSPACE_ID"},
+		},
+		pipelineID:  "BUDDY_EXECUTION_ID",
+		buildNumber: "BUDDY_EXECUTION_NUMBER",
+		jobID:       "BUDDY_ACTION_ID",
+		jobName:     "BUDDY_ACTION_NAME",
+		trigger:     "BUDDY_PIPELINE_TRIGGER_MODE",
+		pullRequest: ciPRAny("BUDDY_EXECUTION_PULL_REQUEST_ID", "BUDDY_EXECUTION_PULL_REQUEST_NO", "BUDDY_RUN_PR_ID", "BUDDY_RUN_PR_NO"),
+	},
+	{
+		provider: CIScrewdriver,
+		specCore: specCore{
+			marker:      markerTrue("SCREWDRIVER"),
+			markerNames: []string{"SCREWDRIVER"},
+			evidence:    []string{"CI", "CONTINUOUS_INTEGRATION"},
+		},
+		pipelineID:  "SD_BUILD_ID",
+		jobID:       "SD_JOB_ID",
+		jobName:     "SD_JOB_NAME",
+		pullRequest: ciPRWhen(markerNotEquals("SD_PULL_REQUEST", "false"), []string{"SD_PULL_REQUEST"}, "SD_PULL_REQUEST"),
+	},
+	{
+		provider: CIVela,
+		specCore: specCore{
+			marker:      markerSet("VELA"),
+			markerNames: []string{"VELA"},
+		},
+		pipelineID:  "VELA_BUILD_NUMBER",
+		trigger:     "VELA_BUILD_EVENT",
+		runner:      "VELA_BUILD_HOST",
+		pullRequest: ciPRWhen(markerEquals("VELA_PULL_REQUEST", "1"), []string{"VELA_PULL_REQUEST"}, "VELA_PULL_REQUEST"),
+	},
+	{
 		provider: CIGeneric,
 		specCore: specCore{
 			// The bare CI convention is widely honored but is owned by no

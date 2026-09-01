@@ -538,6 +538,162 @@ func hasName(names []string, want string) bool {
 	return false
 }
 
+func TestCIRemainingProvidersDetectAndReject(t *testing.T) {
+	tests := []struct {
+		name      string
+		provider  runby.CIProvider
+		marker    string
+		env       []string
+		negative  []string
+		pull      bool
+		requestID string
+		attempt   int
+	}{
+		{
+			name:      "woodpecker",
+			provider:  runby.CIWoodpecker,
+			marker:    "CI",
+			env:       []string{"CI=woodpecker", "CI_BUILD_EVENT=pull_request", "CI_PULL_REQUEST=42"},
+			negative:  []string{"CI=other"},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:      "bitrise",
+			provider:  runby.CIBitrise,
+			marker:    "BITRISE_IO",
+			env:       []string{"BITRISE_IO=true", "BITRISE_BUILD_SLUG=b-1", "BITRISE_PULL_REQUEST=42"},
+			negative:  []string{"BITRISE_IO=false"},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:     "render",
+			provider: runby.CIRender,
+			marker:   "RENDER",
+			env:      []string{"RENDER=true", "IS_PULL_REQUEST=true"},
+			negative: []string{"RENDER=false"},
+			pull:     true,
+		},
+		{
+			name:     "harness-ci",
+			provider: runby.CIHarness,
+			marker:   "HARNESS_BUILD_ID",
+			env:      []string{"HARNESS_BUILD_ID=b-1", "HARNESS_STAGE_ID=s-1"},
+			negative: []string{"HARNESS_BUILD_ID="},
+		},
+		{
+			name:      "bamboo",
+			provider:  runby.CIBamboo,
+			marker:    "bamboo_planKey",
+			env:       []string{"bamboo_planKey=PROJ-PLAN", "bamboo_buildResultKey=PROJ-PLAN-1", "bamboo_repository_pr_key=42"},
+			negative:  []string{"bamboo_planKey="},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:     "gocd",
+			provider: runby.CIGoCD,
+			marker:   "GO_PIPELINE_LABEL",
+			env:      []string{"GO_PIPELINE_LABEL=17", "GO_PIPELINE_COUNTER=17"},
+			negative: []string{"GO_PIPELINE_LABEL="},
+		},
+		{
+			name:     "taskcluster",
+			provider: runby.CITaskCluster,
+			marker:   "TASK_ID",
+			env:      []string{"TASK_ID=t-1", "RUN_ID=0"},
+			negative: []string{"RUN_ID="},
+			attempt:  1,
+		},
+		{
+			name:     "sourcehut",
+			provider: runby.CISourcehut,
+			marker:   "CI_NAME",
+			env:      []string{"CI_NAME=sourcehut", "JOB_ID=j-1"},
+			negative: []string{"CI_NAME=other"},
+		},
+		{
+			name:      "codefresh",
+			provider:  runby.CICodefresh,
+			marker:    "CF_BUILD_ID",
+			env:       []string{"CF_BUILD_ID=b-1", "CF_PULL_REQUEST_NUMBER=42"},
+			negative:  []string{"CF_BUILD_ID="},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:      "codemagic",
+			provider:  runby.CICodemagic,
+			marker:    "CM_BUILD_ID",
+			env:       []string{"CM_BUILD_ID=b-1", "CM_PULL_REQUEST=true", "CM_PULL_REQUEST_NUMBER=42"},
+			negative:  []string{"CM_BUILD_ID="},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:      "buddy",
+			provider:  runby.CIBuddy,
+			marker:    "BUDDY_WORKSPACE_ID",
+			env:       []string{"BUDDY_WORKSPACE_ID=w-1", "BUDDY_EXECUTION_PULL_REQUEST_ID=pull/42"},
+			negative:  []string{"BUDDY_WORKSPACE_ID="},
+			pull:      true,
+			requestID: "pull/42",
+		},
+		{
+			name:      "screwdriver",
+			provider:  runby.CIScrewdriver,
+			marker:    "SCREWDRIVER",
+			env:       []string{"SCREWDRIVER=true", "SD_PULL_REQUEST=42"},
+			negative:  []string{"SCREWDRIVER=false"},
+			pull:      true,
+			requestID: "42",
+		},
+		{
+			name:      "vela",
+			provider:  runby.CIVela,
+			marker:    "VELA",
+			env:       []string{"VELA=1", "VELA_PULL_REQUEST=1"},
+			negative:  []string{"VELA="},
+			pull:      true,
+			requestID: "1",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ci := runby.Detect(runby.WithEnviron(append([]string{"CI=true"}, test.env...))).CI
+			if ci.Provider != test.provider || ci.PullRequest != test.pull {
+				t.Fatalf("CI = %#v, want provider %q and PullRequest=%t", ci, test.provider, test.pull)
+			}
+			if ci.PullRequestID != test.requestID {
+				t.Fatalf("PullRequestID = %q, want %q", ci.PullRequestID, test.requestID)
+			}
+			if test.attempt != 0 && ci.Attempt != test.attempt {
+				t.Fatalf("Attempt = %d, want %d", ci.Attempt, test.attempt)
+			}
+			if !hasName(ci.Evidence, test.marker) {
+				t.Fatalf("Evidence = %#v, want %q", ci.Evidence, test.marker)
+			}
+
+			negativeEnv := append([]string{"CI=true"}, test.negative...)
+			negative := runby.Detect(runby.WithEnviron(negativeEnv)).CI
+			if negative.Provider == test.provider {
+				t.Fatalf("negative CI = %#v, want no %q match", negative, test.provider)
+			}
+		})
+	}
+
+	// Screwdriver publishes false for non-PR builds; it must not be treated
+	// as a request merely because the variable exists.
+	screwdriver := runby.Detect(runby.WithEnviron([]string{
+		"CI=true", "SCREWDRIVER=true", "SD_PULL_REQUEST=false",
+	})).CI
+	if screwdriver.Provider != runby.CIScrewdriver || screwdriver.PullRequest {
+		t.Fatalf("Screwdriver non-PR CI = %#v", screwdriver)
+	}
+}
+
 func TestCustomCIDriverOutranksTheGenericConvention(t *testing.T) {
 	driver := runby.CIDriver{
 		Provider: "acme-ci",

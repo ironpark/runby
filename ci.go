@@ -34,6 +34,18 @@ const (
 	CIXcodeCloud        CIProvider = "xcode-cloud"
 	CICloudflarePages   CIProvider = "cloudflare-pages"
 	CICloudflareWorkers CIProvider = "cloudflare-workers"
+	CIBitrise           CIProvider = "bitrise"
+	CIRender            CIProvider = "render"
+	CIHarness           CIProvider = "harness-ci"
+	CIBamboo            CIProvider = "bamboo"
+	CIGoCD              CIProvider = "gocd"
+	CITaskCluster       CIProvider = "taskcluster"
+	CISourcehut         CIProvider = "sourcehut"
+	CICodefresh         CIProvider = "codefresh"
+	CICodemagic         CIProvider = "codemagic"
+	CIBuddy             CIProvider = "buddy"
+	CIScrewdriver       CIProvider = "screwdriver"
+	CIVela              CIProvider = "vela"
 )
 
 // String returns the stable slug used across this package, its documentation,
